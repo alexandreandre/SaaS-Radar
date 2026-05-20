@@ -1,70 +1,111 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Radar } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
+import {
+  MAP_EXPLORE_HREF,
+  MAP_EXPLORE_QUERY,
+  isMapExploreActive,
+} from "@/lib/map-routes";
 
 const links = [
-  { href: "/world", label: "Carte monde" },
+  { href: MAP_EXPLORE_HREF, label: "Carte du monde", mapExplore: true },
   { href: "/opportunities", label: "Opportunités" },
-  { href: "/weekly", label: "Pick de la semaine" },
+  { href: "/newsletter", label: "Newsletter" },
   { href: "/simulator", label: "Simulateur" },
   { href: "/compare", label: "Comparer" },
 ];
 
-export function Navbar({ dark = false }: { dark?: boolean }) {
+function NavbarContent({
+  dark = false,
+  explore,
+}: {
+  dark?: boolean;
+  explore?: string | null;
+}) {
   const pathname = usePathname();
 
   return (
     <header
       className={cn(
         "sticky top-0 z-50 border-b backdrop-blur-md",
-        dark ? "border-white/10 bg-hero/80" : "border-border bg-white/80"
+        dark ? "border-hero-foreground/10 bg-hero/85" : "border-border bg-background/85"
       )}
     >
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2">
-          <Radar className="h-5 w-5 text-accent" />
-          <span className={cn("text-sm font-semibold tracking-tight", dark ? "text-white" : "text-foreground")}>
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
+        <Link href="/" className="flex items-center gap-2.5 group">
+          <Radar className="h-4 w-4 text-primary logo-pulse" aria-hidden />
+          <span
+            className={cn(
+              "font-data text-xs font-medium uppercase tracking-[0.18em]",
+              dark ? "text-hero-foreground" : "text-foreground"
+            )}
+          >
             SaaS Radar
           </span>
         </Link>
-        <nav className="hidden items-center gap-6 md:flex">
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={cn(
-                "text-sm transition-colors hover:text-accent",
-                dark
-                  ? pathname === link.href
-                    ? "text-white"
-                    : "text-zinc-400"
-                  : pathname === link.href
-                    ? "text-foreground font-medium"
-                    : "text-muted-foreground"
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
+        <nav className="hidden items-center gap-7 md:flex">
+          {links.map((link) => {
+            const active = link.mapExplore
+              ? isMapExploreActive(pathname, explore)
+              : pathname === link.href;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={cn(
+                  "text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm",
+                  dark
+                    ? active
+                      ? "text-hero-foreground"
+                      : "text-map-muted hover:text-hero-foreground"
+                    : active
+                      ? "text-foreground font-medium"
+                      : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
         </nav>
         <div className="flex items-center gap-2">
+          <ThemeToggle dark={dark} />
           <Button
             variant={dark ? "outline" : "ghost"}
             size="sm"
-            className={dark ? "border-white/20 text-white hover:bg-white/10" : ""}
+            className={
+              dark
+                ? "border-hero-foreground/15 bg-transparent text-hero-foreground hover:bg-hero-foreground/10"
+                : ""
+            }
             asChild
           >
             <Link href="/dashboard">Connexion</Link>
           </Button>
           <Button size="sm" asChild>
-            <Link href="/world">Carte monde</Link>
+            <Link href={MAP_EXPLORE_HREF}>Explorer</Link>
           </Button>
         </div>
       </div>
     </header>
+  );
+}
+
+function NavbarWithSearchParams(props: { dark?: boolean }) {
+  const explore = useSearchParams().get(MAP_EXPLORE_QUERY);
+  return <NavbarContent {...props} explore={explore} />;
+}
+
+export function Navbar(props: { dark?: boolean }) {
+  return (
+    <Suspense fallback={<NavbarContent {...props} />}>
+      <NavbarWithSearchParams {...props} />
+    </Suspense>
   );
 }

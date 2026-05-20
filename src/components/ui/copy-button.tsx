@@ -26,7 +26,7 @@ export function CopyButton({ text, className }: { text: string; className?: stri
             exit={{ scale: 0.5, opacity: 0 }}
             className="flex items-center gap-2"
           >
-            <Check className="h-4 w-4 text-emerald-600" />
+            <Check className="h-4 w-4 text-success" />
             Copié !
           </motion.span>
         ) : (

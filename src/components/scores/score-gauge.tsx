@@ -11,9 +11,21 @@ interface ScoreGaugeProps {
   tooltip?: string;
   size?: "sm" | "md" | "lg";
   delay?: number;
+  hideLabel?: boolean;
+  /** Affiche /{max} même quand max vaut 100 (score opportunité). */
+  showMax?: boolean;
 }
 
-export function ScoreGauge({ label, value, max, tooltip, size = "md", delay = 0 }: ScoreGaugeProps) {
+export function ScoreGauge({
+  label,
+  value,
+  max,
+  tooltip,
+  size = "md",
+  delay = 0,
+  hideLabel = false,
+  showMax = false,
+}: ScoreGaugeProps) {
   const pct = Math.min(100, (value / max) * 100);
   const radius = size === "sm" ? 28 : size === "lg" ? 44 : 36;
   const stroke = size === "sm" ? 4 : 5;
@@ -30,7 +42,7 @@ export function ScoreGauge({ label, value, max, tooltip, size = "md", delay = 0 
             cy={radius + stroke}
             r={radius}
             fill="none"
-            stroke="#E4E4E7"
+            className="stroke-muted"
             strokeWidth={stroke}
           />
           <motion.circle
@@ -38,7 +50,7 @@ export function ScoreGauge({ label, value, max, tooltip, size = "md", delay = 0 
             cy={radius + stroke}
             r={radius}
             fill="none"
-            stroke="#2563EB"
+            className="stroke-primary"
             strokeWidth={stroke}
             strokeLinecap="round"
             strokeDasharray={circumference}
@@ -51,12 +63,14 @@ export function ScoreGauge({ label, value, max, tooltip, size = "md", delay = 0 
           <span className={cn("font-semibold tabular-nums", size === "lg" ? "text-xl" : "text-sm")}>
             {value}
           </span>
-          {max !== 100 && (
+          {(showMax || max !== 100) && (
             <span className="text-[10px] text-muted-foreground">/{max}</span>
           )}
         </div>
       </div>
-      <span className="text-center text-xs text-muted-foreground">{label}</span>
+      {!hideLabel && label ? (
+        <span className="text-center text-xs text-muted-foreground">{label}</span>
+      ) : null}
     </div>
   );
 

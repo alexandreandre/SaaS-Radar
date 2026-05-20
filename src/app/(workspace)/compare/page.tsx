@@ -46,7 +46,8 @@ export default function ComparePage() {
     <>
       <Navbar />
       <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-        <h1 className="text-3xl font-semibold tracking-tight">Comparateur d&apos;idées</h1>
+        <p className="label-data">Décision</p>
+        <h1 className="mt-2 font-display text-3xl font-medium tracking-tight">Comparateur d&apos;idées</h1>
         <p className="mt-2 text-muted-foreground">Comparez jusqu&apos;à 3 opportunités côte à côte</p>
 
         <div className="mt-6 flex flex-wrap gap-2">
@@ -88,7 +89,7 @@ export default function ComparePage() {
                 </Row>
                 <Row label="MRR réaliste">
                   {cols.map((o) => (
-                    <td key={o.slug} className="px-4 py-3 font-semibold text-accent">
+                    <td key={o.slug} className="px-4 py-3 font-semibold text-primary">
                       {formatCurrency(o.financialScenarios[1].mrr)}
                     </td>
                   ))}
@@ -114,7 +115,7 @@ export default function ComparePage() {
                     </td>
                   ))}
                 </Row>
-                <tr className="border-t-2 border-accent bg-accent-muted/20">
+                <tr className="border-t-2 border-primary bg-accent/30">
                   <td className="py-4 font-semibold">Verdict IA</td>
                   {cols.map((o) => (
                     <td key={o.slug} className="px-4 py-4 text-sm leading-relaxed">

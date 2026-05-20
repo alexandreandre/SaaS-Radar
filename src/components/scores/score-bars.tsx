@@ -22,15 +22,15 @@ export function ScoreBars({ scores, compact = false }: { scores: Scores; compact
             <span className={compact ? "w-20 text-[10px] text-muted-foreground" : "w-24 text-xs text-muted-foreground"}>
               {label}
             </span>
-            <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-100">
+            <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
               <motion.div
-                className="absolute inset-y-0 left-0 rounded-full bg-accent"
+                className="absolute inset-y-0 left-0 rounded-full bg-primary"
                 initial={{ width: 0 }}
                 animate={{ width: `${pct}%` }}
                 transition={{ duration: 0.6, delay: i * 0.05 }}
               />
             </div>
-            <span className={compact ? "w-6 text-[10px] tabular-nums text-zinc-600" : "w-8 text-xs tabular-nums text-zinc-600"}>
+            <span className={compact ? "w-6 font-data text-[10px] tabular-nums text-muted-foreground" : "w-8 font-data text-xs tabular-nums text-muted-foreground"}>
               {value}
             </span>
           </div>

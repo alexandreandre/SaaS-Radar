@@ -5,8 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { OpportunityCard } from "@/components/opportunities/opportunity-card";
-import { DealOfWeekCard } from "@/components/opportunities/deal-of-week";
-import { opportunities, getDealOfTheWeek, sectorLabels } from "@/data/opportunities";
+import { DealOfDayCard } from "@/components/opportunities/deal-of-day";
+import { opportunities, getDealOfTheDay, sectorLabels } from "@/data/opportunities";
 import { defaultFilters, filterOpportunities, type FilterState, type SortOption } from "@/lib/filters";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -45,7 +45,7 @@ function OpportunitiesFallback() {
 function OpportunitiesContent() {
   const searchParams = useSearchParams();
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
-  const deal = getDealOfTheWeek();
+  const deal = getDealOfTheDay();
 
   useEffect(() => {
     const country = searchParams.get("country");
@@ -69,11 +69,13 @@ function OpportunitiesContent() {
       <Navbar />
       <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
         <div className="mb-8">
-          <h1 className="text-3xl font-semibold tracking-tight">Opportunités</h1>
-          <p className="mt-2 text-muted-foreground">
-            {opportunities.length} micro-SaaS analysés pour le marché français
-            {filters.countryCode && (
-              <span className="ml-2 inline-flex items-center rounded-full bg-accent-muted px-2 py-0.5 text-xs font-medium text-accent">
+          <p className="label-data">Opportunités</p>
+          <h1 className="mt-2 font-display text-3xl font-medium tracking-tight">
+            Trouve ton idée dès maintenant
+          </h1>
+          {filters.countryCode && (
+            <p className="mt-2 text-muted-foreground">
+              <span className="inline-flex items-center rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-primary">
                 Pays : {filters.countryCode}
                 <button
                   type="button"
@@ -84,15 +86,15 @@ function OpportunitiesContent() {
                   ×
                 </button>
               </span>
-            )}
-          </p>
+            </p>
+          )}
         </div>
 
-        <DealOfWeekCard opportunity={deal} />
+        <DealOfDayCard opportunity={deal} />
 
-        <div className="mt-12 flex flex-col gap-8 lg:flex-row">
+        <div className="mt-8 flex flex-col gap-8 lg:flex-row">
           <aside className="w-full shrink-0 lg:w-64">
-            <div className="sticky top-24 space-y-6 rounded-xl border border-border bg-white p-5">
+            <div className="sticky top-24 space-y-6 rounded-lg border border-border bg-card p-5 shadow-card">
               <div>
                 <Label>Recherche</Label>
                 <div className="relative mt-2">
@@ -102,7 +104,7 @@ function OpportunitiesContent() {
                     placeholder="Nom, client cible..."
                     value={filters.search}
                     onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
-                    className="w-full rounded-lg border border-border py-2 pl-9 pr-3 text-sm focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                    className="w-full rounded-lg border border-border py-2 pl-9 pr-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
               </div>
@@ -217,7 +219,7 @@ function OpportunitiesContent() {
 
           <div className="flex-1">
             {rest.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border bg-zinc-50 p-12 text-center">
+              <div className="rounded-lg border border-dashed border-border bg-muted/50 p-12 text-center">
                 <p className="font-medium">Aucun résultat</p>
                 <p className="mt-2 text-sm text-muted-foreground">
                   Essayez de retirer un filtre pour voir plus d&apos;opportunités.

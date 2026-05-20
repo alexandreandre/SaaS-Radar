@@ -81,7 +81,8 @@ export default function SimulatorPage() {
     <>
       <Navbar />
       <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-        <h1 className="text-3xl font-semibold tracking-tight">Simulateur financier</h1>
+        <p className="label-data">Projections</p>
+        <h1 className="mt-2 font-display text-3xl font-medium tracking-tight">Simulateur financier</h1>
         <p className="mt-2 text-muted-foreground">
           Modélisez votre MRR sur 24 mois et trouvez votre break-even
         </p>
@@ -117,7 +118,7 @@ export default function SimulatorPage() {
               <Milestone label="50 000€ MRR" month={m50k} />
             </div>
 
-            <div className="rounded-xl border border-border bg-white p-4">
+            <div className="rounded-xl border border-border bg-card p-4">
               <h2 className="mb-4 text-sm font-medium text-muted-foreground">Courbe MRR — 24 mois</h2>
               <ResponsiveContainer width="100%" height={320}>
                 <LineChart data={data}>
@@ -126,9 +127,9 @@ export default function SimulatorPage() {
                   <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
                   <Tooltip formatter={(v) => formatCurrency(Number(v))} labelFormatter={(l) => `Mois ${l}`} />
                   {breakEvenMonth && (
-                    <ReferenceLine x={breakEvenMonth} stroke="#2563EB" strokeDasharray="4 4" label="Break-even" />
+                    <ReferenceLine x={breakEvenMonth} stroke="#4a6f9a" strokeDasharray="4 4" label="Break-even" />
                   )}
-                  <Line type="monotone" dataKey="mrr" stroke="#2563EB" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="mrr" stroke="#4a6f9a" strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -177,7 +178,7 @@ function SliderField({
 
 function StatCard({ label, value, highlight, className }: { label: string; value: string; highlight?: boolean; className?: string }) {
   return (
-    <div className={cn("rounded-xl border border-border bg-white p-4", highlight && "border-accent ring-1 ring-accent")}>
+    <div className={cn("rounded-xl border border-border bg-card p-4", highlight && "border-primary ring-1 ring-primary")}>
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className={cn("mt-1 text-xl font-semibold tabular-nums", className)}>{value}</p>
     </div>
@@ -186,7 +187,7 @@ function StatCard({ label, value, highlight, className }: { label: string; value
 
 function Milestone({ label, month }: { label: string; month: number | null }) {
   return (
-    <div className="rounded-lg bg-zinc-50 px-4 py-3">
+    <div className="rounded-lg bg-muted/60 px-4 py-3">
       <p className="text-muted-foreground">{label}</p>
       <p className="font-semibold">{month ? `Mois ${month}` : "—"}</p>
     </div>

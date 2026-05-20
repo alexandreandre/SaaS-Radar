@@ -206,14 +206,7 @@ export const marketByCode: Record<string, WorldMarket> = Object.fromEntries(
   worldMarkets.map((m) => [m.code, m])
 );
 
-export function getHeatColor(score: number): string {
-  if (score >= 90) return "#1E40AF";
-  if (score >= 75) return "#2563EB";
-  if (score >= 60) return "#3B82F6";
-  if (score >= 45) return "#60A5FA";
-  if (score >= 28) return "#1E3A5F";
-  return "#27272A";
-}
+export { getHeatColor, getHeatColorAmbient, MAP_COLORS } from "@/lib/map-colors";
 
 export function getScopeLabel(scope: MarketScope, targetMarketName?: string): string {
   switch (scope) {

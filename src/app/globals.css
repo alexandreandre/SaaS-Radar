@@ -2,23 +2,161 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #09090b;
-  --accent: #2563eb;
-}
-
 @layer base {
+  :root {
+    --background: 0.99 0.002 260;
+    --foreground: 0.14 0.012 260;
+    --card: 1 0 0;
+    --card-foreground: 0.14 0.012 260;
+    --popover: 1 0 0;
+    --popover-foreground: 0.14 0.012 260;
+    --primary: 0.42 0.09 250;
+    --primary-foreground: 0.99 0 0;
+    --secondary: 0.96 0.004 260;
+    --secondary-foreground: 0.22 0.01 260;
+    --muted: 0.965 0.004 260;
+    --muted-foreground: 0.48 0.02 260;
+    --accent: 0.94 0.02 250;
+    --accent-foreground: 0.35 0.1 250;
+    --destructive: 0.55 0.2 25;
+    --destructive-foreground: 0.99 0 0;
+    --border: 0.9 0.006 260;
+    --input: 0.9 0.006 260;
+    --ring: 0.42 0.09 250;
+    --hero: 0.11 0.012 260;
+    --hero-foreground: 0.97 0.005 260;
+    --map-muted: 0.58 0.02 260;
+    --map-border: 0.32 0.02 260;
+    --success: 0.55 0.14 155;
+    --warning: 0.72 0.14 75;
+    --radius: 0.5rem;
+    --chart-1: 0.42 0.09 250;
+    --chart-2: 0.55 0.08 250;
+    --chart-3: 0.35 0.06 260;
+  }
+
+  .dark {
+    --background: 0.12 0.012 260;
+    --foreground: 0.95 0.005 260;
+    --card: 0.16 0.012 260;
+    --card-foreground: 0.95 0.005 260;
+    --popover: 0.16 0.012 260;
+    --popover-foreground: 0.95 0.005 260;
+    --primary: 0.62 0.1 250;
+    --primary-foreground: 0.12 0.012 260;
+    --secondary: 0.2 0.012 260;
+    --secondary-foreground: 0.9 0.005 260;
+    --muted: 0.2 0.012 260;
+    --muted-foreground: 0.62 0.02 260;
+    --accent: 0.22 0.03 250;
+    --accent-foreground: 0.72 0.1 250;
+    --destructive: 0.55 0.2 25;
+    --destructive-foreground: 0.99 0 0;
+    --border: 0.26 0.015 260;
+    --input: 0.26 0.015 260;
+    --ring: 0.62 0.1 250;
+    --hero: 0.09 0.012 260;
+    --hero-foreground: 0.95 0.005 260;
+    --map-muted: 0.55 0.02 260;
+    --map-border: 0.28 0.02 260;
+    --success: 0.65 0.14 155;
+    --warning: 0.78 0.14 75;
+    --chart-1: 0.62 0.1 250;
+    --chart-2: 0.5 0.08 250;
+    --chart-3: 0.4 0.04 260;
+  }
+
   * {
     @apply border-border;
   }
+
+  html {
+    @apply scroll-smooth;
+  }
+
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-foreground antialiased font-sans;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+
+  .font-display {
+    font-family: var(--font-newsreader), Georgia, serif;
+  }
+
+  .font-data {
+    font-family: var(--font-plex-mono), ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .label-data {
+    @apply font-data text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground;
+  }
+
+  /* Signature : grille radar discrète sur surfaces hero/carte */
+  .radar-grid {
+    background-image:
+      linear-gradient(oklch(0.42 0.09 250 / 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, oklch(0.42 0.09 250 / 0.06) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  .radar-sweep {
+    background: conic-gradient(
+      from 0deg at 50% 50%,
+      transparent 0deg,
+      oklch(0.42 0.09 250 / 0.04) 30deg,
+      transparent 60deg
+    );
+  }
+
+  .logo-pulse {
+    animation: radar-pulse 3s ease-in-out infinite;
+  }
+
+  @keyframes radar-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+
+  .countdown-urgent {
+    @apply text-destructive;
+    animation: countdown-blink 1.2s ease-in-out infinite;
+  }
+
+  @keyframes countdown-blink {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.3;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .countdown-urgent {
+      animation: none;
+      opacity: 1;
+    }
   }
 }

@@ -1,70 +1,152 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ComposableMap,
   Geographies,
   Geography,
 } from "react-simple-maps";
-import { getMarketByCode, getHeatColor } from "@/data/world-markets";
+import { getMarketByCode, getHeatColor, getHeatColorAmbient } from "@/data/world-markets";
+import { MAP_COLORS } from "@/lib/map-colors";
 import { resolveCountryCode } from "@/lib/country-code";
+import { CountryHoverCard } from "@/components/world/country-hover-card";
+import { MapHeroDashboard, type MapHeroFilter } from "@/components/world/map-hero-dashboard";
+import { useTargetMarket } from "@/context/target-market-context";
+import { getTargetFit } from "@/lib/target-market-fit";
 import { cn } from "@/lib/utils";
 
 const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
 export function WorldMapHero({
   className,
-  onActivate,
+  unlocked,
+  onUnlock,
+  onLock,
 }: {
   className?: string;
-  onActivate: (countryCode?: string) => void;
+  unlocked: boolean;
+  onUnlock: () => void;
+  onLock: () => void;
 }) {
+  const { target } = useTargetMarket();
   const [hovered, setHovered] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    const t = window.setTimeout(() => setLoaded(true), 600);
-    return () => window.clearTimeout(t);
-  }, []);
+  const [cardHovered, setCardHovered] = useState(false);
+  const [mouse, setMouse] = useState({ x: 0, y: 0 });
+  const [filter, setFilter] = useState<MapHeroFilter>("all");
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hoveredMarket = hovered ? getMarketByCode(hovered) : null;
+  const showHoverCard = unlocked && !!hoveredMarket && (hovered || cardHovered);
+
+  useEffect(() => {
+    setFilter("all");
+  }, [target.code]);
+
+  useEffect(() => {
+    if (!unlocked) {
+      setHovered(null);
+      setCardHovered(false);
+    }
+  }, [unlocked]);
+
+  const isVisible = useCallback(
+    (code: string) => {
+      if (!unlocked) return true;
+      const market = getMarketByCode(code);
+      if (!market) return false;
+      if (filter === "database") {
+        if (target.code === "FR") return market.opportunitySlugs.length > 0;
+        return (
+          market.code !== target.code &&
+          getTargetFit(market.code, target.code).score >= 60
+        );
+      }
+      if (filter === "hot") {
+        return (
+          market.code !== target.code &&
+          getTargetFit(market.code, target.code).score >= 65
+        );
+      }
+      return true;
+    },
+    [filter, target.code, unlocked]
+  );
 
   const getFill = useCallback(
     (code: string) => {
       const market = getMarketByCode(code);
-      if (!market) return "#1C1C1F";
-      if (hovered === code) return "#60A5FA";
-      return getHeatColor(market.heatScore);
+      if (!market || (unlocked && !isVisible(code))) return MAP_COLORS.dormant;
+      if (unlocked && hovered === code) return MAP_COLORS.hover;
+      return unlocked ? getHeatColor(market.heatScore) : getHeatColorAmbient(market.heatScore);
     },
-    [hovered]
+    [hovered, unlocked, isVisible]
   );
 
-  const handleActivate = useCallback(
-    (code?: string) => {
-      onActivate(code);
+  const scheduleHide = useCallback(() => {
+    if (hideTimer.current) clearTimeout(hideTimer.current);
+    hideTimer.current = setTimeout(() => {
+      if (!cardHovered) setHovered(null);
+    }, 150);
+  }, [cardHovered]);
+
+  const handleEnter = useCallback(
+    (code: string | null, hasMarket: boolean) => {
+      if (!unlocked || !code || !hasMarket || !isVisible(code)) return;
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      setHovered(code);
     },
-    [onActivate]
+    [unlocked, isVisible]
   );
+
+  const handleMapClick = useCallback(() => {
+    if (!unlocked) onUnlock();
+  }, [unlocked, onUnlock]);
+
+  const handleBack = useCallback(() => {
+    setHovered(null);
+    setCardHovered(false);
+    onLock();
+  }, [onLock]);
+
+  useEffect(() => {
+    if (!showHoverCard) return;
+    const onMove = (e: MouseEvent) => setMouse({ x: e.clientX, y: e.clientY });
+    window.addEventListener("mousemove", onMove, { passive: true });
+    return () => window.removeEventListener("mousemove", onMove);
+  }, [showHoverCard]);
+
+  const getCursor = (market: ReturnType<typeof getMarketByCode>, code: string | null) => {
+    if (!unlocked) return "pointer";
+    if (market && code && isVisible(code)) return "pointer";
+    return "default";
+  };
 
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") handleActivate();
-      }}
-      onClick={() => handleActivate()}
       className={cn(
-        "absolute inset-0 cursor-pointer overflow-hidden bg-[#0A0A0A] outline-none",
+        "absolute inset-0 overflow-hidden bg-hero outline-none",
+        !unlocked && "cursor-pointer",
         className
       )}
-      aria-label="Ouvrir la carte interactive"
+      onClick={!unlocked ? handleMapClick : undefined}
+      onKeyDown={
+        !unlocked
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") handleMapClick();
+            }
+          : undefined
+      }
+      role={!unlocked ? "button" : undefined}
+      tabIndex={!unlocked ? 0 : undefined}
+      aria-label={!unlocked ? "Activer la carte interactive" : undefined}
     >
-      {!loaded && (
-        <div className="pointer-events-none absolute inset-0 animate-pulse bg-gradient-to-br from-zinc-900 via-[#0A0A0A] to-zinc-900" />
-      )}
-
+      <div
+        className={cn(
+          "h-full w-full transition-[filter] duration-500",
+          !unlocked && "saturate-[1.07] brightness-[1.04]"
+        )}
+      >
       <ComposableMap
         projection="geoMercator"
         projectionConfig={{ scale: 155, center: [12, 18] }}
@@ -76,29 +158,28 @@ export function WorldMapHero({
             geographies.map((geo) => {
               const code = resolveCountryCode(geo);
               const market = code ? getMarketByCode(code) : undefined;
+              const visible = code ? isVisible(code) : false;
 
               return (
                 <Geography
                   key={geo.rsmKey}
                   geography={geo}
-                  onMouseEnter={() => {
-                    if (code && market) setHovered(code);
-                  }}
-                  onMouseLeave={() => setHovered(null)}
+                  onMouseEnter={() => handleEnter(code, !!market)}
+                  onMouseLeave={() => unlocked && scheduleHide()}
                   onClick={() => {
-                    if (code) handleActivate(code);
+                    if (!unlocked) onUnlock();
                   }}
                   style={{
                     default: {
-                      fill: code ? getFill(code) : "#1C1C1F",
-                      stroke: "#27272A",
+                      fill: code ? getFill(code) : MAP_COLORS.dormant,
+                      stroke: MAP_COLORS.stroke,
                       strokeWidth: 0.25,
                       outline: "none",
-                      cursor: market ? "pointer" : "default",
-                      transition: "fill 0.2s ease",
+                      cursor: getCursor(market, code),
+                      transition: "fill 0.25s ease",
                     },
                     hover: { outline: "none" },
-                    pressed: { fill: "#1D4ED8", outline: "none" },
+                    pressed: { fill: unlocked && visible ? MAP_COLORS.selected : undefined, outline: "none" },
                   }}
                 />
               );
@@ -106,31 +187,66 @@ export function WorldMapHero({
           }
         </Geographies>
       </ComposableMap>
+      </div>
 
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0A0A0A] via-[#0A0A0A]/70 to-transparent sm:via-[#0A0A0A]/40" />
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0A0A0A]/60 via-transparent to-[#0A0A0A]/20" />
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-gradient-to-r from-hero via-hero/54 to-transparent sm:via-hero/28"
+        initial={false}
+        animate={{ opacity: unlocked ? 0 : 1 }}
+        transition={{ duration: 0.55, ease: [0.25, 0.1, 0.25, 1] }}
+      />
+      <motion.div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-hero/44 via-transparent to-hero/12"
+        initial={false}
+        animate={{ opacity: unlocked ? 0 : 1 }}
+        transition={{ duration: 0.55, ease: [0.25, 0.1, 0.25, 1] }}
+      />
 
-      {hoveredMarket && (
-        <motion.div
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="pointer-events-none absolute bottom-28 left-1/2 z-[2] -translate-x-1/2 rounded-xl border border-white/15 bg-black/80 px-4 py-2.5 text-center shadow-xl backdrop-blur-md"
-        >
-          <p className="text-sm font-medium text-white">
-            {hoveredMarket.flag} {hoveredMarket.name}
-          </p>
-          <p className="text-xs text-zinc-400">Cliquez pour explorer</p>
-        </motion.div>
-      )}
+      <AnimatePresence>
+        {unlocked && (
+          <MapHeroDashboard
+            key="map-dashboard"
+            onBack={handleBack}
+            filter={filter}
+            onFilterChange={setFilter}
+          />
+        )}
+      </AnimatePresence>
 
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-        className="pointer-events-none absolute bottom-10 left-1/2 z-[2] -translate-x-1/2 text-sm text-zinc-500"
-      >
-        Cliquez sur la carte pour explorer
-      </motion.p>
+      <AnimatePresence>
+        {showHoverCard && hoveredMarket && (
+          <CountryHoverCard
+            market={hoveredMarket}
+            x={mouse.x}
+            y={mouse.y}
+            onExplore={() => {}}
+            onEnter={() => {
+              if (hideTimer.current) clearTimeout(hideTimer.current);
+              setCardHovered(true);
+            }}
+            onLeave={() => {
+              setCardHovered(false);
+              scheduleHide();
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {!unlocked && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="pointer-events-none absolute bottom-10 left-1/2 z-[2] -translate-x-1/2 font-data text-[10px] uppercase tracking-data text-map-muted"
+          >
+            Cliquez sur la carte pour explorer
+          </motion.p>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

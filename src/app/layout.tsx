@@ -1,17 +1,34 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Newsreader, Source_Sans_3, IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { TierProvider } from "@/contexts/tier-context";
 
-const inter = Inter({
+const sourceSans = Source_Sans_3({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-source-sans",
+  display: "swap",
+});
+
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  variable: "--font-newsreader",
+  display: "swap",
+  weight: ["400", "500", "600"],
+});
+
+const plexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500"],
+  variable: "--font-plex-mono",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "SaaS Radar — Opportunités micro-SaaS pour la France",
+  title: "SaaS Radar — Intelligence micro-SaaS pour la France",
   description:
-    "Chaque semaine, découvrez un SaaS qui fonctionne à l'étranger, évaluez s'il peut marcher en France, et obtenez le plan exact pour le construire avec l'IA.",
+    "Opportunités micro-SaaS validées à l'étranger, scores France Fit et Buildability, carte mondiale et outil d'analyste pour entrepreneurs français.",
 };
 
 export default function RootLayout({
@@ -20,9 +37,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr">
-      <body className={`${inter.variable} font-sans`}>
-        <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+    <html lang="fr" suppressHydrationWarning>
+      <body
+        className={`${sourceSans.variable} ${newsreader.variable} ${plexMono.variable} font-sans`}
+      >
+        <ThemeProvider>
+          <TierProvider>
+            <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+          </TierProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

@@ -1,4 +1,5 @@
 import type { Opportunity } from "@/types/opportunity";
+import { enrichOpportunity } from "@/data/opportunity-enrichment";
 
 const baseMvp = (name: string, target: string, features: string[]): Opportunity["mvpPlan"] => ({
   features,
@@ -749,11 +750,22 @@ Pages: dashboard, clients, schedule, team, invoices, billing`,
 ];
 
 export function getOpportunityBySlug(slug: string): Opportunity | undefined {
-  return opportunities.find((o) => o.slug === slug);
+  const raw = opportunities.find((o) => o.slug === slug);
+  return raw ? enrichOpportunity(raw) : undefined;
 }
 
 export function getDealOfTheWeek(): Opportunity {
-  return opportunities.find((o) => o.weeklyPick) ?? opportunities[0];
+  const raw = opportunities.find((o) => o.weeklyPick) ?? opportunities[0];
+  return enrichOpportunity(raw);
+}
+
+/** Deal du jour — rotation déterministe par date (données factices) */
+export function getDealOfTheDay(): Opportunity {
+  const now = new Date();
+  const dayKey = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+  const pool = [...opportunities].sort((a, b) => b.scores.opportunity - a.scores.opportunity);
+  const raw = pool[dayKey % pool.length];
+  return enrichOpportunity(raw);
 }
 
 export const sectorLabels: Record<string, string> = {

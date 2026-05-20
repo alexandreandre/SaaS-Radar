@@ -60,6 +60,78 @@ export interface AcquisitionTab {
   tactics: string[];
 }
 
+export interface InfraCost {
+  item: string;
+  estimate: number;
+  note: string;
+  alternative?: string;
+}
+
+export interface FrenchCompetitor {
+  name: string;
+  positioning: string;
+  pricing: string;
+  strength: string;
+  weakness: string;
+}
+
+export interface LaunchWeek {
+  week: 1 | 2 | 3 | 4;
+  goal: string;
+  actions: string[];
+  kpi: string;
+}
+
+export interface EmailTemplate {
+  name: string;
+  subject: string;
+  body: string;
+}
+
+export interface PartnerLead {
+  name: string;
+  type: string;
+  angle: string;
+}
+
+export interface RoiInput {
+  id: string;
+  label: string;
+  defaultValue: number;
+  min: number;
+  max: number;
+  unit: string;
+}
+
+export interface TamBreakdown {
+  tam: string;
+  sam: string;
+  som: string;
+  note: string;
+}
+
+export interface CompetitionAlert {
+  date: string;
+  title: string;
+  impact: "low" | "medium" | "high";
+}
+
+/** Description du SaaS tel qu'il existe sur le marché d'origine */
+export interface ForeignMarketProfile {
+  productName: string;
+  country: string;
+  flag: string;
+  tagline: string;
+  problemSolved: string;
+  targetUsers: string;
+  businessModel: string;
+  pricing: string;
+  keyFeatures: string[];
+  howItWorks: string;
+  whyItWorksThere: string[];
+  tractionHighlights: TractionSignal[];
+}
+
 export interface Opportunity {
   id: string;
   slug: string;
@@ -91,6 +163,15 @@ export interface Opportunity {
   acquisition: AcquisitionTab[];
   entrepreneursBuilding: number;
   foreignInspiration: string;
+  foreignMarketProfile?: ForeignMarketProfile;
   createdAt: string;
   weeklyPick?: boolean;
+  infraCosts?: InfraCost[];
+  frenchCompetitors?: FrenchCompetitor[];
+  launchTimeline?: LaunchWeek[];
+  emailTemplates?: EmailTemplate[];
+  partnersFR?: PartnerLead[];
+  roiInputs?: RoiInput[];
+  tamBreakdown?: TamBreakdown;
+  competitionAlerts?: CompetitionAlert[];
 }

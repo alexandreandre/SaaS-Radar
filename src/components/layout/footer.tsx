@@ -1,33 +1,39 @@
 import Link from "next/link";
+import { Radar } from "lucide-react";
+import { MAP_EXPLORE_HREF } from "@/lib/map-routes";
 
 export function Footer() {
   return (
-    <footer className="border-t border-border bg-white py-12">
+    <footer className="border-t border-border bg-background py-14">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
+        <div className="flex flex-col items-start justify-between gap-8 md:flex-row md:items-center">
           <div>
-            <p className="text-sm font-semibold">SaaS Radar</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Intelligence micro-SaaS pour entrepreneurs français.
+            <div className="flex items-center gap-2">
+              <Radar className="h-4 w-4 text-primary" aria-hidden />
+              <p className="font-data text-xs font-medium uppercase tracking-[0.18em]">SaaS Radar</p>
+            </div>
+            <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
+              Intelligence micro-SaaS pour entrepreneurs français — opportunités validées, scores
+              d&apos;import, carte mondiale.
             </p>
           </div>
-          <div className="flex gap-6 text-sm text-muted-foreground">
-            <Link href="/world" className="hover:text-accent">
-              Carte monde
+          <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-muted-foreground">
+            <Link href={MAP_EXPLORE_HREF} className="transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
+              Carte du monde
             </Link>
-            <Link href="/opportunities" className="hover:text-accent">
+            <Link href="/opportunities" className="transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
               Opportunités
             </Link>
-            <Link href="/weekly" className="hover:text-accent">
+            <Link href="/weekly" className="transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
               Pick hebdo
             </Link>
-            <Link href="/simulator" className="hover:text-accent">
+            <Link href="/simulator" className="transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
               Simulateur
             </Link>
           </div>
         </div>
-        <p className="mt-8 text-xs text-muted-foreground">
-          © {new Date().getFullYear()} SaaS Radar. Données indicatives, pas des conseils financiers.
+        <p className="mt-10 font-data text-[10px] uppercase tracking-data text-muted-foreground">
+          © {new Date().getFullYear()} SaaS Radar — Données indicatives, pas des conseils financiers.
         </p>
       </div>
     </footer>
