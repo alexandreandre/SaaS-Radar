@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useMounted } from "@/hooks/use-mounted";
 import type { Opportunity } from "@/types/opportunity";
 import { Button } from "@/components/ui/button";
 import { ScoreGauge } from "@/components/scores/score-gauge";
@@ -11,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { sectorLabels } from "@/data/opportunities";
 
 export function DealOfWeekCard({ opportunity, dark = false }: { opportunity: Opportunity; dark?: boolean }) {
+  const mounted = useMounted();
   const sectorLabel = sectorLabels[opportunity.sector] ?? opportunity.sector;
   const scores = [
     { label: "Opportunité", value: opportunity.scores.opportunity, max: 100 },
@@ -22,7 +24,7 @@ export function DealOfWeekCard({ opportunity, dark = false }: { opportunity: Opp
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={mounted ? { opacity: 0, y: 20 } : false}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
       className={

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useMounted } from "@/hooks/use-mounted";
 import type { Opportunity } from "@/types/opportunity";
 import { ScoreGauge } from "@/components/scores/score-gauge";
 import { ScoreStars } from "@/components/scores/score-stars";
@@ -25,11 +26,12 @@ export function OpportunityCard({
   index?: number;
   isTopPick?: boolean;
 }) {
+  const mounted = useMounted();
   const sectorLabel = sectorLabels[opportunity.sector] ?? opportunity.sector;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={mounted ? { opacity: 0, y: 12 } : false}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.04 }}
     >

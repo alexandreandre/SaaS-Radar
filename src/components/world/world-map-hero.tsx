@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useMounted } from "@/hooks/use-mounted";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ComposableMap,
@@ -29,6 +30,7 @@ export function WorldMapHero({
   onUnlock: () => void;
   onLock: () => void;
 }) {
+  const mounted = useMounted();
   const { target } = useTargetMarket();
   const [hovered, setHovered] = useState<string | null>(null);
   const [cardHovered, setCardHovered] = useState(false);
@@ -237,7 +239,7 @@ export function WorldMapHero({
       <AnimatePresence>
         {!unlocked && (
           <motion.p
-            initial={{ opacity: 0 }}
+            initial={mounted ? { opacity: 0 } : false}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}

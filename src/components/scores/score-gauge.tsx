@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useMounted } from "@/hooks/use-mounted";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
@@ -10,6 +11,8 @@ interface ScoreGaugeProps {
   max: number;
   tooltip?: string;
   size?: "sm" | "md" | "lg";
+  /** Diamètre total du cercle en px (prioritaire sur size). */
+  diameter?: number;
   delay?: number;
   hideLabel?: boolean;
   /** Affiche /{max} même quand max vaut 100 (score opportunité). */
@@ -22,16 +25,26 @@ export function ScoreGauge({
   max,
   tooltip,
   size = "md",
+  diameter,
   delay = 0,
   hideLabel = false,
   showMax = false,
 }: ScoreGaugeProps) {
+  const mounted = useMounted();
   const pct = Math.min(100, (value / max) * 100);
-  const radius = size === "sm" ? 28 : size === "lg" ? 44 : 36;
-  const stroke = size === "sm" ? 4 : 5;
+  const stroke = diameter != null ? (diameter >= 72 ? 5 : 4) : size === "sm" ? 4 : 5;
+  const radius =
+    diameter != null
+      ? (diameter - stroke) / 2
+      : size === "sm"
+        ? 28
+        : size === "lg"
+          ? 44
+          : 36;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (pct / 100) * circumference;
-  const dim = (radius + stroke) * 2;
+  const dim = diameter ?? (radius + stroke) * 2;
+  const isCompact = dim <= 68;
 
   const gauge = (
     <div className="flex flex-col items-center gap-2">
@@ -54,13 +67,18 @@ export function ScoreGauge({
             strokeWidth={stroke}
             strokeLinecap="round"
             strokeDasharray={circumference}
-            initial={{ strokeDashoffset: circumference }}
+            initial={mounted ? { strokeDashoffset: circumference } : false}
             animate={{ strokeDashoffset: offset }}
             transition={{ duration: 1, delay, ease: "easeOut" }}
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className={cn("font-semibold tabular-nums", size === "lg" ? "text-xl" : "text-sm")}>
+          <span
+            className={cn(
+              "font-semibold tabular-nums",
+              isCompact ? "text-sm" : diameter != null && dim >= 76 ? "text-lg" : size === "lg" ? "text-xl" : "text-sm"
+            )}
+          >
             {value}
           </span>
           {(showMax || max !== 100) && (

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useMounted } from "@/hooks/use-mounted";
 import { ArrowRight } from "lucide-react";
 import type { Opportunity } from "@/types/opportunity";
 import { CountdownTimer } from "@/components/opportunities/countdown-timer";
@@ -10,11 +11,12 @@ import { formatCurrency } from "@/lib/utils";
 import { sectorLabels } from "@/data/opportunities";
 
 export function DealOfDayCard({ opportunity }: { opportunity: Opportunity }) {
+  const mounted = useMounted();
   const sectorLabel = sectorLabels[opportunity.sector] ?? opportunity.sector;
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={mounted ? { opacity: 0, y: 12 } : false}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
     >
