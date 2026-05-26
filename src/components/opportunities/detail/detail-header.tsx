@@ -2,28 +2,17 @@
 
 import { motion } from "framer-motion";
 import type { Opportunity } from "@/types/opportunity";
-import { sectorLabels } from "@/data/opportunities";
 import { getFranceCompetitionLabel } from "@/components/opportunities/detail/detail-sections";
 import { ScoreCircle } from "@/components/opportunities/detail/score-circle";
 
 export function DetailHeader({ opportunity }: { opportunity: Opportunity }) {
-  const sector = sectorLabels[opportunity.sector] ?? opportunity.sector;
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-      className="mb-8"
+      className="mb-8 mt-4"
     >
-      <div className="mb-3 flex items-center gap-2 text-sm text-gray-400">
-        <span>
-          {opportunity.originFlag} {opportunity.originCountry}
-        </span>
-        <span>·</span>
-        <span>{sector}</span>
-      </div>
-
       <h1 className="mb-2 text-4xl font-bold text-white">{opportunity.name}</h1>
       <p className="mb-1 text-xl text-gray-300">{opportunity.pitch}</p>
       <p className="text-sm text-gray-500">Pour : {opportunity.targetClient}</p>
