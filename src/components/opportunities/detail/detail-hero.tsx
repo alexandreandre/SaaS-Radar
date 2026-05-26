@@ -37,7 +37,7 @@ export function DetailHero({ opportunity }: { opportunity: Opportunity }) {
       <p className="mt-2 text-base text-map-muted">Pour : {opportunity.targetClient}</p>
 
       <div className="mt-8 flex flex-col items-center gap-8 lg:flex-row lg:items-center">
-        <div className="flex w-full min-w-0 flex-row flex-wrap items-end justify-center gap-6 lg:flex-1 lg:justify-start">
+        <div className="flex w-full flex-row flex-wrap items-end justify-center gap-6 overflow-visible lg:flex-1 lg:justify-start">
           <ScoreGauge
             label="Score global"
             value={opportunity.scores.opportunity}

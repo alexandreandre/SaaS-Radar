@@ -11,14 +11,14 @@ export function DetailHeader({ opportunity }: { opportunity: Opportunity }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-      className="mb-8 mt-4"
+      className="mb-8 mt-4 overflow-visible"
     >
       <h1 className="mb-2 text-4xl font-bold text-white">{opportunity.name}</h1>
       <p className="mb-1 text-xl text-gray-300">{opportunity.pitch}</p>
       <p className="text-sm text-gray-500">Pour : {opportunity.targetClient}</p>
 
-      <div className="mt-6 flex flex-col items-start gap-6 lg:flex-row">
-        <div className="flex flex-row flex-wrap items-end gap-6">
+      <div className="mt-6 flex flex-col items-start gap-6 overflow-visible lg:flex-row">
+        <div className="flex flex-row flex-wrap items-end gap-6 overflow-visible">
           <ScoreCircle
             value={opportunity.scores.opportunity}
             max={100}

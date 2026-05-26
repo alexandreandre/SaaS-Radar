@@ -46,10 +46,18 @@ export function ScoreGauge({
   const dim = diameter ?? (radius + stroke) * 2;
   const isCompact = dim <= 68;
 
+  const viewPad = stroke / 2;
+
   const gauge = (
-    <div className="flex flex-col items-center gap-2">
-      <div className="relative" style={{ width: dim, height: dim }}>
-        <svg width={dim} height={dim} className="-rotate-90">
+    <div className="flex flex-col items-center gap-2 overflow-visible">
+      <div className="relative overflow-visible" style={{ width: dim, height: dim }}>
+        <svg
+          width={dim}
+          height={dim}
+          viewBox={`${-viewPad} ${-viewPad} ${dim + stroke} ${dim + stroke}`}
+          overflow="visible"
+          className="-rotate-90 overflow-visible"
+        >
           <circle
             cx={radius + stroke}
             cy={radius + stroke}
