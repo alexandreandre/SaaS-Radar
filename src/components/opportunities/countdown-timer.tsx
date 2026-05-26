@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useMounted } from "@/hooks/use-mounted";
 import { getEndOfWeekCountdown, getMidnightCountdown, getNextMondayCountdown } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ export function CountdownTimer({
   variant?: CountdownVariant;
   label?: string;
 }) {
+  const mounted = useMounted();
   const [weekTime, setWeekTime] = useState(getNextMondayCountdown);
   const [weekEndTime, setWeekEndTime] = useState(getEndOfWeekCountdown);
   const [dayTime, setDayTime] = useState(getMidnightCountdown);
@@ -38,8 +40,9 @@ export function CountdownTimer({
 
   const pad = (n: number) => n.toString().padStart(2, "0");
   const displayLabel = label ?? defaultLabels[variant];
-  const digits =
-    variant === "day"
+  const digits = !mounted
+    ? "--:--:--"
+    : variant === "day"
       ? `${pad(dayTime.hours)}:${pad(dayTime.minutes)}:${pad(dayTime.seconds)}`
       : variant === "weekEnd"
         ? weekEndTime.days > 0
@@ -58,6 +61,7 @@ export function CountdownTimer({
     >
       <span>{displayLabel}</span>
       <span
+        suppressHydrationWarning
         className={cn(
           "font-medium",
           urgent && "countdown-urgent",

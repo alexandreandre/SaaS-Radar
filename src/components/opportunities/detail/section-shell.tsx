@@ -28,7 +28,7 @@ export function SectionShell({
     <section
       id={id}
       className={cn(
-        "scroll-mt-28 rounded-xl border p-8 shadow-card sm:p-10",
+        "scroll-mt-28 rounded-xl border p-6 shadow-card sm:p-8",
         emphasize && "ring-1 ring-primary/15",
         variant === "default" && "border-border bg-card",
         variant === "premium" && "border-primary/25 bg-accent/15",

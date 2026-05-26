@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useMounted } from "@/hooks/use-mounted";
 import type { Scores } from "@/types/opportunity";
 
 const labels: { key: keyof Scores; label: string; max: number }[] = [
@@ -12,6 +13,8 @@ const labels: { key: keyof Scores; label: string; max: number }[] = [
 ];
 
 export function ScoreBars({ scores, compact = false }: { scores: Scores; compact?: boolean }) {
+  const mounted = useMounted();
+
   return (
     <div className={compact ? "space-y-1.5" : "space-y-2"}>
       {labels.map(({ key, label, max }, i) => {
@@ -25,7 +28,7 @@ export function ScoreBars({ scores, compact = false }: { scores: Scores; compact
             <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
               <motion.div
                 className="absolute inset-y-0 left-0 rounded-full bg-primary"
-                initial={{ width: 0 }}
+                initial={mounted ? { width: 0 } : false}
                 animate={{ width: `${pct}%` }}
                 transition={{ duration: 0.6, delay: i * 0.05 }}
               />

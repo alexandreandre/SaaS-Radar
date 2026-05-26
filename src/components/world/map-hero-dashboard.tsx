@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { motion } from "framer-motion";
+import { useMounted } from "@/hooks/use-mounted";
 import { ChevronLeft, Target, Flame, Database } from "lucide-react";
 import { useTargetMarket } from "@/context/target-market-context";
 import { worldMarkets, getGlobalStats } from "@/data/world-markets";
@@ -25,6 +26,7 @@ export function MapHeroDashboard({
   filter: MapHeroFilter;
   onFilterChange: (f: MapHeroFilter) => void;
 }) {
+  const mounted = useMounted();
   const { target, setTargetCode, pickerOptions } = useTargetMarket();
   const stats = useMemo(() => getGlobalStats(), []);
 
@@ -38,7 +40,7 @@ export function MapHeroDashboard({
 
   return (
     <motion.aside
-      initial={{ opacity: 0, x: -12 }}
+      initial={mounted ? { opacity: 0, x: -12 } : false}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -12 }}
       transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
