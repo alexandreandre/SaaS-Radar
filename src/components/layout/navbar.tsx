@@ -17,8 +17,8 @@ const links = [
   { href: MAP_EXPLORE_HREF, label: "Carte du monde", mapExplore: true },
   { href: "/opportunities", label: "Opportunités" },
   { href: "/newsletter", label: "Newsletter" },
-  { href: "/simulator", label: "Simulateur" },
-  { href: "/compare", label: "Comparer" },
+  { href: "/pricing", label: "Tarifs" },
+  { href: "/quiz", label: "Quel SaaS pour moi ?" },
 ];
 
 function NavbarContent({
