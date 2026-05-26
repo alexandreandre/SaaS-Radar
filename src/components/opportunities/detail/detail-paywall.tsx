@@ -15,7 +15,7 @@ export function DetailPaywall() {
   return (
     <AnimatedSection
       id="paywall"
-      animationIndex={8}
+      animationIndex={9}
       className="mb-12 scroll-mt-24 rounded-2xl border border-gray-700 bg-gray-900 p-8 text-center"
     >
       <Lock className="mx-auto mb-4 h-8 w-8 text-gray-400" />
