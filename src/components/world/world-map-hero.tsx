@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useMounted } from "@/hooks/use-mounted";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -30,6 +31,7 @@ export function WorldMapHero({
   onUnlock: () => void;
   onLock: () => void;
 }) {
+  const router = useRouter();
   const mounted = useMounted();
   const { target } = useTargetMarket();
   const [hovered, setHovered] = useState<string | null>(null);
@@ -37,6 +39,7 @@ export function WorldMapHero({
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [filter, setFilter] = useState<MapHeroFilter>("all");
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countryClickRef = useRef(false);
 
   const hoveredMarket = hovered ? getMarketByCode(hovered) : null;
   const showHoverCard = unlocked && !!hoveredMarket && (hovered || cardHovered);
@@ -105,6 +108,24 @@ export function WorldMapHero({
     if (!unlocked) onUnlock();
   }, [unlocked, onUnlock]);
 
+  const goToCountryOpportunities = useCallback(
+    (countryCode: string) => {
+      setHovered(null);
+      setCardHovered(false);
+      router.push(`/opportunities?country=${countryCode}`);
+    },
+    [router]
+  );
+
+  const handleGeographyClick = useCallback(
+    (market: ReturnType<typeof getMarketByCode>, code: string | null) => {
+      const countryCode = market?.code ?? code;
+      if (!unlocked) onUnlock();
+      if (countryCode) goToCountryOpportunities(countryCode);
+    },
+    [unlocked, onUnlock, goToCountryOpportunities]
+  );
+
   const handleBack = useCallback(() => {
     setHovered(null);
     setCardHovered(false);
@@ -131,7 +152,17 @@ export function WorldMapHero({
         !unlocked && "cursor-pointer",
         className
       )}
-      onClick={!unlocked ? handleMapClick : undefined}
+      onClick={
+        !unlocked
+          ? () => {
+              if (countryClickRef.current) {
+                countryClickRef.current = false;
+                return;
+              }
+              handleMapClick();
+            }
+          : undefined
+      }
       onKeyDown={
         !unlocked
           ? (e) => {
@@ -169,7 +200,8 @@ export function WorldMapHero({
                   onMouseEnter={() => handleEnter(code, !!market)}
                   onMouseLeave={() => unlocked && scheduleHide()}
                   onClick={() => {
-                    if (!unlocked) onUnlock();
+                    countryClickRef.current = true;
+                    handleGeographyClick(market, code);
                   }}
                   style={{
                     default: {
@@ -223,7 +255,6 @@ export function WorldMapHero({
             market={hoveredMarket}
             x={mouse.x}
             y={mouse.y}
-            onExplore={() => {}}
             onEnter={() => {
               if (hideTimer.current) clearTimeout(hideTimer.current);
               setCardHovered(true);

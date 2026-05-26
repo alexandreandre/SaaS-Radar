@@ -9,7 +9,7 @@ import {
 } from "react-simple-maps";
 import { AnimatePresence } from "framer-motion";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   worldMarkets,
   getMarketByCode,
@@ -90,6 +90,7 @@ function WorldMapExplorerCore({
   onClose,
   urlCountry,
 }: WorldMapExplorerProps & { urlCountry: string | null }) {
+  const router = useRouter();
   const { target } = useTargetMarket();
   const stats = useMemo(() => getGlobalStats(), []);
   const highFitCount = useMemo(
@@ -222,15 +223,25 @@ function WorldMapExplorerCore({
     startTransition(() => setSelected(market));
   }, []);
 
+  const goToCountryOpportunities = useCallback(
+    (countryCode: string) => {
+      setHovered(null);
+      setCardHovered(false);
+      router.push(`/opportunities?country=${countryCode}`);
+    },
+    [router]
+  );
+
   const handleGeographyClick = useCallback(
     (market: WorldMarket | undefined, code: string | null) => {
       if (landingDormant) {
         onLandingActivate?.(code ?? undefined);
         return;
       }
-      if (market) openMarket(market);
+      const countryCode = market?.code ?? code;
+      if (countryCode) goToCountryOpportunities(countryCode);
     },
-    [landingDormant, onLandingActivate, openMarket]
+    [landingDormant, onLandingActivate, goToCountryOpportunities]
   );
 
   const resetPosition = embedded ? HERO_POSITION : WORLD_POSITION;
@@ -499,7 +510,6 @@ function WorldMapExplorerCore({
               market={hoveredMarket}
               x={mouse.x}
               y={mouse.y}
-              onExplore={() => openMarket(hoveredMarket)}
               onEnter={() => {
                 if (hideTimer.current) clearTimeout(hideTimer.current);
                 setCardHovered(true);

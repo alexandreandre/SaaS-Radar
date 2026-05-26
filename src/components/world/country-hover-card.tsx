@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
 import type { WorldMarket } from "@/types/world-market";
 import { getScopeLabel } from "@/data/world-markets";
 import { getTargetFit, getTargetFitLabel } from "@/lib/target-market-fit";
@@ -12,7 +13,6 @@ interface CountryHoverCardProps {
   market: WorldMarket;
   x: number;
   y: number;
-  onExplore: () => void;
   onEnter: () => void;
   onLeave: () => void;
 }
@@ -21,10 +21,10 @@ export function CountryHoverCard({
   market,
   x,
   y,
-  onExplore,
   onEnter,
   onLeave,
 }: CountryHoverCardProps) {
+  const router = useRouter();
   const { target } = useTargetMarket();
   const topEarner = market.topEarners[0];
   const topTrend = market.trends[0];
@@ -51,7 +51,7 @@ export function CountryHoverCard({
     >
       <button
         type="button"
-        onClick={onExplore}
+        onClick={() => router.push(`/opportunities?country=${market.code}`)}
         className="group w-full rounded-lg border border-white/10 bg-hero/95 p-3.5 text-left shadow-lg shadow-black/40 backdrop-blur-md transition-colors hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         <div className="flex items-start justify-between gap-2">

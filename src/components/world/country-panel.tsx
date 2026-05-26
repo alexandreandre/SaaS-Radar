@@ -3,6 +3,7 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import type { WorldMarket } from "@/types/world-market";
 import { opportunities } from "@/data/opportunities";
@@ -116,6 +117,7 @@ const CountryModalContent = memo(function CountryModalContent({
   market: WorldMarket;
   onClose: () => void;
 }) {
+  const router = useRouter();
   const { target } = useTargetMarket();
   const fit = useMemo(() => getTargetFit(market.code, target.code), [market.code, target.code]);
 
@@ -280,21 +282,20 @@ const CountryModalContent = memo(function CountryModalContent({
         </p>
       </div>
 
-      <div className="shrink-0 border-t border-white/10 p-4 sm:px-6">
-        {dbOpps.length > 0 ? (
+      <div className="shrink-0 space-y-3 border-t border-white/10 p-4 sm:px-6">
+        <button
+          type="button"
+          onClick={() => router.push(`/opportunities?country=${market.code}`)}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 px-4 text-sm font-semibold text-white transition-colors hover:opacity-90"
+        >
+          Voir les opportunités pour ce pays →
+        </button>
+        {dbOpps.length > 0 && (
           <Link
             href={`/opportunities/${dbOpps[0].slug}`}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-3 text-sm font-semibold text-white hover:opacity-90"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 py-3 text-sm font-medium text-hero-foreground/80 transition-colors hover:text-white"
           >
             {ctaLabel}
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        ) : (
-          <Link
-            href={`/opportunities?country=${market.code}`}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 py-3 text-sm font-medium text-hero-foreground/80 hover:text-white"
-          >
-            Explorer les origines
             <ArrowRight className="h-4 w-4" />
           </Link>
         )}
