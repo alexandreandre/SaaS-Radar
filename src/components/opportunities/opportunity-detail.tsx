@@ -16,7 +16,7 @@ export function OpportunityDetail({ opportunity }: { opportunity: Opportunity })
   return (
     <>
       <Navbar />
-      <main className="mx-auto max-w-6xl bg-hero px-4 pb-28 text-hero-foreground sm:px-6 lg:pb-12">
+      <main className="mx-auto max-w-6xl bg-hero px-4 pb-12 text-hero-foreground sm:px-6">
         <div className="flex items-center justify-between gap-4 pt-4">
           <Link
             href="/opportunities"
