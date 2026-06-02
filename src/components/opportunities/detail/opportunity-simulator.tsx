@@ -75,7 +75,7 @@ export function OpportunitySimulator({ opportunity }: { opportunity: Opportunity
 
   return (
     <AnimatedSection id="simulateur" animationIndex={2} className="mb-12 scroll-mt-24">
-      <SectionTitle number={3} title="Simuler mon MRR 📈" locked={false} />
+      <SectionTitle number={3} title="Simuler mon MRR 📈" />
       <p className="mb-4 flex items-center gap-1.5 text-xs text-gray-600">
         <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-400" />
         Pré-rempli avec les données de
