@@ -1,73 +1,147 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { opportunities } from "@/data/opportunities";
-import type { Opportunity } from "@/types/opportunity";
 
 const questions = [
   {
-    id: "time",
-    emoji: "⏱️",
-    question: "Tu as combien de temps à consacrer à ce projet ?",
-    subtitle: "Sois honnête — ça change tout",
+    id: "situation",
+    emoji: "👤",
+    question: "Tu es dans quelle situation en ce moment ?",
+    subtitle: "Sois honnête — ça change la recommandation",
     options: [
-      { value: "low", label: "Quelques heures par semaine", sublabel: "Side project en parallèle" },
-      { value: "medium", label: "Mi-temps", sublabel: "2-3 jours par semaine" },
-      { value: "high", label: "Full focus", sublabel: "Je me lance à 100%" },
+      { value: "cdi", label: "J'ai un CDI", sublabel: "Je veux un revenu complémentaire" },
+      { value: "student", label: "Étudiant / En reconversion", sublabel: "Je cherche ma voie" },
+      { value: "freelance", label: "Freelance / Indépendant", sublabel: "Je veux diversifier mes revenus" },
+      { value: "fulltime", label: "Je veux quitter mon job", sublabel: "Je mise tout sur ce projet" },
+    ],
+  },
+  {
+    id: "experience",
+    emoji: "🚀",
+    question: "T'as déjà lancé quelque chose ?",
+    subtitle: "Pas de jugement — on adapte le niveau de la reco",
+    options: [
+      { value: "never", label: "Jamais", sublabel: "C'est mon premier projet" },
+      { value: "tried", label: "J'ai essayé", sublabel: "Ça n'a pas marché, je recommence" },
+      { value: "already", label: "J'ai déjà des revenus en ligne", sublabel: "Je veux scaler" },
     ],
   },
   {
     id: "tech",
     emoji: "💻",
-    question: "Ton niveau technique ?",
-    subtitle: "Pas de jugement — on adapte la recommandation",
+    question: "Ton niveau avec les outils tech ?",
+    subtitle: "Sois réaliste — ça détermine ce que tu peux lancer",
     options: [
-      { value: "none", label: "Zéro code", sublabel: "No-code uniquement (Webflow, Notion...)" },
-      { value: "low", label: "Un peu", sublabel: "Je peux utiliser Claude Code / Cursor" },
-      { value: "high", label: "Je code", sublabel: "Dev confirmé" },
+      { value: "none", label: "Zéro code", sublabel: "Je veux du no-code uniquement" },
+      {
+        value: "medium",
+        label: "J'utilise Claude / Cursor / Bubble",
+        sublabel: "Je me débrouille avec les outils IA",
+      },
+      { value: "dev", label: "Je suis développeur", sublabel: "Je peux coder moi-même" },
     ],
   },
   {
-    id: "client",
+    id: "sector",
     emoji: "🎯",
-    question: "Tu préfères quel type de client ?",
-    subtitle: "Ton futur client idéal",
+    question: "T'as une affinité avec quel monde ?",
+    subtitle: "Vendre à des gens que tu connais = conversion x3",
     options: [
-      { value: "artisan", label: "Artisans & PME locales", sublabel: "Plombiers, boulangers, artisans..." },
-      { value: "pro", label: "Professions libérales", sublabel: "Médecins, avocats, comptables..." },
-      { value: "b2b", label: "Entreprises B2B", sublabel: "PME, startups, équipes..." },
+      { value: "health", label: "Santé / Médical / Bien-être", sublabel: "Médecins, kiné, dentistes..." },
+      {
+        value: "construction",
+        label: "BTP / Artisans / Commerce local",
+        sublabel: "Plombiers, électriciens, boulangers...",
+      },
+      {
+        value: "finance",
+        label: "Finance / Juridique / Comptabilité",
+        sublabel: "Avocats, comptables, conseillers...",
+      },
+      { value: "any", label: "Tout me convient", sublabel: "Si ça rapporte, je suis partant" },
     ],
   },
   {
-    id: "budget",
-    emoji: "💰",
-    question: "Ton budget de départ ?",
-    subtitle: "Pour les outils, pas le salaire",
+    id: "time",
+    emoji: "⏱️",
+    question: "Tu peux y consacrer combien de temps ?",
+    subtitle: "Réaliste — mieux vaut sous-estimer",
     options: [
-      { value: "zero", label: "Bootstrap total", sublabel: "0€ — je démarre sans rien" },
-      { value: "low", label: "Petit budget", sublabel: "Moins de 500€" },
-      { value: "medium", label: "Budget confortable", sublabel: "500€ et plus" },
+      { value: "low", label: "Quelques heures le week-end", sublabel: "Side project en parallèle" },
+      { value: "medium", label: "2-3 jours par semaine", sublabel: "Mi-temps sur le projet" },
+      { value: "high", label: "Full time", sublabel: "Je suis 100% dispo" },
     ],
   },
-] as const;
-
-const QUIZ_SLUGS = [
-  "ai-receptionist-dental",
-  "quote-generator-contractors",
-  "hr-compliance-tracker",
-  "accounting-client-portal",
-  "sms-reminder-physio",
-  "lawyer-time-billing",
-] as const;
+  {
+    id: "goal",
+    emoji: "💰",
+    question: "C'est quoi ton objectif numéro 1 ?",
+    subtitle: "Sois honnête avec toi-même",
+    options: [
+      { value: "quick", label: "Gagner 1 000€/mois rapidement", sublabel: "Je veux voir des résultats vite" },
+      { value: "scale", label: "Construire un vrai business", sublabel: "Je pense long terme" },
+      { value: "test", label: "Tester avant de tout miser", sublabel: "Je veux valider l'idée d'abord" },
+    ],
+  },
+];
 
 function getRecommendation(answers: Record<string, string>): string {
-  const scores: Record<string, number> = Object.fromEntries(
-    QUIZ_SLUGS.map((slug) => [slug, 0])
-  );
+  const scores: Record<string, number> = {
+    "ai-receptionist-dental": 0,
+    "quote-generator-contractors": 0,
+    "hr-compliance-tracker": 0,
+    "accounting-client-portal": 0,
+    "sms-reminder-physio": 0,
+    "lawyer-time-billing": 0,
+  };
+
+  if (answers.situation === "cdi" || answers.situation === "student") {
+    scores["sms-reminder-physio"] += 3;
+    scores["quote-generator-contractors"] += 2;
+  }
+  if (answers.situation === "fulltime") {
+    scores["ai-receptionist-dental"] += 3;
+    scores["hr-compliance-tracker"] += 2;
+  }
+
+  if (answers.experience === "never") {
+    scores["sms-reminder-physio"] += 3;
+    scores["quote-generator-contractors"] += 2;
+  }
+  if (answers.experience === "already") {
+    scores["ai-receptionist-dental"] += 2;
+    scores["hr-compliance-tracker"] += 3;
+  }
+
+  if (answers.tech === "none") {
+    scores["quote-generator-contractors"] += 4;
+    scores["sms-reminder-physio"] += 2;
+  }
+  if (answers.tech === "dev") {
+    scores["ai-receptionist-dental"] += 4;
+    scores["hr-compliance-tracker"] += 3;
+  }
+
+  if (answers.sector === "health") {
+    scores["ai-receptionist-dental"] += 5;
+    scores["sms-reminder-physio"] += 4;
+  }
+  if (answers.sector === "construction") {
+    scores["quote-generator-contractors"] += 6;
+  }
+  if (answers.sector === "finance") {
+    scores["accounting-client-portal"] += 5;
+    scores["lawyer-time-billing"] += 4;
+  }
+  if (answers.sector === "any") {
+    scores["sms-reminder-physio"] += 2;
+    scores["quote-generator-contractors"] += 2;
+  }
 
   if (answers.time === "low") {
     scores["sms-reminder-physio"] += 3;
@@ -78,235 +152,215 @@ function getRecommendation(answers: Record<string, string>): string {
     scores["hr-compliance-tracker"] += 2;
   }
 
-  if (answers.tech === "none") {
-    scores["quote-generator-contractors"] += 3;
-    scores["sms-reminder-physio"] += 2;
-  }
-  if (answers.tech === "high") {
-    scores["ai-receptionist-dental"] += 3;
-    scores["hr-compliance-tracker"] += 2;
-  }
-
-  if (answers.client === "artisan") {
-    scores["quote-generator-contractors"] += 4;
-  }
-  if (answers.client === "pro") {
-    scores["ai-receptionist-dental"] += 3;
+  if (answers.goal === "quick") {
     scores["sms-reminder-physio"] += 3;
-    scores["lawyer-time-billing"] += 3;
+    scores["quote-generator-contractors"] += 3;
   }
-  if (answers.client === "b2b") {
-    scores["hr-compliance-tracker"] += 4;
-    scores["accounting-client-portal"] += 3;
-  }
-
-  if (answers.budget === "zero") {
-    scores["sms-reminder-physio"] += 2;
-    scores["quote-generator-contractors"] += 2;
-  }
-  if (answers.budget === "medium") {
-    scores["ai-receptionist-dental"] += 2;
+  if (answers.goal === "scale") {
+    scores["ai-receptionist-dental"] += 3;
     scores["hr-compliance-tracker"] += 2;
   }
 
   return Object.entries(scores).sort((a, b) => b[1] - a[1])[0][0];
 }
 
-function getMatchReasons(answers: Record<string, string>, opp: Opportunity): string[] {
+function getMatchReasons(answers: Record<string, string>, slug: string): string[] {
   const reasons: string[] = [];
-  if (answers.time === "low" && opp.buildableUnder30Days) {
-    reasons.push("Lançable rapidement, même avec peu de temps");
+
+  if (
+    answers.tech === "none" &&
+    (slug === "quote-generator-contractors" || slug === "sms-reminder-physio")
+  ) {
+    reasons.push("Lançable sans coder — no-code ou Claude Code suffisent");
   }
-  if (answers.tech === "none" && opp.techComplexity === "low") {
-    reasons.push("Faible complexité technique — no-code possible");
+  if (answers.tech === "dev" && slug === "ai-receptionist-dental") {
+    reasons.push("Ta stack technique te donne un avantage compétitif immédiat");
   }
-  if (answers.client === "artisan" && opp.sector === "construction") {
-    reasons.push("Parfaitement aligné avec ton client cible");
+  if (
+    answers.sector === "health" &&
+    (slug === "ai-receptionist-dental" || slug === "sms-reminder-physio")
+  ) {
+    reasons.push("Tu connais ce marché — la vente sera 3x plus facile");
   }
-  if (answers.client === "pro" && ["healthcare", "legal"].includes(opp.sector)) {
-    reasons.push("Professions libérales — ton marché cible exact");
+  if (answers.sector === "construction" && slug === "quote-generator-contractors") {
+    reasons.push("380 000 artisans utilisent encore Word pour leurs devis");
   }
-  if (answers.budget === "zero" && opp.scores.buildability >= 8) {
-    reasons.push("Buildable avec peu ou pas de budget initial");
+  if (answers.time === "low" && slug === "sms-reminder-physio") {
+    reasons.push("Buildable en quelques week-ends — complexité technique faible");
   }
-  if (opp.franceCompetition === "none" || opp.franceCompetition === "low") {
-    reasons.push("Quasi aucune concurrence en France aujourd'hui");
+  if (answers.goal === "quick") {
+    reasons.push("CAC faible et ROI rapide — premiers clients en < 30 jours");
   }
+  if (answers.situation === "cdi") {
+    reasons.push("Parfait pour un side project — pas besoin de quitter ton job");
+  }
+  if (answers.experience === "never") {
+    reasons.push("Idéal pour un premier projet — pas besoin d'expérience préalable");
+  }
+
   return reasons.slice(0, 3);
 }
-
-const questionVariants = {
-  initial: { opacity: 0, x: 24 },
-  animate: {
-    opacity: 1,
-    x: 0,
-    transition: { duration: 0.35, ease: [0.22, 1, 0.36, 1] as const },
-  },
-  exit: { opacity: 0, x: -24, transition: { duration: 0.25 } },
-};
 
 export default function QuizPage() {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [recommendedSlug, setRecommendedSlug] = useState<string | null>(null);
 
-  const isResult = step === 4;
+  const handleAnswer = (value: string) => {
+    const newAnswers = { ...answers, [questions[step].id]: value };
+    setAnswers(newAnswers);
+    if (step < questions.length - 1) {
+      setStep((s) => s + 1);
+    } else {
+      setRecommendedSlug(getRecommendation(newAnswers));
+    }
+  };
+
+  const recommended = opportunities.find((o) => o.slug === recommendedSlug);
+  const matchReasons = recommended ? getMatchReasons(answers, recommended.slug) : [];
   const currentQuestion = questions[step];
-
-  const recommendedSlug = useMemo(
-    () => (isResult ? getRecommendation(answers) : null),
-    [answers, isResult]
-  );
-
-  const recommended = useMemo(
-    () => opportunities.find((o) => o.slug === recommendedSlug),
-    [recommendedSlug]
-  );
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [step]);
-
-  const handleAnswer = useCallback(
-    (value: string) => {
-      if (!currentQuestion) return;
-      const nextAnswers = { ...answers, [currentQuestion.id]: value };
-      setAnswers(nextAnswers);
-      setStep((s) => (s < 3 ? s + 1 : 4));
-    },
-    [answers, currentQuestion]
-  );
+  const isResult = recommendedSlug !== null;
 
   const restart = () => {
     setStep(0);
     setAnswers({});
+    setRecommendedSlug(null);
   };
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <Navbar dark />
-      <main className="min-h-[calc(100vh-3.5rem)] flex flex-col items-center justify-center px-4 py-16">
-        {!isResult && currentQuestion && (
-          <>
-            <div className="w-full max-w-lg mb-8">
-              <div className="flex justify-between text-xs text-gray-600 mb-2">
-                <span>
-                  Question {step + 1} / 4
-                </span>
-                <span>{Math.round(((step + 1) / 4) * 100)}%</span>
-              </div>
-              <div className="h-1 bg-gray-800 rounded-full">
-                <div
-                  className="h-1 bg-blue-500 rounded-full transition-all duration-500"
-                  style={{ width: `${((step + 1) / 4) * 100}%` }}
-                />
-              </div>
-            </div>
-
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={step}
-                variants={questionVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="w-full max-w-lg"
-              >
-                <p className="text-5xl mb-6 text-center">{currentQuestion.emoji}</p>
-                <h1 className="text-2xl font-bold text-white text-center mb-2">
-                  {currentQuestion.question}
-                </h1>
-                <p className="text-gray-500 text-center mb-8">{currentQuestion.subtitle}</p>
-
-                <div className="space-y-3">
-                  {currentQuestion.options.map((option) => (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => handleAnswer(option.value)}
-                      className="w-full text-left p-4 rounded-xl border border-gray-800 bg-gray-900/50 hover:border-blue-500/50 hover:bg-blue-950/20 transition-all group"
-                    >
-                      <p className="text-white font-medium group-hover:text-blue-400 transition-colors">
-                        {option.label}
-                      </p>
-                      <p className="text-gray-500 text-sm mt-0.5">{option.sublabel}</p>
-                    </button>
-                  ))}
+    <div className="min-h-screen bg-background text-foreground">
+      <Navbar />
+      <main className="flex min-h-[calc(100vh-3.5rem)] flex-col items-center justify-center px-4 py-16">
+        <AnimatePresence mode="wait">
+          {!isResult ? (
+            <motion.div
+              key={step}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-lg"
+            >
+              <div className="mb-8">
+                <div className="mb-2 flex justify-between text-xs text-muted-foreground">
+                  <span>
+                    Question {step + 1} / {questions.length}
+                  </span>
+                  <span>{Math.round(((step + 1) / questions.length) * 100)}%</span>
                 </div>
+                <div className="h-1 rounded-full bg-muted">
+                  <div
+                    className="h-1 rounded-full bg-primary transition-all duration-500"
+                    style={{ width: `${((step + 1) / questions.length) * 100}%` }}
+                  />
+                </div>
+              </div>
 
-                {step > 0 && (
+              <p className="mb-6 text-center text-5xl">{currentQuestion.emoji}</p>
+              <h2 className="mb-2 text-center font-display text-2xl font-medium text-foreground">
+                {currentQuestion.question}
+              </h2>
+              <p className="mb-8 text-center text-sm text-muted-foreground">
+                {currentQuestion.subtitle}
+              </p>
+
+              <div className="space-y-3">
+                {currentQuestion.options.map((option) => (
                   <button
+                    key={option.value}
                     type="button"
-                    onClick={() => setStep((s) => s - 1)}
-                    className="mt-6 text-sm text-gray-600 hover:text-gray-400 transition-colors mx-auto block"
+                    onClick={() => handleAnswer(option.value)}
+                    className="group w-full rounded-xl border border-border bg-muted/20 p-4 text-left transition-all hover:border-primary/50 hover:bg-primary/5"
                   >
-                    ← Question précédente
+                    <p className="font-medium text-foreground transition-colors group-hover:text-primary">
+                      {option.label}
+                    </p>
+                    <p className="mt-0.5 text-sm text-muted-foreground">{option.sublabel}</p>
                   </button>
-                )}
-              </motion.div>
-            </AnimatePresence>
-          </>
-        )}
-
-        {isResult && recommended && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-            className="w-full max-w-lg text-center"
-          >
-            <p className="text-4xl mb-4">🎯</p>
-            <p className="text-sm text-blue-400 uppercase tracking-widest mb-2">Ton match SaaS</p>
-            <h2 className="text-3xl font-bold text-white mb-2">{recommended.name}</h2>
-            <p className="text-gray-400 mb-8">{recommended.pitch}</p>
-
-            <div className="grid grid-cols-3 gap-4 mb-8">
-              <div className="p-4 bg-gray-900 border border-gray-800 rounded-xl">
-                <p className="text-2xl font-bold text-green-400">
-                  {recommended.scores.franceFit}/10
-                </p>
-                <p className="text-xs text-gray-500 mt-1">France Fit</p>
-              </div>
-              <div className="p-4 bg-gray-900 border border-gray-800 rounded-xl">
-                <p className="text-2xl font-bold text-blue-400">
-                  {recommended.scores.buildability}/10
-                </p>
-                <p className="text-xs text-gray-500 mt-1">Facilité</p>
-              </div>
-              <div className="p-4 bg-gray-900 border border-gray-800 rounded-xl">
-                <p className="text-2xl font-bold text-purple-400">
-                  {recommended.revenueMin.toLocaleString("fr-FR")}€
-                </p>
-                <p className="text-xs text-gray-500 mt-1">MRR min</p>
-              </div>
-            </div>
-
-            <div className="p-5 bg-gray-900 border border-gray-800 rounded-xl text-left mb-6">
-              <p className="text-sm font-semibold text-white mb-3">Pourquoi c&apos;est ton match :</p>
-              <div className="space-y-2">
-                {getMatchReasons(answers, recommended).map((reason, i) => (
-                  <div key={i} className="flex items-start gap-2">
-                    <span className="text-green-400 mt-0.5">✓</span>
-                    <p className="text-gray-300 text-sm">{reason}</p>
-                  </div>
                 ))}
               </div>
-            </div>
 
-            <Link
-              href={`/opportunities/${recommended.slug}`}
-              className="block w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-xl transition-colors mb-3"
-            >
-              Voir l&apos;opportunité complète →
-            </Link>
-            <button
-              type="button"
-              onClick={restart}
-              className="text-sm text-gray-600 hover:text-gray-400 transition-colors"
-            >
-              ↺ Refaire le test
-            </button>
-          </motion.div>
-        )}
+              {step > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setStep((s) => s - 1)}
+                  className="mx-auto mt-6 block text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  ← Question précédente
+                </button>
+              )}
+            </motion.div>
+          ) : (
+            recommended && (
+              <motion.div
+                key="result"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="w-full max-w-lg"
+              >
+                <p className="mb-4 text-center text-4xl">🎯</p>
+                <p className="mb-2 text-center font-data text-xs uppercase tracking-widest text-primary">
+                  Ton match SaaS
+                </p>
+                <h2 className="mb-2 text-center font-display text-3xl font-medium text-foreground">
+                  {recommended.name}
+                </h2>
+                <p className="mb-8 text-center text-muted-foreground">{recommended.pitch}</p>
+
+                <div className="mb-6 grid grid-cols-3 gap-4">
+                  <div className="rounded-xl border border-border bg-muted/20 p-4 text-center">
+                    <p className="text-2xl font-bold text-primary">
+                      {recommended.scores.franceFit}/10
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">France Fit</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-muted/20 p-4 text-center">
+                    <p className="text-2xl font-bold text-foreground">
+                      {recommended.scores.buildability}/10
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">Facilité</p>
+                  </div>
+                  <div className="rounded-xl border border-border bg-muted/20 p-4 text-center">
+                    <p className="text-2xl font-bold text-primary">
+                      {recommended.revenueMin.toLocaleString("fr-FR")}€
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">MRR min</p>
+                  </div>
+                </div>
+
+                {matchReasons.length > 0 && (
+                  <div className="mb-6 rounded-xl border border-border bg-muted/20 p-5">
+                    <p className="mb-3 text-sm font-semibold text-foreground">
+                      Pourquoi c&apos;est ton match :
+                    </p>
+                    <div className="space-y-2">
+                      {matchReasons.map((reason, i) => (
+                        <div key={i} className="flex items-start gap-2">
+                          <span className="mt-0.5 shrink-0 text-primary">✓</span>
+                          <p className="text-sm text-muted-foreground">{reason}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <Link
+                  href={`/opportunities/${recommended.slug}`}
+                  className="mb-3 block w-full rounded-xl bg-primary py-3 text-center font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+                >
+                  Voir l&apos;opportunité complète →
+                </Link>
+                <button
+                  type="button"
+                  onClick={restart}
+                  className="mx-auto block text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  ↺ Refaire le test
+                </button>
+              </motion.div>
+            )
+          )}
+        </AnimatePresence>
       </main>
       <Footer />
     </div>
