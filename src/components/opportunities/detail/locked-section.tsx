@@ -22,9 +22,9 @@ export function LockedSection({
     <AnimatedSection id={id} animationIndex={animationIndex} className="mb-12 scroll-mt-24">
       <SectionTitle number={number} title={title} />
 
-      <div className="mt-4 rounded-xl border border-gray-800 bg-gray-900 p-6">
-        <p className="mb-3 text-sm text-gray-300">{description}</p>
-        <p className="whitespace-pre-line text-sm leading-relaxed text-gray-400">{preview}</p>
+      <div className="mt-4 rounded-xl border border-border bg-card p-6">
+        <p className="mb-3 text-sm text-foreground/80">{description}</p>
+        <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{preview}</p>
       </div>
     </AnimatedSection>
   );

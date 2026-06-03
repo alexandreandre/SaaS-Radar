@@ -52,25 +52,25 @@ export function CountryHoverCard({
       <button
         type="button"
         onClick={() => router.push(`/opportunities?country=${market.code}`)}
-        className="group w-full rounded-lg border border-white/10 bg-hero/95 p-3.5 text-left shadow-lg shadow-black/40 backdrop-blur-md transition-colors hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        className="group w-full rounded-lg border border-border bg-background/95 p-3.5 text-left shadow-lg shadow-black/40 backdrop-blur-md transition-colors hover:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       >
         <div className="flex items-start justify-between gap-2">
           <div>
             <span className="text-2xl">{market.flag}</span>
-            <h3 className="mt-1 text-base font-semibold text-white">{market.name}</h3>
-            <p className="text-[10px] text-map-muted">Origine · export vers {target.flag} {target.name}</p>
+            <h3 className="mt-1 text-base font-semibold text-foreground">{market.name}</h3>
+            <p className="text-[10px] text-muted-foreground">Origine · export vers {target.flag} {target.name}</p>
           </div>
           <div className="flex flex-col items-end gap-1">
             <ScopeBadge scope={market.scope} targetName={target.name} />
-            <span className="text-[10px] tabular-nums text-map-muted">Heat {market.heatScore}</span>
+            <span className="text-[10px] tabular-nums text-muted-foreground">Heat {market.heatScore}</span>
           </div>
         </div>
 
-        <div className="mt-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2">
-          <p className="text-[10px] uppercase tracking-wider text-map-muted">
+        <div className="mt-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
             Fit import → {target.name}
           </p>
-          <p className={cn("mt-0.5 text-sm font-semibold", fit.score >= 65 ? "text-success" : "text-map-muted")}>
+          <p className={cn("mt-0.5 text-sm font-semibold", fit.score >= 65 ? "text-success" : "text-muted-foreground")}>
             {getTargetFitLabel(fit)} · {fit.score}/100
           </p>
         </div>
@@ -82,10 +82,10 @@ export function CountryHoverCard({
         </div>
 
         {topEarner && (
-          <div className="mt-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
-            <p className="text-[10px] font-medium uppercase tracking-wider text-map-muted">Top revenu</p>
+          <div className="mt-3 rounded-xl border border-border bg-muted/30 px-3 py-2.5">
+            <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Top revenu</p>
             <div className="mt-1 flex items-center justify-between gap-2">
-              <p className="truncate text-sm font-medium text-white">{topEarner.name}</p>
+              <p className="truncate text-sm font-medium text-foreground">{topEarner.name}</p>
               <p className="shrink-0 text-sm font-semibold text-primary">{topEarner.mrrLabel}</p>
             </div>
             {adaptableToTarget && (
@@ -98,13 +98,13 @@ export function CountryHoverCard({
         )}
 
         {topTrend && (
-          <p className="mt-2 flex items-start gap-1.5 text-xs leading-snug text-map-muted">
+          <p className="mt-2 flex items-start gap-1.5 text-xs leading-snug text-muted-foreground">
             <TrendingUp className="mt-0.5 h-3 w-3 shrink-0 text-primary" />
             {topTrend}
           </p>
         )}
 
-        <div className="mt-3 flex items-center justify-between border-t border-white/10 pt-3 text-sm font-medium text-hero-foreground/80 transition-colors group-hover:text-white">
+        <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-sm font-medium text-foreground/80 transition-colors group-hover:text-foreground">
           <span>Voir l&apos;analyse</span>
           <ArrowRight className="h-4 w-4 text-primary transition-transform group-hover:translate-x-0.5" />
         </div>
@@ -115,7 +115,7 @@ export function CountryHoverCard({
 
 function ScopeBadge({ scope, targetName }: { scope: WorldMarket["scope"]; targetName: string }) {
   return (
-    <span className="rounded-full border border-white/15 bg-white/10 px-2 py-0.5 text-[10px] font-medium text-hero-foreground/80">
+    <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] font-medium text-foreground/80">
       {getScopeLabel(scope, targetName)}
     </span>
   );
@@ -131,9 +131,9 @@ function MiniStat({
   accent?: boolean;
 }) {
   return (
-    <div className="rounded-lg bg-white/5 px-2 py-1.5 text-center">
-      <p className={cn("text-sm font-semibold tabular-nums", accent ? "text-primary" : "text-white")}>{value}</p>
-      <p className="text-[9px] text-map-muted">{label}</p>
+    <div className="rounded-lg bg-muted/30 px-2 py-1.5 text-center">
+      <p className={cn("text-sm font-semibold tabular-nums", accent ? "text-primary" : "text-foreground")}>{value}</p>
+      <p className="text-[9px] text-muted-foreground">{label}</p>
     </div>
   );
 }

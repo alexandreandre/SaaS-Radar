@@ -79,13 +79,13 @@ function HomePageFallback() {
   const mapStats = getGlobalStats();
   return (
     <>
-      <section className="relative min-h-[min(100dvh,920px)] overflow-hidden bg-hero text-hero-foreground">
+      <section className="relative min-h-[min(100dvh,920px)] overflow-hidden bg-background text-foreground">
         <div className="absolute inset-0 z-0 radar-grid opacity-30" />
         <div className="relative z-[60] flex min-h-[min(100dvh,920px)] flex-col">
-          <Navbar dark />
+          <Navbar />
           <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 pb-16 pt-8 sm:px-6 sm:pb-20">
-            <p className="label-data text-map-muted">Intelligence micro-SaaS · France</p>
-            <p className="mt-4 font-data text-xs uppercase tracking-data text-map-muted">
+            <p className="label-data text-muted-foreground">Intelligence micro-SaaS · France</p>
+            <p className="mt-4 font-data text-xs uppercase tracking-data text-muted-foreground">
               {mapStats.countriesTracked} pays indexés
             </p>
           </div>
@@ -145,7 +145,7 @@ function HomePageContent() {
 
   return (
     <>
-      <section className="relative min-h-[min(100dvh,920px)] overflow-hidden bg-hero text-hero-foreground">
+      <section className="relative min-h-[min(100dvh,920px)] overflow-hidden bg-background text-foreground">
         <div className="absolute inset-0 z-0 radar-grid opacity-30" />
         <div className="absolute inset-0 z-0">
           <HomeMapGateway
@@ -157,7 +157,7 @@ function HomePageContent() {
 
         <div className="pointer-events-none relative z-[60] flex min-h-[min(100dvh,920px)] flex-col">
           <div className="pointer-events-auto">
-            <Navbar dark />
+            <Navbar />
           </div>
 
           <AnimatePresence>
@@ -170,23 +170,23 @@ function HomePageContent() {
                 className="pointer-events-none mx-auto flex w-full max-w-6xl flex-1 flex-col justify-center px-4 pb-16 pt-8 sm:px-6 sm:pb-20"
               >
                 <div className="max-w-xl">
-                  <p className="label-data text-map-muted">Intelligence micro-SaaS · France</p>
+                  <p className="label-data text-muted-foreground">Intelligence micro-SaaS · France</p>
                   <h1 className="mt-4 text-balance font-display text-4xl font-medium leading-[1.08] tracking-tight sm:text-5xl lg:text-[3.25rem]">
                     Où naissent les micro-SaaS{" "}
-                    <span className="text-map-muted">que vous pouvez importer.</span>
+                    <span className="text-muted-foreground">que vous pouvez importer.</span>
                   </h1>
-                  <p className="mt-5 text-lg leading-relaxed text-map-muted">
+                  <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
                     La carte révèle les marchés chauds, les top revenus et le fit d&apos;import vers votre
                     pays cible. Survolez, cliquez, décidez.
                   </p>
 
-                  <div className="mt-8 flex flex-wrap gap-x-8 gap-y-2 font-data text-xs uppercase tracking-data text-map-muted">
+                  <div className="mt-8 flex flex-wrap gap-x-8 gap-y-2 font-data text-xs uppercase tracking-data text-muted-foreground">
                     <span>
-                      <strong className="text-hero-foreground tabular-nums">{mapStats.countriesTracked}</strong>{" "}
+                      <strong className="text-foreground tabular-nums">{mapStats.countriesTracked}</strong>{" "}
                       pays indexés
                     </span>
                     <span>
-                      <strong className="text-hero-foreground tabular-nums">
+                      <strong className="text-foreground tabular-nums">
                         {mapStats.totalMicroSaas.toLocaleString("fr-FR")}
                       </strong>{" "}
                       micro-SaaS trackés

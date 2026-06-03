@@ -68,7 +68,7 @@ export function DetailConversionPaywall({ opportunity }: { opportunity: Opportun
               {step2.teaser}
             </p>
             <div
-              className="pointer-events-none absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-b from-transparent to-gray-950"
+              className="pointer-events-none absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-b from-transparent to-background"
               aria-hidden
             />
           </div>
@@ -95,16 +95,16 @@ export function DetailConversionPaywall({ opportunity }: { opportunity: Opportun
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-40px" }}
               transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-              className="mx-auto max-w-lg scroll-mt-28 rounded-2xl border border-gray-700 bg-gray-900 p-6 text-gray-100 shadow-2xl sm:p-8"
+              className="mx-auto max-w-lg scroll-mt-28 rounded-2xl border border-border bg-card p-6 text-foreground/90 shadow-2xl sm:p-8"
             >
-              <div className="space-y-3 border-b border-gray-700 pb-6 text-center">
-                <p className="text-base leading-relaxed text-gray-300">
+              <div className="space-y-3 border-b border-border pb-6 text-center">
+                <p className="text-base leading-relaxed text-foreground/80">
                   Vous venez de voir pourquoi ça marche.
                 </p>
-                <p className="text-lg font-medium text-white">La suite, c&apos;est comment le faire.</p>
+                <p className="text-lg font-medium text-foreground">La suite, c&apos;est comment le faire.</p>
               </div>
 
-              <p className="mt-6 text-sm font-medium text-gray-400">
+              <p className="mt-6 text-sm font-medium text-muted-foreground">
                 Ce que vous débloquez avec Builder ({tierPrices.builder}) :
               </p>
 
@@ -115,8 +115,8 @@ export function DetailConversionPaywall({ opportunity }: { opportunity: Opportun
                       ✓
                     </span>
                     <div>
-                      <p className="font-medium text-gray-100">{item.title}</p>
-                      <p className="mt-0.5 text-sm text-gray-500">→ {item.detail}</p>
+                      <p className="font-medium text-foreground/90">{item.title}</p>
+                      <p className="mt-0.5 text-sm text-muted-foreground">→ {item.detail}</p>
                     </div>
                   </li>
                 ))}
@@ -130,14 +130,14 @@ export function DetailConversionPaywall({ opportunity }: { opportunity: Opportun
                   </Link>
                 </Button>
 
-                <div className="mt-5 rounded-lg bg-gray-800/50 px-4 py-4 text-center">
+                <div className="mt-5 rounded-lg bg-muted/50 px-4 py-4 text-center">
                   <p className="tracking-wide text-amber-400" aria-label="5 étoiles sur 5">
                     ★★★★★
                   </p>
-                  <p className="mt-2 text-sm italic text-gray-300">
+                  <p className="mt-2 text-sm italic text-foreground/80">
                     &ldquo;J&apos;ai lancé en 11 jours grâce au guide&rdquo;
                   </p>
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     — Thomas R., Bordeaux · Abonné Builder
                   </p>
                 </div>
@@ -146,12 +146,12 @@ export function DetailConversionPaywall({ opportunity }: { opportunity: Opportun
                   <Button
                     variant="outline"
                     size="sm"
-                    className="border-gray-600 bg-transparent text-gray-300 hover:bg-gray-800 hover:text-white"
+                    className="border-border bg-transparent text-foreground/80 hover:bg-muted/50 hover:text-foreground"
                     asChild
                   >
                     <Link href="/dashboard">Abonnement Pro — {tierPrices.pro}</Link>
                   </Button>
-                  <p className="max-w-xs text-center text-xs text-gray-500">
+                  <p className="max-w-xs text-center text-xs text-muted-foreground">
                     (inclut le Prompt Claude Code pour générer le MVP en 1 session)
                   </p>
                 </div>

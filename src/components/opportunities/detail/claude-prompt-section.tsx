@@ -57,7 +57,7 @@ function CopyButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="flex items-center gap-1.5 rounded-lg bg-gray-700 px-3 py-1.5 text-xs text-gray-400 transition-colors hover:bg-gray-600 hover:text-white"
+      className="flex items-center gap-1.5 rounded-lg bg-muted px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
     >
       {copied ? (
         <>
@@ -153,22 +153,22 @@ export function ClaudePromptSection({ opportunity, animationIndex }: ClaudePromp
   return (
     <AnimatedSection id="prompt" animationIndex={animationIndex} className="mb-12 scroll-mt-24">
       <SectionTitle number={8} title="Prompt Claude Code" />
-      <p className="mb-6 text-sm text-gray-500">
+      <p className="mb-6 text-sm text-muted-foreground">
         Colle ce prompt dans Claude Code, Cursor ou v0 — ton MVP démarre en une session
       </p>
 
       <div className="mb-6 flex items-center gap-2 rounded-xl border border-purple-500/30 bg-purple-950/20 p-3">
         <span className="text-lg text-purple-400">⚡</span>
         <div>
-          <p className="text-sm font-semibold text-white">Prompt validé par notre équipe</p>
-          <p className="text-xs text-gray-500">
+          <p className="text-sm font-semibold text-foreground">Prompt validé par notre équipe</p>
+          <p className="text-xs text-muted-foreground">
             Testé sur Claude Code · Cursor · v0 — génère un MVP fonctionnel en ~4h
           </p>
         </div>
       </div>
 
-      <div className="mb-4 rounded-xl border border-gray-800 bg-gray-900 p-5">
-        <p className="mb-3 text-xs uppercase tracking-widest text-gray-500">
+      <div className="mb-4 rounded-xl border border-border bg-card p-5">
+        <p className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">
           Quelle plateforme pour toi ?
         </p>
         <div className="flex flex-wrap gap-2">
@@ -186,8 +186,8 @@ export function ClaudePromptSection({ opportunity, animationIndex }: ClaudePromp
               className={cn(
                 "flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-medium transition-all",
                 techLevel === opt.id
-                  ? "border-blue-500 bg-blue-600 text-white"
-                  : "border-gray-700 bg-gray-800 text-gray-400 hover:border-gray-600 hover:text-white",
+                  ? "border-blue-500 bg-blue-600 text-primary-foreground"
+                  : "border-border bg-muted text-muted-foreground hover:border-border hover:text-foreground",
               )}
             >
               <span>{opt.emoji}</span>
@@ -197,11 +197,11 @@ export function ClaudePromptSection({ opportunity, animationIndex }: ClaudePromp
         </div>
 
         {techLevel && (
-          <div className="mt-4 rounded-xl border border-gray-700 bg-gray-950 p-4">
-            <p className="mb-1 text-xs text-gray-500">Notre recommandation</p>
+          <div className="mt-4 rounded-xl border border-border bg-background p-4">
+            <p className="mb-1 text-xs text-muted-foreground">Notre recommandation</p>
             {techLevel === "none" && (
               <>
-                <p className="flex items-center gap-2 font-semibold text-white">
+                <p className="flex items-center gap-2 font-semibold text-foreground">
                   <img
                     src="https://www.google.com/s2/favicons?domain=v0.dev&sz=32"
                     alt=""
@@ -209,7 +209,7 @@ export function ClaudePromptSection({ opportunity, animationIndex }: ClaudePromp
                   />
                   v0 by Vercel
                 </p>
-                <p className="mt-1 text-sm text-gray-400">
+                <p className="mt-1 text-sm text-muted-foreground">
                   Tu génères l&apos;UI en no-code, puis tu demandes à Claude Code de brancher le
                   backend.
                 </p>
@@ -217,7 +217,7 @@ export function ClaudePromptSection({ opportunity, animationIndex }: ClaudePromp
             )}
             {techLevel === "medium" && (
               <>
-                <p className="flex items-center gap-2 font-semibold text-white">
+                <p className="flex items-center gap-2 font-semibold text-foreground">
                   <img
                     src="https://www.google.com/s2/favicons?domain=claude.ai&sz=32"
                     alt=""
@@ -225,7 +225,7 @@ export function ClaudePromptSection({ opportunity, animationIndex }: ClaudePromp
                   />
                   Claude Code
                 </p>
-                <p className="mt-1 text-sm text-gray-400">
+                <p className="mt-1 text-sm text-muted-foreground">
                   Tu colles le prompt, Claude génère tout et t&apos;explique chaque étape. Parfait
                   pour monter en compétence.
                 </p>
@@ -233,7 +233,7 @@ export function ClaudePromptSection({ opportunity, animationIndex }: ClaudePromp
             )}
             {techLevel === "high" && (
               <>
-                <p className="flex items-center gap-2 font-semibold text-white">
+                <p className="flex items-center gap-2 font-semibold text-foreground">
                   <img
                     src="https://www.google.com/s2/favicons?domain=cursor.sh&sz=32"
                     alt=""
@@ -241,7 +241,7 @@ export function ClaudePromptSection({ opportunity, animationIndex }: ClaudePromp
                   />
                   Cursor
                 </p>
-                <p className="mt-1 text-sm text-gray-400">
+                <p className="mt-1 text-sm text-muted-foreground">
                   Tu gardes le contrôle total du code, Cursor accélère. Le combo le plus puissant
                   pour un dev expérimenté.
                 </p>
@@ -258,10 +258,10 @@ export function ClaudePromptSection({ opportunity, animationIndex }: ClaudePromp
             href={tool.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="group rounded-xl border border-gray-800 bg-gray-900 p-4 transition-all hover:border-gray-600"
+            className="group rounded-xl border border-border bg-card p-4 transition-all hover:border-border"
           >
             <div className="mb-2 flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg bg-gray-800">
+              <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg bg-muted">
                 <img
                   src={tool.favicon}
                   alt={tool.name}
@@ -271,22 +271,22 @@ export function ClaudePromptSection({ opportunity, animationIndex }: ClaudePromp
                   }}
                 />
               </div>
-              <p className="text-sm font-semibold text-white transition-colors group-hover:text-blue-400">
+              <p className="text-sm font-semibold text-foreground transition-colors group-hover:text-blue-400">
                 {tool.name}
               </p>
-              <ExternalLink className="ml-auto h-3 w-3 text-gray-600 transition-colors group-hover:text-blue-400" />
+              <ExternalLink className="ml-auto h-3 w-3 text-muted-foreground/60 transition-colors group-hover:text-blue-400" />
             </div>
             <p className={cn("mb-2 text-xs font-medium", tool.levelColor)}>{tool.level}</p>
-            <p className="mb-3 text-xs leading-relaxed text-gray-500">{tool.description}</p>
-            <p className="text-xs text-gray-600">{tool.instruction}</p>
-            <p className="mt-1 text-xs text-gray-600">Durée estimée : {tool.time}</p>
+            <p className="mb-3 text-xs leading-relaxed text-muted-foreground">{tool.description}</p>
+            <p className="text-xs text-muted-foreground/60">{tool.instruction}</p>
+            <p className="mt-1 text-xs text-muted-foreground/60">Durée estimée : {tool.time}</p>
           </a>
         ))}
       </div>
 
       <div className="relative mb-4">
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <p className="text-xs text-gray-500">Générer le prompt pour :</p>
+          <p className="text-xs text-muted-foreground">Générer le prompt pour :</p>
           <div className="flex gap-2">
             {["Claude Code", "Cursor", "v0"].map((tool) => (
               <button
@@ -296,8 +296,8 @@ export function ClaudePromptSection({ opportunity, animationIndex }: ClaudePromp
                 className={cn(
                   "rounded-lg border px-3 py-1.5 text-xs transition-colors",
                   selectedTool === tool
-                    ? "border-blue-500 bg-blue-600 text-white"
-                    : "border-gray-700 bg-gray-800 text-gray-400 hover:text-white",
+                    ? "border-blue-500 bg-blue-600 text-primary-foreground"
+                    : "border-border bg-muted text-muted-foreground hover:text-foreground",
                 )}
               >
                 {tool}
@@ -306,32 +306,32 @@ export function ClaudePromptSection({ opportunity, animationIndex }: ClaudePromp
           </div>
         </div>
 
-        <div className="flex items-center justify-between rounded-t-xl border border-gray-700 bg-gray-800 px-4 py-3">
+        <div className="flex items-center justify-between rounded-t-xl border border-gray-700 bg-gray-800 px-4 py-3 dark:border-gray-700 dark:bg-gray-800">
           <div className="flex items-center gap-2">
             <div className="flex gap-1.5">
               <div className="h-3 w-3 rounded-full bg-red-500/60" />
               <div className="h-3 w-3 rounded-full bg-yellow-500/60" />
               <div className="h-3 w-3 rounded-full bg-green-500/60" />
             </div>
-            <span className="ml-2 text-xs text-gray-500">prompt.txt</span>
+            <span className="ml-2 text-xs text-muted-foreground">prompt.txt</span>
           </div>
           <CopyButton text={promptText} />
         </div>
 
-        <div className="overflow-x-auto rounded-b-xl border border-t-0 border-gray-700 bg-gray-950 p-6">
+        <div className="overflow-x-auto rounded-b-xl border border-t-0 border-gray-700 bg-gray-950 p-6 dark:border-gray-700 dark:bg-gray-950">
           <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-gray-300">
             {promptText}
           </pre>
         </div>
       </div>
 
-      <div className="rounded-xl border border-gray-800 bg-gray-900 p-5">
-        <p className="mb-3 text-xs uppercase tracking-widest text-gray-500">Stack recommandée</p>
+      <div className="rounded-xl border border-border bg-card p-5">
+        <p className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Stack recommandée</p>
         <div className="flex flex-wrap gap-2">
           {stack.map((tech) => (
             <span
               key={tech}
-              className="rounded-full border border-gray-700 bg-gray-800 px-3 py-1.5 text-xs text-gray-300"
+              className="rounded-full border border-border bg-muted px-3 py-1.5 text-xs text-foreground/80"
             >
               {tech}
             </span>

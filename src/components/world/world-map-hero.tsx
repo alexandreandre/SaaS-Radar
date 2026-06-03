@@ -9,9 +9,9 @@ import {
   Geographies,
   Geography,
 } from "react-simple-maps";
-import { getMarketByCode, getHeatColor, getHeatColorAmbient } from "@/data/world-markets";
-import { MAP_COLORS } from "@/lib/map-colors";
+import { getMarketByCode } from "@/data/world-markets";
 import { resolveCountryCode } from "@/lib/country-code";
+import { useMapPalette } from "@/hooks/use-map-palette";
 import { CountryHoverCard } from "@/components/world/country-hover-card";
 import { MapHeroDashboard, type MapHeroFilter } from "@/components/world/map-hero-dashboard";
 import { useTargetMarket } from "@/context/target-market-context";
@@ -33,6 +33,7 @@ export function WorldMapHero({
 }) {
   const router = useRouter();
   const mounted = useMounted();
+  const { colors, getHeatColor, getHeatColorAmbient } = useMapPalette();
   const { target } = useTargetMarket();
   const [hovered, setHovered] = useState<string | null>(null);
   const [cardHovered, setCardHovered] = useState(false);
@@ -81,11 +82,11 @@ export function WorldMapHero({
   const getFill = useCallback(
     (code: string) => {
       const market = getMarketByCode(code);
-      if (!market || (unlocked && !isVisible(code))) return MAP_COLORS.dormant;
-      if (unlocked && hovered === code) return MAP_COLORS.hover;
+      if (!market || (unlocked && !isVisible(code))) return colors.dormant;
+      if (unlocked && hovered === code) return colors.hover;
       return unlocked ? getHeatColor(market.heatScore) : getHeatColorAmbient(market.heatScore);
     },
-    [hovered, unlocked, isVisible]
+    [colors, getHeatColor, getHeatColorAmbient, hovered, unlocked, isVisible]
   );
 
   const scheduleHide = useCallback(() => {
@@ -148,7 +149,7 @@ export function WorldMapHero({
   return (
     <div
       className={cn(
-        "absolute inset-0 overflow-hidden bg-hero outline-none",
+        "absolute inset-0 overflow-hidden bg-background outline-none",
         !unlocked && "cursor-pointer",
         className
       )}
@@ -205,15 +206,15 @@ export function WorldMapHero({
                   }}
                   style={{
                     default: {
-                      fill: code ? getFill(code) : MAP_COLORS.dormant,
-                      stroke: MAP_COLORS.stroke,
+                      fill: code ? getFill(code) : colors.dormant,
+                      stroke: colors.stroke,
                       strokeWidth: 0.25,
                       outline: "none",
                       cursor: getCursor(market, code),
                       transition: "fill 0.25s ease",
                     },
                     hover: { outline: "none" },
-                    pressed: { fill: unlocked && visible ? MAP_COLORS.selected : undefined, outline: "none" },
+                    pressed: { fill: unlocked && visible ? colors.selected : undefined, outline: "none" },
                   }}
                 />
               );
@@ -225,14 +226,14 @@ export function WorldMapHero({
 
       <motion.div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-gradient-to-r from-hero via-hero/54 to-transparent sm:via-hero/28"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-r from-background via-background/54 to-transparent sm:via-background/28"
         initial={false}
         animate={{ opacity: unlocked ? 0 : 1 }}
         transition={{ duration: 0.55, ease: [0.25, 0.1, 0.25, 1] }}
       />
       <motion.div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-hero/44 via-transparent to-hero/12"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/44 via-transparent to-background/12"
         initial={false}
         animate={{ opacity: unlocked ? 0 : 1 }}
         transition={{ duration: 0.55, ease: [0.25, 0.1, 0.25, 1] }}
@@ -274,7 +275,7 @@ export function WorldMapHero({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="pointer-events-none absolute bottom-10 left-1/2 z-[2] -translate-x-1/2 font-data text-[10px] uppercase tracking-data text-map-muted"
+            className="pointer-events-none absolute bottom-10 left-1/2 z-[2] -translate-x-1/2 font-data text-[10px] uppercase tracking-data text-muted-foreground"
           >
             Cliquez sur la carte pour explorer
           </motion.p>

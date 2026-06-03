@@ -44,19 +44,19 @@ export function SaasOrigineSection({ opportunity, animationIndex }: SaasOrigineS
       className="mb-12 scroll-mt-24"
     >
       <SectionTitle number={5} title="Le SaaS aux US" />
-      <p className="mb-6 text-sm text-gray-500">
+      <p className="mb-6 text-sm text-muted-foreground">
         Le modèle qui fonctionne déjà — avant que tu le lances en France
       </p>
 
-      <div className="relative mb-4 overflow-hidden rounded-2xl border border-gray-800 bg-gray-900 p-6">
+      <div className="relative mb-4 overflow-hidden rounded-2xl border border-border bg-card p-6">
         <div className="pointer-events-none absolute right-0 top-0 h-48 w-48 rounded-full bg-blue-500/5 blur-3xl" />
 
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <p className="mb-2 text-xs uppercase tracking-widest text-gray-500">Inspiré de</p>
-            <h3 className="text-2xl font-bold text-white">{profile.productName}</h3>
-            <p className="mt-1 text-gray-400">{profile.tagline}</p>
-            <p className="mt-1 text-sm text-gray-600">
+            <p className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">Inspiré de</p>
+            <h3 className="text-2xl font-bold text-foreground">{profile.productName}</h3>
+            <p className="mt-1 text-muted-foreground">{profile.tagline}</p>
+            <p className="mt-1 text-sm text-muted-foreground/60">
               {profile.flag} {profile.country}
             </p>
           </div>
@@ -65,7 +65,7 @@ export function SaasOrigineSection({ opportunity, animationIndex }: SaasOrigineS
               href={opportunity.url ?? "#"}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
+              className="flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/20 px-3 py-2 text-xs font-medium text-blue-400 transition-colors hover:text-blue-300"
             >
               Voir le site <ExternalLink className="h-3 w-3" />
             </a>
@@ -83,13 +83,13 @@ export function SaasOrigineSection({ opportunity, animationIndex }: SaasOrigineS
                 href={signal.sourceUrl ?? "#"}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group rounded-xl bg-gray-800/60 p-3 transition-colors hover:bg-gray-800"
+                className="group rounded-xl bg-muted/60 p-3 transition-colors hover:bg-muted/50"
               >
-                <p className="mb-1 text-xs text-gray-500 transition-colors group-hover:text-gray-400">
+                <p className="mb-1 text-xs text-muted-foreground transition-colors group-hover:text-muted-foreground">
                   {signal.label}
                 </p>
-                <p className="text-lg font-bold text-white">{signal.value}</p>
-                <p className="mt-1 flex items-center gap-1 text-xs text-gray-600">
+                <p className="text-lg font-bold text-foreground">{signal.value}</p>
+                <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground/60">
                   {signal.source}
                   <ExternalLink className="h-2.5 w-2.5 opacity-0 transition-opacity group-hover:opacity-100" />
                 </p>
@@ -100,23 +100,23 @@ export function SaasOrigineSection({ opportunity, animationIndex }: SaasOrigineS
       </div>
 
       <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-gray-800 bg-gray-900 p-5">
-          <p className="mb-3 text-xs uppercase tracking-widest text-gray-500">Le problème résolu</p>
-          <p className="text-sm leading-relaxed text-gray-300">{profile.problemSolved}</p>
+        <div className="rounded-xl border border-border bg-card p-5">
+          <p className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Le problème résolu</p>
+          <p className="text-sm leading-relaxed text-foreground/80">{profile.problemSolved}</p>
         </div>
-        <div className="rounded-xl border border-gray-800 bg-gray-900 p-5">
-          <p className="mb-3 text-xs uppercase tracking-widest text-gray-500">Modèle économique</p>
-          <p className="text-sm leading-relaxed text-gray-300">{profile.businessModel}</p>
+        <div className="rounded-xl border border-border bg-card p-5">
+          <p className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Modèle économique</p>
+          <p className="text-sm leading-relaxed text-foreground/80">{profile.businessModel}</p>
           <p className="mt-2 text-sm font-medium text-blue-400">{profile.pricing}</p>
         </div>
       </div>
 
       {profile.keyFeatures.length > 0 && (
-        <div className="mb-4 rounded-xl border border-gray-800 bg-gray-900 p-5">
-          <p className="mb-3 text-xs uppercase tracking-widest text-gray-500">Fonctionnalités clés</p>
+        <div className="mb-4 rounded-xl border border-border bg-card p-5">
+          <p className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">Fonctionnalités clés</p>
           <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
             {profile.keyFeatures.map((feature, i) => (
-              <div key={i} className="flex items-center gap-2 text-sm text-gray-300">
+              <div key={i} className="flex items-center gap-2 text-sm text-foreground/80">
                 <span className="shrink-0 text-green-400">✓</span>
                 {feature}
               </div>
@@ -126,39 +126,39 @@ export function SaasOrigineSection({ opportunity, animationIndex }: SaasOrigineS
       )}
 
       {profile.whyItWorksThere.length > 0 && (
-        <div className="mb-4 rounded-xl border border-gray-800 bg-gray-900 p-5">
-          <p className="mb-3 text-xs uppercase tracking-widest text-gray-500">
+        <div className="mb-4 rounded-xl border border-border bg-card p-5">
+          <p className="mb-3 text-xs uppercase tracking-widest text-muted-foreground">
             Pourquoi ça cartonne là-bas
           </p>
           <div className="space-y-2">
             {profile.whyItWorksThere.map((item, i) => (
               <div key={i} className="flex items-start gap-3">
                 <span className="mt-0.5 shrink-0 font-bold text-blue-400">{i + 1}.</span>
-                <p className="text-sm leading-relaxed text-gray-300">{item}</p>
+                <p className="text-sm leading-relaxed text-foreground/80">{item}</p>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <div className="rounded-xl border border-green-900/30 bg-gray-900 p-5">
+      <div className="rounded-xl border border-green-900/30 bg-card p-5">
         <p className="mb-3 text-xs uppercase tracking-widest text-green-500">🇫🇷 Adaptation France</p>
         <div className="mb-4 space-y-2">
           {franceAdaptation.map((item, i) => (
-            <div key={i} className="flex items-start gap-2 text-sm text-gray-300">
+            <div key={i} className="flex items-start gap-2 text-sm text-foreground/80">
               <span className="mt-0.5 shrink-0 text-green-400">→</span>
               {item}
             </div>
           ))}
         </div>
-        <div className="grid grid-cols-2 gap-3 border-t border-gray-800 pt-4">
+        <div className="grid grid-cols-2 gap-3 border-t border-border pt-4">
           <div>
-            <p className="mb-1 text-xs text-gray-500">Réglementation</p>
-            <p className="text-sm text-gray-300">{opportunity.franceFitCriteria.regulation}</p>
+            <p className="mb-1 text-xs text-muted-foreground">Réglementation</p>
+            <p className="text-sm text-foreground/80">{opportunity.franceFitCriteria.regulation}</p>
           </div>
           <div>
-            <p className="mb-1 text-xs text-gray-500">Concurrence actuelle</p>
-            <p className="text-sm text-gray-300">{opportunity.franceFitCriteria.competitors}</p>
+            <p className="mb-1 text-xs text-muted-foreground">Concurrence actuelle</p>
+            <p className="text-sm text-foreground/80">{opportunity.franceFitCriteria.competitors}</p>
           </div>
         </div>
       </div>

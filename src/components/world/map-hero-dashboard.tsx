@@ -48,34 +48,34 @@ export function MapHeroDashboard({
       onClick={(e) => e.stopPropagation()}
       onKeyDown={(e) => e.stopPropagation()}
     >
-      <div className="rounded-lg border border-white/10 bg-black/50 p-3 shadow-lg backdrop-blur-md">
+      <div className="rounded-lg border border-border bg-background/80 p-3 shadow-lg backdrop-blur-md">
         <button
           type="button"
           onClick={onBack}
-          className="mb-2.5 flex items-center gap-1 text-[11px] text-map-muted transition-colors hover:text-hero-foreground/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
+          className="mb-2.5 flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
           aria-label="Revenir à l'accueil"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
           <span>Accueil</span>
         </button>
 
-        <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-map-muted">
+        <label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
           Marché cible
         </label>
         <div className="relative">
           <select
             value={target.code}
             onChange={(e) => setTargetCode(e.target.value)}
-            className="w-full cursor-pointer appearance-none rounded-lg border border-white/15 bg-black/50 py-2 pl-2.5 pr-8 text-xs font-medium text-white focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            className="w-full cursor-pointer appearance-none rounded-lg border border-border bg-background/80 py-2 pl-2.5 pr-8 text-xs font-medium text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             aria-label="Marché cible pour vos recommandations"
           >
             {pickerOptions.map((o) => (
-              <option key={o.code} value={o.code} className="bg-hero">
+              <option key={o.code} value={o.code} className="bg-background">
                 {o.flag} {o.name}
               </option>
             ))}
           </select>
-          <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-map-muted">
+          <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
             ▾
           </span>
         </div>
@@ -89,8 +89,8 @@ export function MapHeroDashboard({
               className={cn(
                 "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-medium transition-colors",
                 filter === id
-                  ? "border-primary/70 bg-primary/90 text-white"
-                  : "border-white/10 bg-black/40 text-map-muted hover:border-white/20 hover:text-hero-foreground/75"
+                  ? "border-primary/70 bg-primary/90 text-primary-foreground"
+                  : "border-border bg-muted/40 text-muted-foreground hover:border-border hover:text-foreground/75"
               )}
             >
               <Icon className="h-2.5 w-2.5 shrink-0" />
@@ -99,14 +99,14 @@ export function MapHeroDashboard({
           ))}
         </div>
 
-        <div className="mt-3 space-y-1 border-t border-white/10 pt-2.5 text-[10px] text-map-muted">
+        <div className="mt-3 space-y-1 border-t border-border pt-2.5 text-[10px] text-muted-foreground">
           <p>
             <strong className="font-semibold text-primary">{highFitCount}</strong> marchés top import
-            <span className="text-map-muted"> → {target.flag}</span>
+            <span className="text-muted-foreground"> → {target.flag}</span>
           </p>
           <p>
-            <strong className="text-white">{stats.countriesTracked}</strong> pays ·{" "}
-            <strong className="text-white">{stats.totalMicroSaas.toLocaleString("fr-FR")}</strong> trackés
+            <strong className="text-foreground">{stats.countriesTracked}</strong> pays ·{" "}
+            <strong className="text-foreground">{stats.totalMicroSaas.toLocaleString("fr-FR")}</strong> trackés
           </p>
         </div>
       </div>

@@ -16,16 +16,16 @@ export function OpportunityDetail({ opportunity }: { opportunity: Opportunity })
   return (
     <>
       <Navbar />
-      <main className="mx-auto max-w-6xl bg-hero px-4 pb-12 text-hero-foreground sm:px-6">
+      <main className="mx-auto max-w-6xl bg-background px-4 pb-12 text-foreground sm:px-6">
         <div className="flex items-center justify-between gap-4 pt-4">
           <Link
             href="/opportunities"
             aria-label="Retour à la liste"
-            className="inline-flex items-center justify-center rounded-lg p-1 text-gray-400 transition-colors hover:text-white"
+            className="inline-flex items-center justify-center rounded-lg p-1 text-muted-foreground transition-colors hover:text-foreground"
           >
             <ArrowLeft className="h-7 w-7" aria-hidden />
           </Link>
-          <p className="shrink-0 text-sm text-gray-400">
+          <p className="shrink-0 text-sm text-muted-foreground">
             <span>
               {opportunity.originFlag} {opportunity.originCountry}
             </span>

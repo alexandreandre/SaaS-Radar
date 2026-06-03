@@ -38,7 +38,7 @@ export function DetailChecklist({ opportunityName }: DetailChecklistProps) {
 
   return (
     <aside className="sticky top-24 hidden w-[280px] shrink-0 lg:block">
-      <p className="mb-3 truncate text-xs uppercase tracking-wider text-gray-500" title={opportunityName}>
+      <p className="mb-3 truncate text-xs uppercase tracking-wider text-muted-foreground" title={opportunityName}>
         Navigation
       </p>
 
@@ -51,7 +51,7 @@ export function DetailChecklist({ opportunityName }: DetailChecklistProps) {
               "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
               activeSection === section.id
                 ? "border border-blue-600/30 bg-blue-600/20 text-blue-400"
-                : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
             )}
           >
             <CheckCircle className="h-3.5 w-3.5 shrink-0 text-green-500" />

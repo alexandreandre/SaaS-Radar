@@ -13,9 +13,9 @@ export function DetailHeader({ opportunity }: { opportunity: Opportunity }) {
       transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
       className="mb-8 mt-4 overflow-visible"
     >
-      <h1 className="mb-2 text-4xl font-bold text-white">{opportunity.name}</h1>
-      <p className="mb-1 text-xl text-gray-300">{opportunity.pitch}</p>
-      <p className="text-sm text-gray-500">Pour : {opportunity.targetClient}</p>
+      <h1 className="mb-2 text-4xl font-bold text-foreground">{opportunity.name}</h1>
+      <p className="mb-1 text-xl text-foreground/80">{opportunity.pitch}</p>
+      <p className="text-sm text-muted-foreground">Pour : {opportunity.targetClient}</p>
 
       <div className="mt-6 flex flex-col items-start gap-6 overflow-visible lg:flex-row">
         <div className="flex flex-row flex-wrap items-end gap-6 overflow-visible">
@@ -55,14 +55,14 @@ export function DetailHeader({ opportunity }: { opportunity: Opportunity }) {
           />
         </div>
 
-        <div className="min-w-[240px] rounded-2xl border border-gray-700 bg-gray-900 p-5 lg:ml-auto">
-          <p className="mb-1 text-xs text-gray-500">Potentiel estimé</p>
-          <p className="text-2xl font-bold text-white">
+        <div className="min-w-[240px] rounded-2xl border border-border bg-card p-5 lg:ml-auto">
+          <p className="mb-1 text-xs text-muted-foreground">Potentiel estimé</p>
+          <p className="text-2xl font-bold text-foreground">
             {opportunity.revenueMin.toLocaleString("fr-FR")} € –{" "}
             {opportunity.revenueMax.toLocaleString("fr-FR")} €
           </p>
-          <p className="text-sm text-gray-500">/mois</p>
-          <hr className="my-3 border-gray-800" />
+          <p className="text-sm text-muted-foreground">/mois</p>
+          <hr className="my-3 border-border" />
           <p className="flex items-center gap-1.5 text-xs text-green-400">
             <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
             {getFranceCompetitionLabel(opportunity)}

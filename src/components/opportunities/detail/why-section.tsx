@@ -18,7 +18,7 @@ export function WhySection({ opportunity, animationIndex }: WhySectionProps) {
   return (
     <AnimatedSection id="pourquoi" animationIndex={animationIndex} className="mb-12 scroll-mt-24">
       <SectionTitle number={4} title="Pourquoi ça marche" />
-      <p className="mb-6 text-sm text-gray-500">
+      <p className="mb-6 text-sm text-muted-foreground">
         Les faits qui prouvent que ce marché est réel — et que la fenêtre est ouverte
       </p>
 
@@ -35,7 +35,7 @@ export function WhySection({ opportunity, animationIndex }: WhySectionProps) {
               key={i}
               className={cn(
                 "overflow-hidden rounded-xl border transition-colors",
-                isOpen ? "border-gray-700 bg-gray-900" : "border-gray-800 bg-gray-900/40 hover:border-gray-700",
+                isOpen ? "border-border bg-card" : "border-border bg-muted/20 hover:border-border",
               )}
             >
               <button
@@ -43,23 +43,23 @@ export function WhySection({ opportunity, animationIndex }: WhySectionProps) {
                 onClick={() => setOpenIndex(isOpen ? null : i)}
                 className="flex w-full items-center gap-4 p-5 text-left"
               >
-                <span className="w-8 shrink-0 text-2xl font-black tabular-nums text-gray-700">
+                <span className="w-8 shrink-0 text-2xl font-black tabular-nums text-muted-foreground">
                   {String(i + 1).padStart(2, "0")}
                 </span>
-                <p className="flex-1 text-sm leading-relaxed text-gray-200">{fact}</p>
+                <p className="flex-1 text-sm leading-relaxed text-foreground/90">{fact}</p>
                 <ChevronDown
                   className={cn(
-                    "h-4 w-4 shrink-0 text-gray-500 transition-transform duration-200",
+                    "h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200",
                     isOpen && "rotate-180",
                   )}
                 />
               </button>
 
               {isOpen && (
-                <div className="border-t border-gray-800 px-5 pb-5 pl-17">
+                <div className="border-t border-border px-5 pb-5 pl-17">
                   <div className="space-y-3 pl-12 pt-4">
                     {detail && (
-                      <p className="text-sm leading-relaxed text-gray-400">{detail}</p>
+                      <p className="text-sm leading-relaxed text-muted-foreground">{detail}</p>
                     )}
                     {source && (
                       <a

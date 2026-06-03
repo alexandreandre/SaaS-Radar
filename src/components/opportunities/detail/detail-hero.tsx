@@ -50,13 +50,13 @@ export function DetailHero({ opportunity }: { opportunity: Opportunity }) {
           ))}
         </div>
 
-        <div className="w-full shrink-0 rounded-2xl border border-gray-700 bg-gray-900 p-6 lg:ml-auto lg:w-auto lg:min-w-[260px]">
-          <p className="mb-2 text-sm text-gray-400">Potentiel estimé</p>
-          <p className="whitespace-nowrap text-3xl font-bold text-white">
+        <div className="w-full shrink-0 rounded-2xl border border-border bg-card p-6 lg:ml-auto lg:w-auto lg:min-w-[260px]">
+          <p className="mb-2 text-sm text-muted-foreground">Potentiel estimé</p>
+          <p className="whitespace-nowrap text-3xl font-bold text-foreground">
             {formatCurrency(opportunity.revenueMin)} – {formatCurrency(opportunity.revenueMax)}
           </p>
-          <p className="mt-1 text-sm text-gray-400">/mois</p>
-          <hr className="my-3 border-gray-700" />
+          <p className="mt-1 text-sm text-muted-foreground">/mois</p>
+          <hr className="my-3 border-border" />
           <p className="flex items-center gap-2 text-sm text-green-400">
             <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-green-400" aria-hidden />
             {getFranceCompetitionLabel(opportunity)}
@@ -67,14 +67,14 @@ export function DetailHero({ opportunity }: { opportunity: Opportunity }) {
       <div className="mt-8 flex flex-col gap-3 sm:flex-row">
         <Link
           href="#paywall"
-          className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-base font-semibold text-white transition-colors hover:bg-blue-500"
+          className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-3 text-base font-semibold text-primary-foreground transition-colors hover:bg-blue-500"
         >
           Voir le guide complet
           <span aria-hidden>→</span>
         </Link>
         <Link
           href="#pourquoi"
-          className="flex items-center justify-center gap-2 rounded-xl border border-gray-600 px-6 py-3 text-base font-medium text-gray-300 transition-colors hover:border-gray-400 hover:text-white"
+          className="flex items-center justify-center gap-2 rounded-xl border border-border px-6 py-3 text-base font-medium text-foreground/80 transition-colors hover:border-border hover:text-foreground"
         >
           Pourquoi ça marche
         </Link>

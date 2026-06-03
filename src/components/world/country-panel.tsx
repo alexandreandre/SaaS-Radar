@@ -34,7 +34,7 @@ import {
 
 const trendMeta = {
   rising: { label: "En hausse", icon: TrendingUp, color: "text-emerald-400" },
-  stable: { label: "Stable", icon: Minus, color: "text-map-muted" },
+  stable: { label: "Stable", icon: Minus, color: "text-muted-foreground" },
   emerging: { label: "Émergent", icon: TrendingUp, color: "text-primary" },
   cooling: { label: "En baisse", icon: TrendingDown, color: "text-amber-400" },
 } as const;
@@ -85,7 +85,7 @@ export function CountryPanel({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={QUICK}
-            className="absolute inset-0 bg-black/75"
+            className="absolute inset-0 bg-background/80"
             onClick={onClose}
           />
 
@@ -98,7 +98,7 @@ export function CountryPanel({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={QUICK}
-            className="relative flex max-h-[min(88vh,820px)] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-white/10 bg-hero text-white shadow-2xl"
+            className="relative flex max-h-[min(88vh,820px)] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-background text-foreground shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <CountryModalContent market={market} onClose={onClose} />
@@ -147,7 +147,7 @@ const CountryModalContent = memo(function CountryModalContent({
 
   return (
     <>
-      <div className="shrink-0 border-b border-white/10 px-5 py-4 sm:px-6">
+      <div className="shrink-0 border-b border-border px-5 py-4 sm:px-6">
         <div className="flex items-start gap-4">
           <span className="text-4xl leading-none sm:text-5xl">{market.flag}</span>
           <div className="min-w-0 flex-1">
@@ -156,14 +156,14 @@ const CountryModalContent = memo(function CountryModalContent({
                 <h2 id="country-modal-title" className="text-xl font-semibold sm:text-2xl">
                   {market.name}
                 </h2>
-                <p className="mt-0.5 text-xs text-map-muted">
+                <p className="mt-0.5 text-xs text-muted-foreground">
                   Origine · export vers {target.flag} {target.name}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                className="shrink-0 rounded-lg border border-white/10 p-2 text-map-muted hover:bg-white/10 hover:text-white"
+                className="shrink-0 rounded-lg border border-border p-2 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
                 aria-label="Fermer"
               >
                 <X className="h-5 w-5" />
@@ -175,7 +175,7 @@ const CountryModalContent = memo(function CountryModalContent({
                 <TrendIcon className="h-3.5 w-3.5" />
                 {trendMeta[market.trend].label}
               </span>
-              <span className="text-xs text-map-muted">Heat {market.heatScore}/100</span>
+              <span className="text-xs text-muted-foreground">Heat {market.heatScore}/100</span>
             </div>
             <HeatBar score={market.heatScore} />
           </div>
@@ -183,14 +183,14 @@ const CountryModalContent = memo(function CountryModalContent({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <div className="grid gap-px border-b border-white/10 bg-white/10 sm:grid-cols-2">
+        <div className="grid gap-px border-b border-border bg-muted/40 sm:grid-cols-2">
           <VerdictBlock
             verdict={verdict}
             fit={fit}
             targetName={target.name}
             targetFlag={target.flag}
           />
-          <div className="grid grid-cols-2 gap-px bg-white/10">
+          <div className="grid grid-cols-2 gap-px bg-muted/40">
             <Kpi label="Micro-SaaS" value={market.trackedMicroSaas.toLocaleString("fr-FR")} />
             <Kpi label="Nouveaux/mois" value={`+${market.newThisMonth}`} highlight />
             <Kpi label="Top MRR moy." value={`$${(market.avgTopMrrUsd / 1000).toFixed(0)}k`} />
@@ -203,15 +203,15 @@ const CountryModalContent = memo(function CountryModalContent({
             <SectionTitle icon={BarChart3} title="Top revenus" />
             <ul className="mt-3 space-y-2">
               {market.topEarners.map((e, i) => (
-                <li key={`${e.name}-${i}`} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                <li key={`${e.name}-${i}`} className="rounded-lg border border-border bg-muted/20 p-3">
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium">{e.name}</p>
-                      <p className="truncate text-[11px] text-map-muted">{e.category}</p>
+                      <p className="truncate text-[11px] text-muted-foreground">{e.category}</p>
                     </div>
                     <p className="shrink-0 text-sm font-semibold text-primary">{e.mrrLabel}</p>
                   </div>
-                  <div className="mt-2 h-1 overflow-hidden rounded-full bg-white/10">
+                  <div className="mt-2 h-1 overflow-hidden rounded-full bg-muted/40">
                     <div
                       className="h-full rounded-full bg-primary"
                       style={{ width: `${Math.max(10, (e.mrrUsd / maxMrr) * 100)}%` }}
@@ -233,7 +233,7 @@ const CountryModalContent = memo(function CountryModalContent({
               {market.trends.map((t, i) => (
                 <li
                   key={t}
-                  className="flex gap-2 rounded-lg border border-white/5 px-3 py-2.5 text-sm text-hero-foreground/80"
+                  className="flex gap-2 rounded-lg border border-border/60 px-3 py-2.5 text-sm text-foreground/80"
                 >
                   <span className="font-semibold text-primary">{i + 1}</span>
                   <span className="leading-snug">{t}</span>
@@ -248,7 +248,7 @@ const CountryModalContent = memo(function CountryModalContent({
                 badge={dbOpps.length > 0 ? String(dbOpps.length) : undefined}
               />
               {dbOpps.length === 0 ? (
-                <p className="mt-3 rounded-lg border border-dashed border-white/15 px-3 py-6 text-center text-xs text-map-muted">
+                <p className="mt-3 rounded-lg border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
                   Aucun playbook indexé depuis {market.name} pour l&apos;instant.
                 </p>
               ) : (
@@ -257,7 +257,7 @@ const CountryModalContent = memo(function CountryModalContent({
                     <li key={o.slug}>
                       <Link
                         href={`/opportunities/${o.slug}`}
-                        className="block rounded-lg border border-white/10 p-3 transition-colors hover:border-primary/40 hover:bg-primary/5"
+                        className="block rounded-lg border border-border p-3 transition-colors hover:border-primary/40 hover:bg-primary/5"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-medium leading-snug">{o.name}</p>
@@ -265,7 +265,7 @@ const CountryModalContent = memo(function CountryModalContent({
                             {o.scores.opportunity}
                           </span>
                         </div>
-                        <p className="mt-1 text-[11px] text-map-muted">
+                        <p className="mt-1 text-[11px] text-muted-foreground">
                           {formatCurrency(o.revenueMin)}–{formatCurrency(o.revenueMax)}/mois
                         </p>
                       </Link>
@@ -277,23 +277,23 @@ const CountryModalContent = memo(function CountryModalContent({
           </section>
         </div>
 
-        <p className="border-t border-white/10 px-5 py-3 text-xs text-map-muted sm:px-6">
+        <p className="border-t border-border px-5 py-3 text-xs text-muted-foreground sm:px-6">
           {market.insight}
         </p>
       </div>
 
-      <div className="shrink-0 space-y-3 border-t border-white/10 p-4 sm:px-6">
+      <div className="shrink-0 space-y-3 border-t border-border p-4 sm:px-6">
         <button
           type="button"
           onClick={() => router.push(`/opportunities?country=${market.code}`)}
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 px-4 text-sm font-semibold text-white transition-colors hover:opacity-90"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-2.5 px-4 text-sm font-semibold text-primary-foreground transition-colors hover:opacity-90"
         >
           Voir les opportunités pour ce pays →
         </button>
         {dbOpps.length > 0 && (
           <Link
             href={`/opportunities/${dbOpps[0].slug}`}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 py-3 text-sm font-medium text-hero-foreground/80 transition-colors hover:text-white"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-border py-3 text-sm font-medium text-foreground/80 transition-colors hover:text-foreground"
           >
             {ctaLabel}
             <ArrowRight className="h-4 w-4" />
@@ -316,15 +316,15 @@ function VerdictBlock({
   targetFlag: string;
 }) {
   return (
-    <div className="bg-hero p-5 sm:p-6">
+    <div className="bg-background p-5 sm:p-6">
       <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-primary">
         <Target className="h-3.5 w-3.5" />
         Verdict · {targetFlag} {targetName}
       </div>
-      <p className="mt-1 text-[11px] text-map-muted">
+      <p className="mt-1 text-[11px] text-muted-foreground">
         {getTargetFitLabel(fit)} · score {fit.score}/100
       </p>
-      <p className="mt-2 text-sm leading-relaxed text-hero-foreground/80">{verdict}</p>
+      <p className="mt-2 text-sm leading-relaxed text-foreground/80">{verdict}</p>
     </div>
   );
 }
@@ -356,7 +356,7 @@ function ScopePill({ scope, targetName }: { scope: WorldMarket["scope"]; targetN
     priority: "bg-primary/20 text-primary border-primary/30",
     active: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25",
     emerging: "bg-amber-500/15 text-amber-400 border-amber-500/25",
-    watch: "bg-map-muted/15 text-map-muted border-map-border/25",
+    watch: "bg-map-muted/15 text-muted-foreground border-map-border/25",
   };
   return (
     <span className={cn("rounded-full border px-2.5 py-0.5 text-xs font-medium", styles[scope])}>
@@ -367,7 +367,7 @@ function ScopePill({ scope, targetName }: { scope: WorldMarket["scope"]; targetN
 
 function HeatBar({ score }: { score: number }) {
   return (
-    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+    <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-muted/40">
       <div
         className={cn(
           "h-full rounded-full",
@@ -389,9 +389,9 @@ function Kpi({
   highlight?: boolean;
 }) {
   return (
-    <div className="bg-hero px-4 py-3">
+    <div className="bg-background px-4 py-3">
       <p className={cn("text-base font-semibold tabular-nums", highlight && "text-primary")}>{value}</p>
-      <p className="text-[10px] text-map-muted">{label}</p>
+      <p className="text-[10px] text-muted-foreground">{label}</p>
     </div>
   );
 }

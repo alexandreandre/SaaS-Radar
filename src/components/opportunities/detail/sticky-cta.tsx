@@ -34,10 +34,10 @@ export function StickyCta() {
   if (!show || paywallInView || tier !== "free") return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-800 bg-gray-950/95 px-4 py-3 backdrop-blur-md lg:hidden">
+    <div className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 px-4 py-3 backdrop-blur-md lg:hidden">
       <div className="mx-auto flex max-w-lg items-center gap-3">
-        <Lock className="h-5 w-5 shrink-0 text-gray-400" strokeWidth={2} aria-hidden />
-        <p className="min-w-0 flex-1 text-sm font-medium text-gray-200">Suite réservée aux abonnés</p>
+        <Lock className="h-5 w-5 shrink-0 text-muted-foreground" strokeWidth={2} aria-hidden />
+        <p className="min-w-0 flex-1 text-sm font-medium text-foreground/90">Suite réservée aux abonnés</p>
         <Button size="sm" className="shrink-0 font-semibold" asChild>
           <Link href="/dashboard">Débloquer — {tierPrices.builder}</Link>
         </Button>

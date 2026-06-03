@@ -23,10 +23,10 @@
     --border: 0.9 0.006 260;
     --input: 0.9 0.006 260;
     --ring: 0.42 0.09 250;
-    --hero: 0.11 0.012 260;
-    --hero-foreground: 0.97 0.005 260;
-    --map-muted: 0.58 0.02 260;
-    --map-border: 0.32 0.02 260;
+    --hero: 0.97 0 0;
+    --hero-foreground: 0.15 0 0;
+    --map-muted: 0.45 0 0;
+    --map-border: 0.82 0.008 260;
     --success: 0.55 0.14 155;
     --warning: 0.72 0.14 75;
     --radius: 0.5rem;
@@ -55,9 +55,9 @@
     --border: 0.26 0.015 260;
     --input: 0.26 0.015 260;
     --ring: 0.62 0.1 250;
-    --hero: 0.09 0.012 260;
-    --hero-foreground: 0.95 0.005 260;
-    --map-muted: 0.55 0.02 260;
+    --hero: 0.11 0.02 250;
+    --hero-foreground: 0.93 0.01 240;
+    --map-muted: 0.55 0.02 240;
     --map-border: 0.28 0.02 260;
     --success: 0.65 0.14 155;
     --warning: 0.78 0.14 75;

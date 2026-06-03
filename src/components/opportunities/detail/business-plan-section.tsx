@@ -265,12 +265,12 @@ export function BusinessPlanSection({ opportunity, animationIndex }: BusinessPla
       <SectionTitle number={6} title="Business plan + Simulateur MRR" />
 
       <div className="mb-6 flex items-center justify-between gap-4">
-        <p className="text-sm text-gray-500">Plan financier complet et projection personnalisée</p>
+        <p className="text-sm text-muted-foreground">Plan financier complet et projection personnalisée</p>
         <button
           type="button"
           onClick={handleDownloadPDF}
           disabled={isGenerating}
-          className="flex shrink-0 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-500 disabled:opacity-50"
+          className="flex shrink-0 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-blue-500 disabled:opacity-50"
         >
           {isGenerating ? (
             <>
@@ -287,93 +287,93 @@ export function BusinessPlanSection({ opportunity, animationIndex }: BusinessPla
       </div>
 
       <div className="mb-6 space-y-4">
-        <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6">
-          <p className="mb-4 text-xs uppercase tracking-widest text-gray-500">Résumé exécutif</p>
-          <p className="mb-4 text-sm leading-relaxed text-gray-300">{opportunity.pitch}</p>
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <p className="mb-4 text-xs uppercase tracking-widest text-muted-foreground">Résumé exécutif</p>
+          <p className="mb-4 text-sm leading-relaxed text-foreground/80">{opportunity.pitch}</p>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <div>
-              <p className="mb-1 text-xs text-gray-500">Prix cible</p>
-              <p className="text-xl font-bold text-white">
-                {realistic?.avgPrice}€<span className="text-sm text-gray-500">/mois</span>
+              <p className="mb-1 text-xs text-muted-foreground">Prix cible</p>
+              <p className="text-xl font-bold text-foreground">
+                {realistic?.avgPrice}€<span className="text-sm text-muted-foreground">/mois</span>
               </p>
             </div>
             <div>
-              <p className="mb-1 text-xs text-gray-500">Objectif 12 mois</p>
-              <p className="text-xl font-bold text-white">{realistic?.clients} clients</p>
+              <p className="mb-1 text-xs text-muted-foreground">Objectif 12 mois</p>
+              <p className="text-xl font-bold text-foreground">{realistic?.clients} clients</p>
             </div>
             <div>
-              <p className="mb-1 text-xs text-gray-500">MRR cible</p>
+              <p className="mb-1 text-xs text-muted-foreground">MRR cible</p>
               <p className="text-xl font-bold text-green-400">
                 {realistic?.mrr.toLocaleString("fr-FR")}€
               </p>
             </div>
             <div>
-              <p className="mb-1 text-xs text-gray-500">Marge brute</p>
-              <p className="text-xl font-bold text-white">{realistic?.grossMargin}%</p>
+              <p className="mb-1 text-xs text-muted-foreground">Marge brute</p>
+              <p className="text-xl font-bold text-foreground">{realistic?.grossMargin}%</p>
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6">
-          <p className="mb-4 text-xs uppercase tracking-widest text-gray-500">
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <p className="mb-4 text-xs uppercase tracking-widest text-muted-foreground">
             Marché & Opportunité
           </p>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
             <div>
-              <p className="mb-1 text-xs text-gray-500">Score global</p>
+              <p className="mb-1 text-xs text-muted-foreground">Score global</p>
               <p className="text-2xl font-black text-blue-400">
                 {opportunity.scores.opportunity}
-                <span className="text-sm text-gray-500">/100</span>
+                <span className="text-sm text-muted-foreground">/100</span>
               </p>
             </div>
             <div>
-              <p className="mb-1 text-xs text-gray-500">Adapté France</p>
-              <p className="text-2xl font-black text-white">
+              <p className="mb-1 text-xs text-muted-foreground">Adapté France</p>
+              <p className="text-2xl font-black text-foreground">
                 {opportunity.scores.franceFit}
-                <span className="text-sm text-gray-500">/10</span>
+                <span className="text-sm text-muted-foreground">/10</span>
               </p>
             </div>
             <div>
-              <p className="mb-1 text-xs text-gray-500">Facilité</p>
-              <p className="text-2xl font-black text-white">
+              <p className="mb-1 text-xs text-muted-foreground">Facilité</p>
+              <p className="text-2xl font-black text-foreground">
                 {opportunity.scores.buildability}
-                <span className="text-sm text-gray-500">/10</span>
+                <span className="text-sm text-muted-foreground">/10</span>
               </p>
             </div>
             <div>
-              <p className="mb-1 text-xs text-gray-500">Concurrence FR</p>
+              <p className="mb-1 text-xs text-muted-foreground">Concurrence FR</p>
               <span className="rounded-full bg-green-500/10 px-2 py-1 text-sm font-semibold text-green-400">
                 {franceCompetitionLabel(opportunity.franceCompetition)}
               </span>
             </div>
             <div>
-              <p className="mb-1 text-xs text-gray-500">Lancement</p>
+              <p className="mb-1 text-xs text-muted-foreground">Lancement</p>
               <span className="rounded-full bg-green-500/10 px-2 py-1 text-sm font-semibold text-green-400">
                 {opportunity.buildableUnder30Days ? "< 30 jours" : "30-60 jours"}
               </span>
             </div>
             <div>
-              <p className="mb-1 text-xs text-gray-500">Type</p>
-              <span className="rounded-full bg-blue-500/10 px-2 py-1 text-sm font-semibold text-blue-400">
+              <p className="mb-1 text-xs text-muted-foreground">Type</p>
+              <span className="rounded-full bg-primary/20 px-2 py-1 text-sm font-semibold text-blue-400">
                 {opportunity.clientType.toUpperCase()}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6">
-          <p className="mb-4 text-xs uppercase tracking-widest text-gray-500">
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <p className="mb-4 text-xs uppercase tracking-widest text-muted-foreground">
             Stratégie d&apos;acquisition
           </p>
           <div className="space-y-3">
             {opportunity.cacChannels.map((channel, i) => (
               <div
                 key={i}
-                className="flex items-center justify-between border-b border-gray-800 py-2 last:border-0"
+                className="flex items-center justify-between border-b border-border py-2 last:border-0"
               >
                 <div>
-                  <p className="text-sm font-medium text-white">{channel.channel}</p>
-                  <p className="mt-0.5 text-xs text-gray-500">{channel.note}</p>
+                  <p className="text-sm font-medium text-foreground">{channel.channel}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{channel.note}</p>
                 </div>
                 <span className="text-sm font-bold text-blue-400">~{channel.estimate}€ CAC</span>
               </div>
@@ -381,15 +381,15 @@ export function BusinessPlanSection({ opportunity, animationIndex }: BusinessPla
           </div>
         </div>
 
-        <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6">
-          <p className="mb-4 text-xs uppercase tracking-widest text-gray-500">
+        <div className="rounded-2xl border border-border bg-card p-6">
+          <p className="mb-4 text-xs uppercase tracking-widest text-muted-foreground">
             Stack technique recommandée
           </p>
           <div className="flex flex-wrap gap-2">
             {stack.map((tech, i) => (
               <span
                 key={i}
-                className="rounded-full border border-gray-700 bg-gray-800 px-3 py-1.5 text-xs text-gray-300"
+                className="rounded-full border border-border bg-muted px-3 py-1.5 text-xs text-foreground/80"
               >
                 {tech}
               </span>
@@ -398,9 +398,9 @@ export function BusinessPlanSection({ opportunity, animationIndex }: BusinessPla
         </div>
       </div>
 
-      <div className="rounded-2xl border border-gray-800 bg-gray-900 p-6">
-        <p className="mb-1 text-xs uppercase tracking-widest text-gray-500">Simulateur MRR</p>
-        <p className="mb-6 text-xs text-gray-600">
+      <div className="rounded-2xl border border-border bg-card p-6">
+        <p className="mb-1 text-xs uppercase tracking-widest text-muted-foreground">Simulateur MRR</p>
+        <p className="mb-6 text-xs text-muted-foreground/60">
           Pré-rempli avec les données de {opportunity.foreignInspiration?.split(" ")[0]} — ajuste
           selon ta situation
         </p>
@@ -436,8 +436,8 @@ export function BusinessPlanSection({ opportunity, animationIndex }: BusinessPla
             ].map((slider, i) => (
               <div key={i}>
                 <div className="mb-2 flex justify-between">
-                  <label className="text-sm text-gray-400">{slider.label}</label>
-                  <span className="text-sm font-semibold text-white">
+                  <label className="text-sm text-muted-foreground">{slider.label}</label>
+                  <span className="text-sm font-semibold text-foreground">
                     {slider.value}
                     {slider.unit}
                   </span>
@@ -460,26 +460,26 @@ export function BusinessPlanSection({ opportunity, animationIndex }: BusinessPla
                 setCac(opportunity.cacChannels[0]?.estimate ?? 120);
                 setNewClients(realistic ? Math.round(realistic.clients / 12) : 8);
               }}
-              className="text-xs text-gray-600 transition-colors hover:text-gray-400"
+              className="text-xs text-muted-foreground/60 transition-colors hover:text-muted-foreground"
             >
               ↺ Réinitialiser
             </button>
           </div>
 
           <div className="space-y-3">
-            <div className="rounded-xl border border-gray-800 bg-gray-950 p-5">
-              <p className="mb-1 text-xs text-gray-500">MRR à 12 mois</p>
+            <div className="rounded-xl border border-border bg-background p-5">
+              <p className="mb-1 text-xs text-muted-foreground">MRR à 12 mois</p>
               <p className="text-4xl font-black text-green-400">
                 {mrr12.toLocaleString("fr-FR")}€
               </p>
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-xl border border-gray-800 bg-gray-950 p-4 text-center">
-                <p className="mb-1 text-xs text-gray-500">Break-even</p>
-                <p className="text-lg font-bold text-white">M{breakEven}</p>
+              <div className="rounded-xl border border-border bg-background p-4 text-center">
+                <p className="mb-1 text-xs text-muted-foreground">Break-even</p>
+                <p className="text-lg font-bold text-foreground">M{breakEven}</p>
               </div>
-              <div className="rounded-xl border border-gray-800 bg-gray-950 p-4 text-center">
-                <p className="mb-1 text-xs text-gray-500">LTV/CAC</p>
+              <div className="rounded-xl border border-border bg-background p-4 text-center">
+                <p className="mb-1 text-xs text-muted-foreground">LTV/CAC</p>
                 <p
                   className={cn(
                     "text-lg font-bold",
@@ -489,9 +489,9 @@ export function BusinessPlanSection({ opportunity, animationIndex }: BusinessPla
                   {ltvcac}x
                 </p>
               </div>
-              <div className="rounded-xl border border-gray-800 bg-gray-950 p-4 text-center">
-                <p className="mb-1 text-xs text-gray-500">LTV</p>
-                <p className="text-lg font-bold text-white">{ltv.toLocaleString("fr-FR")}€</p>
+              <div className="rounded-xl border border-border bg-background p-4 text-center">
+                <p className="mb-1 text-xs text-muted-foreground">LTV</p>
+                <p className="text-lg font-bold text-foreground">{ltv.toLocaleString("fr-FR")}€</p>
               </div>
             </div>
           </div>

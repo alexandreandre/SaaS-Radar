@@ -57,7 +57,7 @@ const TOOL_META: Record<
 const DEFAULT_TOOL_META = {
   logoUrl: "",
   url: "https://google.com",
-  color: "text-gray-400",
+  color: "text-muted-foreground",
   toolName: "Outil recommandé",
 };
 
@@ -93,7 +93,7 @@ function CopyBtn({ text }: { text: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }}
-      className="flex items-center gap-1.5 rounded-lg bg-gray-800 px-3 py-1.5 text-xs text-gray-400 transition-colors hover:bg-gray-700 hover:text-white"
+      className="flex items-center gap-1.5 rounded-lg bg-muted px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
     >
       {copied ? (
         <>
@@ -298,7 +298,7 @@ Je cherche des partenaires dans [secteur] pour un programme de referral — comm
       className="mb-12 scroll-mt-24"
     >
       <SectionTitle number={7} title="Trouver tes clients" />
-      <p className="mb-6 text-sm text-gray-500">
+      <p className="mb-6 text-sm text-muted-foreground">
         Les canaux qui convertissent — tactiques concrètes et outils cliquables
       </p>
 
@@ -315,11 +315,11 @@ Je cherche des partenaires dans [secteur] pour un programme de referral — comm
               key={tab.id ?? i}
               className={cn(
                 "overflow-hidden rounded-xl border transition-colors",
-                isOpen ? "border-gray-700 bg-gray-900" : "border-gray-800 bg-gray-900/40",
+                isOpen ? "border-border bg-card" : "border-border bg-muted/20",
               )}
             >
               <div className="flex items-center gap-3 p-4">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-800">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
                   <img
                     src={`https://www.google.com/s2/favicons?domain=${faviconDomain}&sz=32`}
                     alt={tab.title}
@@ -331,7 +331,7 @@ Je cherche des partenaires dans [secteur] pour un programme de referral — comm
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="font-semibold text-white">{tab.title}</p>
+                    <p className="font-semibold text-foreground">{tab.title}</p>
                     {meta.url !== "#" && (
                       <a
                         href={meta.url}
@@ -349,7 +349,7 @@ Je cherche des partenaires dans [secteur] pour un programme de referral — comm
                       <span className={cn("text-xs", meta.color)}>{meta.toolName}</span>
                     )}
                   </div>
-                  <p className="mt-0.5 text-xs text-gray-500">CAC : ~{cacEstimate ?? "?"}€</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">CAC : ~{cacEstimate ?? "?"}€</p>
                 </div>
                 <button
                   type="button"
@@ -364,8 +364,8 @@ Je cherche des partenaires dans [secteur] pour un programme de referral — comm
               <div className="px-4 pb-4 pl-14">
                 <ul className="space-y-1">
                   {tab.tactics.map((tactic, j) => (
-                    <li key={j} className="flex items-start gap-2 text-sm text-gray-400">
-                      <span className="mt-1 shrink-0 text-gray-600">→</span>
+                    <li key={j} className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <span className="mt-1 shrink-0 text-muted-foreground/60">→</span>
                       {tactic}
                     </li>
                   ))}
@@ -373,7 +373,7 @@ Je cherche des partenaires dans [secteur] pour un programme de referral — comm
               </div>
 
               {isOpen && (
-                <div className="border-t border-gray-800 p-4">
+                <div className="border-t border-border p-4">
                   <div className="mb-4 flex gap-2">
                     {(
                       [
@@ -389,8 +389,8 @@ Je cherche des partenaires dans [secteur] pour un programme de referral — comm
                         className={cn(
                           "rounded-lg px-3 py-1.5 text-xs transition-colors",
                           generatorType === t.id
-                            ? "bg-purple-600 text-white"
-                            : "bg-gray-800 text-gray-400 hover:text-white",
+                            ? "bg-purple-600 text-foreground"
+                            : "bg-muted text-muted-foreground hover:text-foreground",
                         )}
                       >
                         {t.label}
@@ -399,7 +399,7 @@ Je cherche des partenaires dans [secteur] pour un programme de referral — comm
                   </div>
 
                   <div className="relative">
-                    <div className="rounded-xl border border-gray-800 bg-gray-950 p-4">
+                    <div className="rounded-xl border border-gray-700 bg-gray-950 p-4 dark:border-gray-700 dark:bg-gray-950">
                       <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-gray-300">
                         {generatedContent}
                       </pre>
