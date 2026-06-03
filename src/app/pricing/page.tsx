@@ -77,78 +77,138 @@ function AnimatedPrice({ value }: { value: string }) {
   );
 }
 
+function PriceBlock({ monthly }: { monthly: boolean }) {
+  return (
+    <>
+      <div className="mb-1 flex items-end gap-2">
+        <p className="font-display text-4xl font-medium tabular-nums text-foreground">
+          <AnimatedPrice value={monthly ? "XX€" : "XX€"} />
+        </p>
+        <p className="mb-1 text-sm text-muted-foreground">/mois</p>
+      </div>
+      <p className="text-xs text-muted-foreground">Prix à confirmer</p>
+    </>
+  );
+}
+
 export default function PricingPage() {
   const [monthly, setMonthly] = useState(true);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <Navbar dark />
+    <div className="min-h-screen bg-background text-foreground">
+      <Navbar />
       <main>
-        <section className="px-4 py-16 text-center">
-          <p className="mb-3 text-xs font-medium uppercase tracking-widest text-blue-400">Tarifs</p>
-          <h1 className="mb-4 text-4xl font-bold tracking-tight text-white sm:text-5xl">
-            Lancez votre micro-SaaS.
+        <section className="px-4 py-20 text-center">
+          <p className="mb-4 font-data text-xs font-medium uppercase tracking-widest text-primary">
+            Tarifs
+          </p>
+          <h1 className="mb-4 font-display text-4xl font-medium tracking-tight text-foreground sm:text-5xl">
+            Trouvez votre micro-SaaS.
             <br />
-            <span className="text-blue-400">Pas votre budget.</span>
+            <span className="text-muted-foreground">Lancez-le en 14 jours.</span>
           </h1>
-          <p className="mx-auto max-w-xl text-lg text-gray-400">
-            Accédez aux opportunités validées, aux guides complets et aux prompts Claude Code pour
-            lancer en 14 jours.
+          <p className="mx-auto mb-8 max-w-xl text-lg text-muted-foreground">
+            Opportunités validées, guides complets et prompts Claude Code — ou achetez une seule
+            fiche si vous avez déjà votre idée.
           </p>
 
-          <div className="mt-8 flex items-center justify-center gap-3">
-            <span className={monthly ? "text-white" : "text-gray-500"}>Mensuel</span>
+          <div className="flex items-center justify-center gap-3">
+            <span
+              className={cn(
+                "text-sm font-medium transition-colors",
+                monthly ? "text-foreground" : "text-muted-foreground"
+              )}
+            >
+              Mensuel
+            </span>
             <button
               type="button"
               onClick={() => setMonthly(!monthly)}
-              aria-label={monthly ? "Passer à la facturation annuelle" : "Passer à la facturation mensuelle"}
+              aria-label={
+                monthly
+                  ? "Passer à la facturation annuelle"
+                  : "Passer à la facturation mensuelle"
+              }
               className={cn(
-                "relative h-6 w-12 rounded-full transition-colors",
-                monthly ? "bg-gray-700" : "bg-blue-600"
+                "relative h-6 w-12 rounded-full border border-border transition-colors",
+                monthly ? "bg-muted" : "bg-primary"
               )}
             >
               <span
                 className={cn(
-                  "absolute top-1 h-4 w-4 rounded-full bg-white transition-transform",
+                  "absolute top-1 h-4 w-4 rounded-full bg-background transition-transform",
                   monthly ? "left-1" : "left-7"
                 )}
               />
             </button>
             <span
               className={cn(
-                "flex items-center gap-2",
-                !monthly ? "text-white" : "text-gray-500"
+                "flex items-center gap-2 text-sm font-medium transition-colors",
+                !monthly ? "text-foreground" : "text-muted-foreground"
               )}
             >
               Annuel
-              <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs font-medium text-green-400">
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                 -20%
               </span>
             </span>
           </div>
         </section>
 
-        <section className="mx-auto grid max-w-5xl grid-cols-1 gap-6 px-4 md:grid-cols-3">
+        <section className="mx-auto mb-12 max-w-2xl px-4">
+          <div className="flex flex-col items-stretch justify-between gap-6 rounded-2xl border border-border bg-muted/20 p-6 sm:flex-row sm:items-center">
+            <div>
+              <p className="mb-1 font-data text-xs uppercase tracking-widest text-muted-foreground">
+                Pas encore prêt pour un abonnement ?
+              </p>
+              <h3 className="mb-1 font-display text-xl font-medium text-foreground">
+                Achetez une opportunité à la carte
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                Accédez à une seule fiche complète — guide, business plan, prompt Claude Code
+                inclus.
+              </p>
+            </div>
+            <div className="shrink-0 text-left sm:text-right">
+              <p className="text-3xl font-bold text-foreground">
+                X€
+                <span className="ml-1 text-sm font-normal text-muted-foreground">/fiche</span>
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">Prix à confirmer</p>
+              <Link
+                href="/opportunities"
+                className="mt-3 inline-block rounded-xl bg-foreground px-5 py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90"
+              >
+                Choisir une opportunité →
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto grid max-w-5xl grid-cols-1 gap-6 px-4 pb-16 md:grid-cols-3">
           <motion.div
             custom={0}
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-40px" }}
             variants={cardVariants}
-            className="rounded-2xl border border-gray-800 bg-gray-900/50 p-8"
+            className="rounded-2xl border border-border bg-muted/20 p-8"
           >
-            <p className="mb-1 text-sm font-medium text-gray-400">Free</p>
-            <p className="mb-1 text-4xl font-bold text-white">0€</p>
-            <p className="mb-6 text-sm text-gray-500">Pour toujours</p>
+            <p className="mb-1 text-sm font-medium text-muted-foreground">Free</p>
+            <p className="mb-1 font-display text-4xl font-medium tabular-nums text-foreground">
+              0€
+            </p>
+            <p className="mb-6 text-sm text-muted-foreground">Pour toujours</p>
 
             <Link
               href="/opportunities"
-              className="mb-8 block w-full rounded-xl border border-gray-700 py-2.5 text-center font-medium text-gray-300 transition-colors hover:border-gray-500"
+              className="mb-8 block w-full rounded-xl border border-border py-2.5 text-center font-medium text-foreground transition-colors hover:bg-muted/30"
             >
               Commencer gratuitement
             </Link>
 
-            <ul className="space-y-3 text-sm text-gray-400">
+            <ul className="space-y-3 text-sm text-muted-foreground">
               {[
                 "3 opportunités / mois",
                 "Scores et pitch de chaque idée",
@@ -157,7 +217,7 @@ export default function PricingPage() {
                 "Simulateur MRR",
               ].map((f) => (
                 <li key={f} className="flex items-center gap-2">
-                  <Check className="h-4 w-4 shrink-0 text-gray-600" />
+                  <Check className="h-4 w-4 shrink-0 text-primary" />
                   {f}
                 </li>
               ))}
@@ -176,53 +236,27 @@ export default function PricingPage() {
             whileInView="visible"
             viewport={{ once: true, margin: "-40px" }}
             variants={cardVariants}
-            className="relative overflow-hidden rounded-2xl border border-blue-500/50 bg-blue-950/20 p-8 shadow-[0_0_40px_rgba(59,130,246,0.15)]"
+            className="relative mt-6"
           >
-            <motion.div
-              aria-hidden
-              className="pointer-events-none absolute inset-0 rounded-2xl shadow-[0_0_60px_rgba(59,130,246,0.35)]"
-              animate={{ opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-            />
-
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-              <span className="rounded-full bg-blue-600 px-4 py-1 text-xs font-semibold text-white">
+            <div className="absolute -top-3.5 left-1/2 z-10 -translate-x-1/2">
+              <span className="whitespace-nowrap rounded-full bg-primary px-4 py-1 text-xs font-semibold text-primary-foreground">
                 LE PLUS POPULAIRE
               </span>
             </div>
 
-            <div className="relative">
-              <p className="mb-1 text-sm font-medium text-blue-400">Builder</p>
-              <div className="mb-1 flex items-end gap-2">
-                <p className="text-4xl font-bold text-white">
-                  <AnimatedPrice value={monthly ? "29€" : "23€"} />
-                </p>
-                <p className="mb-1 text-sm text-gray-400">/mois</p>
-              </div>
-              <AnimatePresence mode="wait">
-                {!monthly && (
-                  <motion.p
-                    key="builder-annual"
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.25 }}
-                    className="mb-1 text-xs text-green-400"
-                  >
-                    facturé 276€/an — économisez 72€
-                  </motion.p>
-                )}
-              </AnimatePresence>
-              <p className="mb-6 text-sm text-gray-500">Tout ce qu&apos;il faut pour lancer</p>
+            <div className="rounded-2xl border border-primary/50 bg-primary/5 p-8">
+              <p className="mb-1 text-sm font-medium text-primary">Builder</p>
+              <PriceBlock monthly={monthly} />
+              <p className="mb-6 mt-4 text-sm text-muted-foreground">Tout ce qu&apos;il faut pour lancer</p>
 
               <Link
                 href="/checkout/builder"
-                className="mb-8 block w-full rounded-xl bg-blue-600 py-2.5 text-center font-semibold text-white transition-colors hover:bg-blue-500"
+                className="mb-8 block w-full rounded-xl bg-primary py-2.5 text-center font-semibold text-primary-foreground transition-opacity hover:opacity-90"
               >
                 Commencer avec Builder →
               </Link>
 
-              <ul className="space-y-3 text-sm text-gray-300">
+              <ul className="space-y-3 text-sm text-foreground">
                 {[
                   "Tout le plan Free",
                   "Opportunités illimitées",
@@ -235,7 +269,7 @@ export default function PricingPage() {
                   "Accès aux archives complètes",
                 ].map((f) => (
                   <li key={f} className="flex items-center gap-2">
-                    <Check className="h-4 w-4 shrink-0 text-blue-400" />
+                    <Check className="h-4 w-4 shrink-0 text-primary" />
                     {f}
                   </li>
                 ))}
@@ -255,39 +289,20 @@ export default function PricingPage() {
             whileInView="visible"
             viewport={{ once: true, margin: "-40px" }}
             variants={cardVariants}
-            className="rounded-2xl border border-gray-700 bg-gray-900/50 p-8"
+            className="rounded-2xl border border-border bg-muted/20 p-8"
           >
-            <p className="mb-1 text-sm font-medium text-purple-400">Pro</p>
-            <div className="mb-1 flex items-end gap-2">
-              <p className="text-4xl font-bold text-white">
-                <AnimatedPrice value={monthly ? "79€" : "63€"} />
-              </p>
-              <p className="mb-1 text-sm text-gray-400">/mois</p>
-            </div>
-            <AnimatePresence mode="wait">
-              {!monthly && (
-                <motion.p
-                  key="pro-annual"
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.25 }}
-                  className="mb-1 text-xs text-green-400"
-                >
-                  facturé 756€/an — économisez 192€
-                </motion.p>
-              )}
-            </AnimatePresence>
-            <p className="mb-6 text-sm text-gray-500">Pour aller vite et bien</p>
+            <p className="mb-1 text-sm font-medium text-muted-foreground">Pro</p>
+            <PriceBlock monthly={monthly} />
+            <p className="mb-6 mt-4 text-sm text-muted-foreground">Pour aller vite et bien</p>
 
             <Link
               href="/checkout/pro"
-              className="mb-8 block w-full rounded-xl border border-purple-500/50 py-2.5 text-center font-semibold text-purple-400 transition-colors hover:bg-purple-500/10"
+              className="mb-8 block w-full rounded-xl border border-border py-2.5 text-center font-semibold text-foreground transition-colors hover:bg-muted/30"
             >
               Commencer avec Pro →
             </Link>
 
-            <ul className="space-y-3 text-sm text-gray-300">
+            <ul className="space-y-3 text-sm text-foreground">
               {[
                 "Tout le plan Builder",
                 "Prompt Claude Code complet",
@@ -298,7 +313,7 @@ export default function PricingPage() {
                 "Support email prioritaire",
               ].map((f) => (
                 <li key={f} className="flex items-center gap-2">
-                  <Check className="h-4 w-4 shrink-0 text-purple-400" />
+                  <Check className="h-4 w-4 shrink-0 text-primary" />
                   {f}
                 </li>
               ))}
@@ -307,22 +322,22 @@ export default function PricingPage() {
         </section>
 
         <section className="mx-auto max-w-4xl px-4 py-16">
-          <h2 className="mb-10 text-center text-2xl font-bold text-white">
+          <h2 className="mb-10 text-center font-display text-2xl font-medium tracking-tight text-foreground">
             Ils ont lancé avec SaaS Radar
           </h2>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             {testimonials.map((t) => (
-              <div key={t.name} className="rounded-xl border border-gray-800 bg-gray-900 p-6">
-                <p className="mb-3 text-yellow-400">★★★★★</p>
-                <p className="mb-4 text-sm italic text-gray-300">&ldquo;{t.quote}&rdquo;</p>
+              <div key={t.name} className="rounded-xl border border-border bg-muted/20 p-6">
+                <p className="mb-3 text-primary">★★★★★</p>
+                <p className="mb-4 text-sm italic text-muted-foreground">&ldquo;{t.quote}&rdquo;</p>
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-white">{t.name}</p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-sm font-medium text-foreground">{t.name}</p>
+                    <p className="text-xs text-muted-foreground">
                       {t.location} · {t.plan}
                     </p>
                   </div>
-                  <span className="rounded-full bg-green-500/10 px-2 py-1 text-xs font-medium text-green-400">
+                  <span className="rounded-full bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
                     {t.mrr}
                   </span>
                 </div>
@@ -332,17 +347,39 @@ export default function PricingPage() {
         </section>
 
         <section className="mx-auto max-w-2xl px-4 py-8 pb-20">
-          <h2 className="mb-8 text-center text-2xl font-bold text-white">Questions fréquentes</h2>
-          <div className="space-y-4">
-            {faqItems.map((item) => (
-              <details key={item.q} className="group overflow-hidden rounded-xl border border-gray-800">
-                <summary className="flex cursor-pointer items-center justify-between p-5 font-medium text-white transition-colors hover:bg-gray-900/50">
-                  {item.q}
-                  <ChevronDown className="h-4 w-4 text-gray-500 transition-transform group-open:rotate-180" />
-                </summary>
-                <div className="px-5 pb-5 text-sm leading-relaxed text-gray-400">{item.a}</div>
-              </details>
-            ))}
+          <h2 className="mb-8 text-center font-display text-2xl font-medium tracking-tight text-foreground">
+            Questions fréquentes
+          </h2>
+          <div className="space-y-3">
+            {faqItems.map((item, index) => {
+              const isOpen = openFaq === index;
+              return (
+                <div
+                  key={item.q}
+                  className="overflow-hidden rounded-xl border border-border"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaq(isOpen ? null : index)}
+                    className="flex w-full items-center justify-between p-5 text-left transition-colors hover:bg-muted/30"
+                    aria-expanded={isOpen}
+                  >
+                    <span className="font-medium text-foreground">{item.q}</span>
+                    <ChevronDown
+                      className={cn(
+                        "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
+                        isOpen && "rotate-180"
+                      )}
+                    />
+                  </button>
+                  {isOpen && (
+                    <div className="border-t border-border px-5 pb-5 pt-4 text-sm leading-relaxed text-muted-foreground">
+                      {item.a}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </section>
       </main>
