@@ -101,7 +101,7 @@ export const newsArticles: NewsArticle[] = [
   {
     id: "a1",
     slug: "reception-ia-dentaire-france",
-    title: "Personne ne répond au téléphone des dentistes français — et ça coûte 400 € par appel",
+    title: "Les dentistes perdent 400€ par appel manqué",
     excerpt:
       "Arini fait 42k$ MRR aux US. En France, les cabinets perdent des RDV chaque jour. Voici pourquoi c'est encore vide.",
     body: [
@@ -120,7 +120,7 @@ export const newsArticles: NewsArticle[] = [
   {
     id: "a2",
     slug: "agents-ia-pme-2026",
-    title: "Les agents IA ne remplacent pas les SaaS — ils en créent des milliers",
+    title: "Les agents IA créent des milliers de micro-SaaS",
     excerpt:
       "Arrêtez de chercher le « ChatGPT killer ». Les PME veulent des agents qui font une tâche, pas un cerveau généraliste.",
     body: [
@@ -136,7 +136,7 @@ export const newsArticles: NewsArticle[] = [
   {
     id: "a3",
     slug: "stripe-atlas-france",
-    title: "Stripe Atlas débarque en France — la barrière « je ne sais pas créer ma boîte » s'effondre",
+    title: "Stripe Atlas en France — créer sa boîte en 48h",
     excerpt:
       "Création SAS + compte pro en 48 h. Pour les indie hackers, c'est un accélérateur invisible.",
     body: [
@@ -151,7 +151,7 @@ export const newsArticles: NewsArticle[] = [
   {
     id: "a4",
     slug: "rappels-sms-kine-boring",
-    title: "Le SaaS le plus ennuyeux du mois fait 11k MRR — et les kinés français sont la cible",
+    title: "11k MRR avec des rappels SMS pour kinés",
     excerpt:
       "ReminderMeds US. 23 % de no-shows en France. Un SMS automatique suffit.",
     body: [
@@ -167,7 +167,7 @@ export const newsArticles: NewsArticle[] = [
   {
     id: "a5",
     slug: "claude-code-micro-saas",
-    title: "Claude Code ne code pas votre SaaS — il accélère le fondateur qui sait quoi construire",
+    title: "Claude Code accélère les fondateurs qui savent quoi construire",
     excerpt:
       "Le prompt sans le marché = un side project de plus. Le marché sans le prompt = six mois de dev.",
     body: [
@@ -182,7 +182,7 @@ export const newsArticles: NewsArticle[] = [
   {
     id: "a6",
     slug: "ai-act-sante-saas",
-    title: "L'AI Act resserre le coude sur les SaaS santé — voici ce qui change en juin",
+    title: "AI Act santé — ce qui change en juin",
     excerpt:
       "Hébergement, consentement, données patients : trois points qui tuent les MVPs mal cadrés.",
     body: [
@@ -197,7 +197,7 @@ export const newsArticles: NewsArticle[] = [
   {
     id: "a7",
     slug: "devis-btp-artisans",
-    title: "380 000 artisans utilisent Word pour leurs devis — un seul SaaS UK en profite",
+    title: "380 000 artisans font leurs devis sur Word",
     excerpt:
       "BuildQuote à 28k MRR. Obat lève en France. La fenêtre se referme.",
     body: [
@@ -213,7 +213,7 @@ export const newsArticles: NewsArticle[] = [
   {
     id: "a8",
     slug: "cursor-agent-teams",
-    title: "Cursor « agent team » : la fin du solo dev ou le début du studio à 2 ?",
+    title: "Cursor agent team — solo dev ou studio à 2 ?",
     excerpt:
       "Un humain, trois agents. Le coût d'un MVP chute encore — la différenciation monte en distribution.",
     body: [
@@ -228,7 +228,7 @@ export const newsArticles: NewsArticle[] = [
   {
     id: "a9",
     slug: "product-hunt-mort-vivant",
-    title: "Product Hunt n'est pas mort — il a changé de couche",
+    title: "Product Hunt a changé — les verticals B2B percent",
     excerpt:
       "Les lancements « IA généraliste » noient le feed. Les verticals B2B boring percent.",
     body: [
@@ -242,7 +242,7 @@ export const newsArticles: NewsArticle[] = [
   {
     id: "a10",
     slug: "portail-comptable-fr",
-    title: "Les comptables détestent les emails de pièces — 22 000 cabinets attendent un portail",
+    title: "22 000 cabinets comptables attendent un portail client",
     excerpt:
       "ClientPortal US à 19k MRR. Pennylane s'approche. Il reste une place pour le spécialiste.",
     body: [

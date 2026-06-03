@@ -55,7 +55,7 @@ export function ArticlesFeed() {
           ))}
         </div>
 
-        <div className="mt-2" role="tabpanel">
+        <div className="mt-1" role="tabpanel">
           {articles.length > 0 ? (
             articles.map((article) => {
               const locked =

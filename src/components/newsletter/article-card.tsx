@@ -23,7 +23,7 @@ export function ArticleCard({
     <article
       className={cn(
         "group block border-b border-border last:border-0",
-        compact ? "py-3.5" : "py-6",
+        compact ? "py-2.5" : "py-4",
         locked && "opacity-80"
       )}
     >
