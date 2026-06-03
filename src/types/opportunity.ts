@@ -31,6 +31,27 @@ export interface TractionSignal {
   label: string;
   value: string;
   source: string;
+  sourceUrl?: string;
+}
+
+export interface TractionHighlight {
+  label: string;
+  value: string;
+  source: string;
+  sourceUrl?: string;
+}
+
+export type WhyItWorksItem =
+  | string
+  | {
+      fact: string;
+      detail?: string;
+      source?: string;
+      sourceUrl?: string;
+    };
+
+export function getWhyItWorksFact(item: WhyItWorksItem): string {
+  return typeof item === "string" ? item : item.fact;
 }
 
 export interface FinancialScenario {
@@ -129,7 +150,8 @@ export interface ForeignMarketProfile {
   keyFeatures: string[];
   howItWorks: string;
   whyItWorksThere: string[];
-  tractionHighlights: TractionSignal[];
+  tractionHighlights: TractionHighlight[];
+  franceAdaptation?: string[];
 }
 
 export interface Opportunity {
@@ -154,7 +176,7 @@ export interface Opportunity {
   scores: Scores;
   franceFitCriteria: FranceFitCriteria;
   tractionSignals: TractionSignal[];
-  whyItWorks: string[];
+  whyItWorks: WhyItWorksItem[];
   franceAnalysis: string[];
   financialScenarios: FinancialScenario[];
   cacChannels: CacChannel[];
@@ -163,6 +185,7 @@ export interface Opportunity {
   acquisition: AcquisitionTab[];
   entrepreneursBuilding: number;
   foreignInspiration: string;
+  url?: string;
   foreignMarketProfile?: ForeignMarketProfile;
   createdAt: string;
   weeklyPick?: boolean;

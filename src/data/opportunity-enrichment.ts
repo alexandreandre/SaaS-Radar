@@ -10,6 +10,7 @@ import type {
   RoiInput,
   TamBreakdown,
 } from "@/types/opportunity";
+import { getWhyItWorksFact } from "@/types/opportunity";
 
 export function defaultForeignMarketProfile(opportunity: Opportunity): ForeignMarketProfile {
   const inspiration = opportunity.foreignInspiration;
@@ -19,7 +20,9 @@ export function defaultForeignMarketProfile(opportunity: Opportunity): ForeignMa
     country: opportunity.originCountry,
     flag: opportunity.originFlag,
     tagline: opportunity.pitch,
-    problemSolved: opportunity.whyItWorks[0] ?? opportunity.pitch,
+    problemSolved: opportunity.whyItWorks[0]
+      ? getWhyItWorksFact(opportunity.whyItWorks[0])
+      : opportunity.pitch,
     targetUsers: opportunity.targetClient,
     businessModel: "Abonnement SaaS B2B, facturation mensuelle par établissement ou utilisateur.",
     pricing:
@@ -28,7 +31,7 @@ export function defaultForeignMarketProfile(opportunity: Opportunity): ForeignMa
     keyFeatures: opportunity.mvpPlan.features,
     howItWorks:
       `Le produit cible ${opportunity.targetClient.toLowerCase()} : prise en charge du workflow critique, tableaux de bord simples, intégrations natives au marché local. Le positionnement reste vertical et « une douleur = une feature star ».`,
-    whyItWorksThere: opportunity.whyItWorks,
+    whyItWorksThere: opportunity.whyItWorks.map(getWhyItWorksFact),
     tractionHighlights: opportunity.tractionSignals,
   };
 }
@@ -206,10 +209,15 @@ const featuredOverrides: Partial<Record<string, Partial<Opportunity>>> = {
         "Peu de concurrence IA verticale dentaire en 2023–2024 ; first mover sur la niche.",
       ],
       tractionHighlights: [
-        { label: "MRR estimé", value: "~42 000 $", source: "GetLatka / estim. marché" },
-        { label: "Cabinets clients", value: "140+", source: "Site + LinkedIn fondateur" },
-        { label: "Trafic organique", value: "28k visites/mois", source: "SimilarWeb" },
-        { label: "Presse / communauté", value: "Product Hunt #2 du jour", source: "PH 2024" },
+        { label: "MRR estimé", value: "~42 000 $", source: "GetLatka", sourceUrl: "https://getlatka.com" },
+        { label: "Cabinets clients", value: "140+", source: "LinkedIn fondateur", sourceUrl: "https://linkedin.com" },
+        { label: "Trafic organique", value: "28k visites/mois", source: "SimilarWeb", sourceUrl: "https://similarweb.com" },
+        { label: "Presse / communauté", value: "Product Hunt #2", source: "PH 2024", sourceUrl: "https://producthunt.com" },
+      ],
+      franceAdaptation: [
+        "La problématique existe : 68% des cabinets indépendants n'ont pas de standard téléphonique dédié.",
+        "Clients équivalents : 28 000 cabinets dentaires privés en France. Cible idéale : 1-3 dentistes, hors groupes.",
+        "Blockers : certification HDS si stockage de données patients. Solution : ne stocker que métadonnées RDV, pas dossiers médicaux.",
       ],
     },
     infraCosts: defaultInfraCosts(true),

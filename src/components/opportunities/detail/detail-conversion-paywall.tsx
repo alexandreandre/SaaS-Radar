@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
 import type { Opportunity } from "@/types/opportunity";
+import { getWhyItWorksFact } from "@/types/opportunity";
 import { detailSections, getLockedGuideTeasers } from "@/components/opportunities/detail/detail-sections";
 import { Button } from "@/components/ui/button";
 import { tierPrices } from "@/lib/tier";
@@ -53,7 +54,7 @@ export function DetailConversionPaywall({ opportunity }: { opportunity: Opportun
                   <span className="shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden>
                     ✓
                   </span>
-                  <span>{text}</span>
+                  <span>{getWhyItWorksFact(text)}</span>
                 </li>
               ))}
             </ul>

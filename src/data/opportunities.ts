@@ -94,15 +94,33 @@ export const opportunities: Opportunity[] = [
       cultureFit: "Fort — les cabinets français perdent des RDV par téléphone occupé",
     },
     tractionSignals: [
-      { label: "MRR concurrent US", value: "$42k", source: "GetLatka" },
-      { label: "Backlinks", value: "1,240", source: "Ahrefs" },
-      { label: "Mentions Reddit/IH", value: "89", source: "Reddit + IH" },
-      { label: "Avis App Store", value: "4.6★ (312)", source: "App Store" },
+      { label: "MRR concurrent US", value: "$42k", source: "GetLatka", sourceUrl: "https://getlatka.com" },
+      { label: "Backlinks", value: "1,240", source: "Ahrefs", sourceUrl: "https://ahrefs.com" },
+      { label: "Mentions Reddit/IH", value: "89", source: "Reddit + IH", sourceUrl: "https://www.indiehackers.com" },
+      { label: "Avis App Store", value: "4.6★ (312)", source: "App Store", sourceUrl: "https://apps.apple.com" },
     ],
     whyItWorks: [
-      "Les cabinets dentaires perdent en moyenne 15-20% des appels entrants. Chaque appel manqué = 150-400€ de soin non capturé.",
-      "Le modèle US facture 299-599$/mois par cabinet. La douleur est immédiate et le ROI se calcule en une semaine.",
-      "L'IA vocale française a atteint un niveau de qualité acceptable en 2024-2025. Les cabinets cherchent des alternatives aux réceptionnistes à temps partiel difficiles à recruter.",
+      {
+        fact: "Les cabinets dentaires perdent en moyenne 15-20% des appels entrants.",
+        detail:
+          "Chaque appel manqué représente 150-400€ de soin non capturé. Sur une année, un cabinet de 2 praticiens perd entre 18 000€ et 48 000€ de chiffre d'affaires potentiel uniquement à cause des appels non répondus. La cause principale : l'assistante est en consultation ou en pause.",
+        source: "Etude ADF 2023",
+        sourceUrl: "https://www.adf.asso.fr",
+      },
+      {
+        fact: "Le modèle US facture 299-599$/mois par cabinet avec un ROI calculable en une semaine.",
+        detail:
+          "Arini, le leader US, affiche 42k$ de MRR avec ~100 cabinets clients. Le pitch de vente est simple : 'Si on vous récupère 2 RDV manqués par semaine, on se rembourse en 3 jours.' C'est l'un des rares SaaS B2B où le ROI est immédiatement quantifiable pour le client.",
+        source: "GetLatka — Arini revenue data",
+        sourceUrl: "https://getlatka.com",
+      },
+      {
+        fact: "L'IA vocale française a atteint un niveau de qualité acceptable en 2024-2025.",
+        detail:
+          "Les modèles TTS/STT en français (ElevenLabs, Deepgram, Vapi) ont fait des bonds considérables. Les cabinets cherchent des alternatives aux réceptionnistes à temps partiel, de plus en plus difficiles à recruter et fidéliser. Le timing est parfait : la technologie est prête, le besoin est urgent.",
+        source: "Rapport Dares 2024",
+        sourceUrl: "https://dares.travail-emploi.gouv.fr",
+      },
     ],
     franceAnalysis: [
       "La problématique existe : 68% des cabinets indépendants n'ont pas de standard téléphonique dédié.",

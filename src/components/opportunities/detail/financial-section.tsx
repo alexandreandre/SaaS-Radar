@@ -17,7 +17,7 @@ export function FinancialSection({ opportunity, animationIndex }: FinancialSecti
       animationIndex={animationIndex}
       className="mb-12 scroll-mt-24"
     >
-      <SectionTitle number={6} title="Potentiel financier" />
+      <SectionTitle number={3} title="Potentiel financier" />
       <p className="text-sm text-gray-500 mb-6">
         Projection MRR réaliste — basée sur les données du marché US adapté à la France
       </p>

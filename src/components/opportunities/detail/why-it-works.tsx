@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion";
 import type { Opportunity } from "@/types/opportunity";
+import { getWhyItWorksFact } from "@/types/opportunity";
 import { getWhyItWorksSources } from "@/components/opportunities/detail/detail-sections";
 import { cn } from "@/lib/utils";
 
@@ -47,7 +48,7 @@ export function WhyItWorks({ opportunity }: { opportunity: Opportunity }) {
               ✓
             </span>
             <div className="min-w-0">
-              <span>{text}</span>
+              <span>{getWhyItWorksFact(text)}</span>
               {sources[i] && (
                 <p className="mt-2 text-sm italic text-muted-foreground/80">{sources[i]}</p>
               )}
