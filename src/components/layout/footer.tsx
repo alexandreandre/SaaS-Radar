@@ -13,7 +13,7 @@ export function Footer() {
               <p className="font-data text-xs font-medium uppercase tracking-[0.18em]">SaaS Radar</p>
             </div>
             <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
-              Intelligence micro-SaaS pour entrepreneurs français — opportunités validées, scores
+              Intelligence SaaS pour entrepreneurs français — opportunités validées, scores
               d&apos;import, carte mondiale.
             </p>
           </div>
@@ -29,6 +29,9 @@ export function Footer() {
             </Link>
             <Link href="/simulator" className="transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
               Simulateur
+            </Link>
+            <Link href="/mes-saas" className="transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
+              Mes SaaS
             </Link>
           </div>
         </div>

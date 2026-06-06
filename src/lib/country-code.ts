@@ -1,9 +1,16 @@
 import countries from "i18n-iso-countries";
 import en from "i18n-iso-countries/langs/en.json";
-import fr from "i18n-iso-countries/langs/fr.json";
 
 countries.registerLocale(en);
-countries.registerLocale(fr);
+
+let frRegistered = false;
+
+async function ensureFrLocale() {
+  if (frRegistered) return;
+  const fr = (await import("i18n-iso-countries/langs/fr.json")).default;
+  countries.registerLocale(fr);
+  frRegistered = true;
+}
 
 /** Noms TopoJSON world-atlas qui ne matchent pas i18n */
 const NAME_TO_ALPHA2: Record<string, string> = {
@@ -38,7 +45,7 @@ export function nameToAlpha2(name: string | undefined): string | null {
 
 export function resolveCountryCode(geo: {
   id?: string | number;
-  properties?: { name?: string; ISO_A2?: string };
+  properties?: { name?: string; ISO_A2?: string } | null;
 }): string | null {
   const props = geo.properties;
   if (props?.ISO_A2 && props.ISO_A2 !== "-99") {
@@ -54,7 +61,22 @@ export function getAllCountryCodes(): string[] {
 }
 
 export function getCountryNameFr(code: string): string {
+  if (!frRegistered) {
+    // Sync fallback for SSR/build — register fr eagerly when needed
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const fr = require("i18n-iso-countries/langs/fr.json");
+      countries.registerLocale(fr);
+      frRegistered = true;
+    } catch {
+      return countries.getName(code, "en") ?? code;
+    }
+  }
   return countries.getName(code, "fr") ?? countries.getName(code, "en") ?? code;
+}
+
+export async function preloadCountryNameFrLocale() {
+  await ensureFrLocale();
 }
 
 export function flagFromAlpha2(code: string): string {

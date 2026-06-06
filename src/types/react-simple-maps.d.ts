@@ -3,6 +3,7 @@ declare module "react-simple-maps" {
 
   export interface Geography {
     rsmKey: string;
+    svgPath?: string;
     properties: Record<string, string>;
   }
 

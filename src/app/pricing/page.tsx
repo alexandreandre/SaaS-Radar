@@ -104,7 +104,7 @@ export default function PricingPage() {
             Tarifs
           </p>
           <h1 className="mb-4 font-display text-4xl font-medium tracking-tight text-foreground sm:text-5xl">
-            Trouvez votre micro-SaaS.
+            Trouvez votre SaaS.
             <br />
             <span className="text-muted-foreground">Lancez-le en 14 jours.</span>
           </h1>

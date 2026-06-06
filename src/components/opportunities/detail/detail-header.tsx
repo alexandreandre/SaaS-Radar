@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import type { Opportunity } from "@/types/opportunity";
 import { getFranceCompetitionLabel } from "@/components/opportunities/detail/detail-sections";
 import { ScoreCircle } from "@/components/opportunities/detail/score-circle";
+import { BuildOpportunityCta } from "@/components/cockpit/build-opportunity-cta";
 
 export function DetailHeader({ opportunity }: { opportunity: Opportunity }) {
   return (
@@ -68,6 +69,10 @@ export function DetailHeader({ opportunity }: { opportunity: Opportunity }) {
             {getFranceCompetitionLabel(opportunity)}
           </p>
         </div>
+      </div>
+
+      <div className="mt-8 hidden sm:block">
+        <BuildOpportunityCta opportunity={opportunity} />
       </div>
     </motion.div>
   );

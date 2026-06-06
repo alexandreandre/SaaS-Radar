@@ -1,24 +1,27 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMounted } from "@/hooks/use-mounted";
-import { AnimatePresence, motion } from "framer-motion";
-import {
-  ComposableMap,
-  Geographies,
-  Geography,
-} from "react-simple-maps";
+import { LazyMotion, domAnimation, AnimatePresence, m } from "framer-motion";
+import { ComposableMap, Geographies } from "react-simple-maps";
 import { getMarketByCode } from "@/data/world-markets";
 import { resolveCountryCode } from "@/lib/country-code";
 import { useMapPalette } from "@/hooks/use-map-palette";
+import { useGeographyData } from "@/hooks/use-geography-data";
 import { CountryHoverCard } from "@/components/world/country-hover-card";
-import { MapHeroDashboard, type MapHeroFilter } from "@/components/world/map-hero-dashboard";
+import { CountryGeography } from "@/components/world/country-geography";
+import type { MapHeroFilter } from "@/components/world/map-hero-dashboard";
 import { useTargetMarket } from "@/context/target-market-context";
 import { getTargetFit } from "@/lib/target-market-fit";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
-const GEO_URL = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+const MapHeroDashboard = dynamic(
+  () =>
+    import("@/components/world/map-hero-dashboard").then((m) => m.MapHeroDashboard),
+  { ssr: false }
+);
 
 export function WorldMapHero({
   className,
@@ -32,7 +35,7 @@ export function WorldMapHero({
   onLock: () => void;
 }) {
   const router = useRouter();
-  const mounted = useMounted();
+  const { topology, status, retry } = useGeographyData();
   const { colors, getHeatColor, getHeatColorAmbient } = useMapPalette();
   const { target } = useTargetMarket();
   const [hovered, setHovered] = useState<string | null>(null);
@@ -146,141 +149,150 @@ export function WorldMapHero({
     return "default";
   };
 
+  const mapReady = status === "ready" && !!topology;
+
   return (
-    <div
-      className={cn(
-        "absolute inset-0 overflow-hidden bg-background outline-none",
-        !unlocked && "cursor-pointer",
-        className
-      )}
-      onClick={
-        !unlocked
-          ? () => {
-              if (countryClickRef.current) {
-                countryClickRef.current = false;
-                return;
-              }
-              handleMapClick();
-            }
-          : undefined
-      }
-      onKeyDown={
-        !unlocked
-          ? (e) => {
-              if (e.key === "Enter" || e.key === " ") handleMapClick();
-            }
-          : undefined
-      }
-      role={!unlocked ? "button" : undefined}
-      tabIndex={!unlocked ? 0 : undefined}
-      aria-label={!unlocked ? "Activer la carte interactive" : undefined}
-    >
+    <LazyMotion features={domAnimation}>
       <div
         className={cn(
-          "h-full w-full transition-[filter] duration-500",
-          !unlocked && "saturate-[1.07] brightness-[1.04]"
+          "absolute inset-0 overflow-hidden bg-background outline-none",
+          !unlocked && "cursor-pointer",
+          className
         )}
+        onClick={
+          !unlocked
+            ? () => {
+                if (countryClickRef.current) {
+                  countryClickRef.current = false;
+                  return;
+                }
+                handleMapClick();
+              }
+            : undefined
+        }
+        onKeyDown={
+          !unlocked
+            ? (e) => {
+                if (e.key === "Enter" || e.key === " ") handleMapClick();
+              }
+            : undefined
+        }
+        role={!unlocked ? "button" : undefined}
+        tabIndex={!unlocked ? 0 : undefined}
+        aria-label={!unlocked ? "Activer la carte interactive" : undefined}
       >
-      <ComposableMap
-        projection="geoMercator"
-        projectionConfig={{ scale: 155, center: [12, 18] }}
-        className="h-full w-full [&_svg]:h-full [&_svg]:w-full"
-        style={{ width: "100%", height: "100%" }}
-      >
-        <Geographies geography={GEO_URL}>
-          {({ geographies }) =>
-            geographies.map((geo) => {
-              const code = resolveCountryCode(geo);
-              const market = code ? getMarketByCode(code) : undefined;
-              const visible = code ? isVisible(code) : false;
+        {status === "error" && (
+          <div className="absolute inset-0 z-[2] flex flex-col items-center justify-center gap-3 bg-background/90">
+            <p className="text-sm text-muted-foreground">Impossible de charger la carte</p>
+            <Button size="sm" variant="outline" onClick={retry}>
+              Réessayer
+            </Button>
+          </div>
+        )}
 
-              return (
-                <Geography
-                  key={geo.rsmKey}
-                  geography={geo}
-                  onMouseEnter={() => handleEnter(code, !!market)}
-                  onMouseLeave={() => unlocked && scheduleHide()}
-                  onClick={() => {
-                    countryClickRef.current = true;
-                    handleGeographyClick(market, code);
-                  }}
-                  style={{
-                    default: {
-                      fill: code ? getFill(code) : colors.dormant,
-                      stroke: colors.stroke,
-                      strokeWidth: 0.25,
-                      outline: "none",
-                      cursor: getCursor(market, code),
-                      transition: "fill 0.25s ease",
-                    },
-                    hover: { outline: "none" },
-                    pressed: { fill: unlocked && visible ? colors.selected : undefined, outline: "none" },
-                  }}
-                />
-              );
-            })
-          }
-        </Geographies>
-      </ComposableMap>
+        <div
+          className={cn(
+            "h-full w-full transition-[filter,opacity] duration-500",
+            !unlocked && "saturate-[1.07] brightness-[1.04]",
+            mapReady ? "opacity-100" : "opacity-0"
+          )}
+        >
+          {mapReady && topology && (
+            <ComposableMap
+              projection="geoMercator"
+              projectionConfig={{ scale: 155, center: [12, 18] }}
+              className="h-full w-full [&_svg]:h-full [&_svg]:w-full"
+              style={{ width: "100%", height: "100%" }}
+            >
+              <Geographies geography={topology}>
+                {({ geographies }) =>
+                  geographies.map((geo) => {
+                    const code = resolveCountryCode(geo);
+                    const market = code ? getMarketByCode(code) : undefined;
+                    const visible = code ? isVisible(code) : false;
+                    const fill = code ? getFill(code) : colors.dormant;
+
+                    return (
+                      <CountryGeography
+                        key={geo.rsmKey}
+                        geo={geo}
+                        fill={fill}
+                        stroke={colors.stroke}
+                        cursor={getCursor(market, code)}
+                        pressedFill={unlocked && visible ? colors.selected : undefined}
+                        onMouseEnter={() => handleEnter(code, !!market)}
+                        onMouseLeave={() => unlocked && scheduleHide()}
+                        onClick={() => {
+                          countryClickRef.current = true;
+                          handleGeographyClick(market, code);
+                        }}
+                      />
+                    );
+                  })
+                }
+              </Geographies>
+            </ComposableMap>
+          )}
+        </div>
+
+        <m.div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-background via-background/54 to-transparent sm:via-background/28"
+          initial={false}
+          animate={{ opacity: unlocked ? 0 : 1 }}
+          transition={{ duration: 0.55, ease: [0.25, 0.1, 0.25, 1] }}
+        />
+        <m.div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/44 via-transparent to-background/12"
+          initial={false}
+          animate={{ opacity: unlocked ? 0 : 1 }}
+          transition={{ duration: 0.55, ease: [0.25, 0.1, 0.25, 1] }}
+        />
+
+        <AnimatePresence>
+          {unlocked && (
+            <MapHeroDashboard
+              key="map-dashboard"
+              onBack={handleBack}
+              filter={filter}
+              onFilterChange={setFilter}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {showHoverCard && hoveredMarket && (
+            <CountryHoverCard
+              market={hoveredMarket}
+              x={mouse.x}
+              y={mouse.y}
+              onEnter={() => {
+                if (hideTimer.current) clearTimeout(hideTimer.current);
+                setCardHovered(true);
+              }}
+              onLeave={() => {
+                setCardHovered(false);
+                scheduleHide();
+              }}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {!unlocked && mapReady && (
+            <m.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="pointer-events-none absolute bottom-10 left-1/2 z-[2] -translate-x-1/2 font-data text-[10px] uppercase tracking-data text-muted-foreground"
+            >
+              Cliquez sur la carte pour explorer
+            </m.p>
+          )}
+        </AnimatePresence>
       </div>
-
-      <motion.div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-gradient-to-r from-background via-background/54 to-transparent sm:via-background/28"
-        initial={false}
-        animate={{ opacity: unlocked ? 0 : 1 }}
-        transition={{ duration: 0.55, ease: [0.25, 0.1, 0.25, 1] }}
-      />
-      <motion.div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/44 via-transparent to-background/12"
-        initial={false}
-        animate={{ opacity: unlocked ? 0 : 1 }}
-        transition={{ duration: 0.55, ease: [0.25, 0.1, 0.25, 1] }}
-      />
-
-      <AnimatePresence>
-        {unlocked && (
-          <MapHeroDashboard
-            key="map-dashboard"
-            onBack={handleBack}
-            filter={filter}
-            onFilterChange={setFilter}
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {showHoverCard && hoveredMarket && (
-          <CountryHoverCard
-            market={hoveredMarket}
-            x={mouse.x}
-            y={mouse.y}
-            onEnter={() => {
-              if (hideTimer.current) clearTimeout(hideTimer.current);
-              setCardHovered(true);
-            }}
-            onLeave={() => {
-              setCardHovered(false);
-              scheduleHide();
-            }}
-          />
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {!unlocked && (
-          <motion.p
-            initial={mounted ? { opacity: 0 } : false}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="pointer-events-none absolute bottom-10 left-1/2 z-[2] -translate-x-1/2 font-data text-[10px] uppercase tracking-data text-muted-foreground"
-          >
-            Cliquez sur la carte pour explorer
-          </motion.p>
-        )}
-      </AnimatePresence>
-    </div>
+    </LazyMotion>
   );
 }

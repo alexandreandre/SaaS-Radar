@@ -295,7 +295,7 @@ const featuredOverrides: Partial<Record<string, Partial<Opportunity>>> = {
       tagline: "Devis chantier en 2 min sur mobile — photo → ligne de devis → PDF client.",
       problemSolved:
         "Les artisans UK perdent des chantiers faute de devis rapide. QuoteSnap transforme une photo terrain en devis structuré avec marges.",
-      targetUsers: "Artisans solo et micro-entreprises BTP (plombier, électricien, rénovation).",
+      targetUsers: "Artisans solo et petites entreprises BTP (plombier, électricien, rénovation).",
       businessModel: "SaaS mobile-first + essai 14 jours, upgrade Pro pour IA photo.",
       pricing: "49 £/mois Pro · 19 £/mois Starter (devis limités)",
       keyFeatures: [

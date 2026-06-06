@@ -155,7 +155,7 @@ export function generateMarket(code: string, override?: Partial<WorldMarket>): W
   const insight =
     override?.insight ??
     (heatScore >= 75
-      ? `Marché prioritaire — ${trackedMicroSaas.toLocaleString("fr-FR")} micro-SaaS suivis. Scannez les niches B2B >$20k MRR avant export vers votre marché cible.`
+      ? `Marché prioritaire — ${trackedMicroSaas.toLocaleString("fr-FR")} SaaS suivis. Scannez les niches B2B >$20k MRR avant export vers votre marché cible.`
       : heatScore >= 50
         ? `Marché actif — signaux de traction réguliers. Bon candidat pour veille hebdomadaire et import sélectif.`
         : heatScore >= 30

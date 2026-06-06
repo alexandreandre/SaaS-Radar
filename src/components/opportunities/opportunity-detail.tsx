@@ -9,6 +9,7 @@ import { sectorLabels } from "@/data/opportunities";
 import { DetailHeader } from "@/components/opportunities/detail/detail-header";
 import { DetailChecklist } from "@/components/opportunities/detail/detail-checklist";
 import { DetailContent } from "@/components/opportunities/detail/detail-content";
+import { BuildOpportunityStickyCta } from "@/components/cockpit/build-opportunity-sticky";
 
 export function OpportunityDetail({ opportunity }: { opportunity: Opportunity }) {
   const sector = sectorLabels[opportunity.sector] ?? opportunity.sector;
@@ -16,7 +17,7 @@ export function OpportunityDetail({ opportunity }: { opportunity: Opportunity })
   return (
     <>
       <Navbar />
-      <main className="mx-auto max-w-6xl bg-background px-4 pb-12 text-foreground sm:px-6">
+      <main className="mx-auto max-w-6xl bg-background px-4 pb-24 text-foreground sm:px-6 md:pb-12">
         <div className="flex items-center justify-between gap-4 pt-4">
           <Link
             href="/opportunities"
@@ -43,6 +44,7 @@ export function OpportunityDetail({ opportunity }: { opportunity: Opportunity })
           </div>
         </div>
       </main>
+      <BuildOpportunityStickyCta opportunity={opportunity} />
       <Footer />
     </>
   );

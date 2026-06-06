@@ -1,16 +1,7 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  ReferenceLine,
-} from "recharts";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { Label } from "@/components/ui/label";
@@ -18,6 +9,18 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+
+const SimulatorChart = dynamic(
+  () => import("@/components/simulator/simulator-chart").then((m) => m.SimulatorChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-[320px] items-center justify-center rounded-xl border border-border bg-muted/30">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    ),
+  }
+);
 
 function simulateMrr(
   months: number,
@@ -120,18 +123,7 @@ export default function SimulatorPage() {
 
             <div className="rounded-xl border border-border bg-card p-4">
               <h2 className="mb-4 text-sm font-medium text-muted-foreground">Courbe MRR — 24 mois</h2>
-              <ResponsiveContainer width="100%" height={320}>
-                <LineChart data={data}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E4E4E7" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(v) => formatCurrency(Number(v))} labelFormatter={(l) => `Mois ${l}`} />
-                  {breakEvenMonth && (
-                    <ReferenceLine x={breakEvenMonth} stroke="#4a6f9a" strokeDasharray="4 4" label="Break-even" />
-                  )}
-                  <Line type="monotone" dataKey="mrr" stroke="#4a6f9a" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
+              <SimulatorChart data={data} breakEvenMonth={breakEvenMonth} />
             </div>
 
             {stress && (

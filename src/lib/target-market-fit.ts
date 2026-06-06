@@ -99,7 +99,7 @@ export function getTargetVerdict(
   }
 
   if (fit.score >= 80 && adaptableCount > 0) {
-    return `Fort signal d'import ${originName} → ${targetName} : ${adaptableCount} micro-SaaS repérés avec traction. Validez la niche avant de coder.`;
+    return `Fort signal d'import ${originName} → ${targetName} : ${adaptableCount} SaaS repérés avec traction. Validez la niche avant de coder.`;
   }
 
   if (fit.score >= 65) {

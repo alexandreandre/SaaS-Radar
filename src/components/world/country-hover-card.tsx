@@ -76,7 +76,7 @@ export function CountryHoverCard({
         </div>
 
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <MiniStat label="Micro-SaaS" value={formatCompact(market.trackedMicroSaas)} />
+          <MiniStat label="SaaS" value={formatCompact(market.trackedMicroSaas)} />
           <MiniStat label="Nouveaux" value={`+${market.newThisMonth}`} accent />
           <MiniStat label="En base" value={String(market.opportunitySlugs.length)} />
         </div>

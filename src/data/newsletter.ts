@@ -11,7 +11,7 @@ export const categoryLabels: Record<ArticleCategory, string> = {
 export const categoryDescriptions: Record<ArticleCategory, string> = {
   ia: "Modèles, agents et outils qui changent la donne",
   "actu-tech": "Levées, régulation, tendances marché",
-  saas: "Micro-SaaS à importer, scores et opportunités France",
+  saas: "SaaS à importer, scores et opportunités France",
 };
 
 export interface FlashBrief {
@@ -91,7 +91,7 @@ export const flashBriefs: FlashBrief[] = [
   {
     id: "f8",
     sentence:
-      "Pennylane teste un portail client natif — menace pour les micro-SaaS comptables.",
+      "Pennylane teste un portail client natif — menace pour les SaaS comptables.",
     category: "saas",
     dateLabel: "Hier",
   },
@@ -120,12 +120,12 @@ export const newsArticles: NewsArticle[] = [
   {
     id: "a2",
     slug: "agents-ia-pme-2026",
-    title: "Les agents IA créent des milliers de micro-SaaS",
+    title: "Les agents IA créent des milliers de SaaS",
     excerpt:
       "Arrêtez de chercher le « ChatGPT killer ». Les PME veulent des agents qui font une tâche, pas un cerveau généraliste.",
     body: [
       "La hype 2024 : un modèle pour tout faire. La réalité 2026 : des agents spécialisés branchés sur un workflow métier — prise de RDV, relance facture, tri email.",
-      "Chaque agent spécialisé = un micro-SaaS potentiel. Marge élevée, churn faible si la tâche est récurrente. Le fondateur qui gagne vend la tranquillité, pas la technologie.",
+      "Chaque agent spécialisé = un SaaS potentiel. Marge élevée, churn faible si la tâche est récurrente. Le fondateur qui gagne vend la tranquillité, pas la technologie.",
       "Signaux à suivre : wrappers autour de Claude 4 et GPT-5 Pro, intégrations natives Slack/Notion, pricing à l'action plutôt qu'au siège.",
     ],
     category: "ia",
@@ -166,7 +166,7 @@ export const newsArticles: NewsArticle[] = [
   },
   {
     id: "a5",
-    slug: "claude-code-micro-saas",
+    slug: "claude-code-saas",
     title: "Claude Code accélère les fondateurs qui savent quoi construire",
     excerpt:
       "Le prompt sans le marché = un side project de plus. Le marché sans le prompt = six mois de dev.",
@@ -201,7 +201,7 @@ export const newsArticles: NewsArticle[] = [
     excerpt:
       "BuildQuote à 28k MRR. Obat lève en France. La fenêtre se referme.",
     body: [
-      "Le générateur de devis BTP est le cliché parfait du micro-SaaS importable : douleur universelle, willingness to pay, faible complexité technique.",
+      "Le générateur de devis BTP est le cliché parfait du SaaS importable : douleur universelle, willingness to pay, faible complexité technique.",
       "Angle France : SMS + signature électronique + modèles par métier (plombier, électricien, peintre).",
     ],
     category: "saas",

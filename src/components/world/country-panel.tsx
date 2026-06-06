@@ -191,7 +191,7 @@ const CountryModalContent = memo(function CountryModalContent({
             targetFlag={target.flag}
           />
           <div className="grid grid-cols-2 gap-px bg-muted/40">
-            <Kpi label="Micro-SaaS" value={market.trackedMicroSaas.toLocaleString("fr-FR")} />
+            <Kpi label="SaaS" value={market.trackedMicroSaas.toLocaleString("fr-FR")} />
             <Kpi label="Nouveaux/mois" value={`+${market.newThisMonth}`} highlight />
             <Kpi label="Top MRR moy." value={`$${(market.avgTopMrrUsd / 1000).toFixed(0)}k`} />
             <Kpi label={`Fit → ${target.name}`} value={`${fit.score}`} highlight={fit.score >= 65} />

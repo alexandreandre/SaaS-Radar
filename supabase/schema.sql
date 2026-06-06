@@ -142,3 +142,5 @@ create policy "Watchlist : user gère sa liste"
 
 create policy "Waitlist : insert public"
   on waitlist for insert with check (true);
+
+-- TODO (cockpit cloud sync): user_projects, integrations, connector_snapshots, oauth_tokens

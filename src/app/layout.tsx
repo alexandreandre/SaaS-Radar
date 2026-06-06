@@ -4,6 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TierProvider } from "@/contexts/tier-context";
+import { PortfolioProvider } from "@/contexts/portfolio-context";
 
 const sourceSans = Source_Sans_3({
   subsets: ["latin"],
@@ -26,9 +27,9 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SaaS Radar — Intelligence micro-SaaS pour la France",
+  title: "SaaS Radar — Intelligence SaaS pour la France",
   description:
-    "Opportunités micro-SaaS validées à l'étranger, scores France Fit et Buildability, carte mondiale et outil d'analyste pour entrepreneurs français.",
+    "Opportunités SaaS validées à l'étranger, scores France Fit et Buildability, carte mondiale et outil d'analyste pour entrepreneurs français.",
 };
 
 export default function RootLayout({
@@ -43,7 +44,9 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <TierProvider>
-            <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+            <PortfolioProvider>
+              <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+            </PortfolioProvider>
           </TierProvider>
         </ThemeProvider>
       </body>

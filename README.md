@@ -1,6 +1,6 @@
 # SaaS Radar
 
-Plateforme d'intelligence micro-SaaS pour entrepreneurs français.
+Plateforme d'intelligence SaaS pour entrepreneurs français.
 
 > Chaque semaine, découvrez un SaaS qui fonctionne à l'étranger, évaluez s'il peut marcher en France, et obtenez le plan exact pour le construire avec l'IA.
 
