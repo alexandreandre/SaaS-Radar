@@ -25,8 +25,8 @@ export function useCockpitData(project: UserProject, opportunity: Opportunity) {
     const history = getMetricsHistory(project);
     const promise = buildPromiseCurve(opportunity, project.targetScenario);
     const chartData = mergeRealityCurve(promise, project.mrrHistory, project.startedAt);
-    const gap = getPromiseGapPercent(project);
-    const target = getTargetMrr(project);
+    const gap = getPromiseGapPercent(project, opportunity);
+    const target = getTargetMrr(project, opportunity);
     const milestoneProgress = getMilestoneProgress(project);
 
     const criticalAlerts = alerts.filter((a) => a.severity === "critical").length;

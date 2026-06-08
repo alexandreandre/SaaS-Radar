@@ -3,6 +3,7 @@ import type { ConnectorStreamPayload, ConnectorStreams } from "@/lib/connectors/
 import { mergeConnectorStreams, removeConnectorStream } from "@/lib/connectors/streams";
 import type { UserProject } from "@/lib/portfolio";
 import { getTargetMrr } from "@/lib/portfolio";
+import type { Opportunity } from "@/types/opportunity";
 import { getConnector } from "@/lib/connectors/registry";
 import { generateStreamDemo } from "@/lib/connectors/demo/stream-generators";
 
@@ -32,33 +33,36 @@ export function mergeSnapshots(
 export function syncConnectorDemo(
   project: UserProject,
   connectorId: ConnectorId,
+  opportunity: Opportunity,
   months = 6
 ): MetricsSnapshot[] {
   const connector = getConnector(connectorId);
   if (!connector) return [];
 
-  const targetMrr = getTargetMrr(project);
+  const targetMrr = getTargetMrr(project, opportunity);
   const seed = `${project.id}:${connectorId}`;
   return connector.demo(seed, months, targetMrr);
 }
 
 export function syncConnectorStreamDemo(
   project: UserProject,
-  connectorId: ConnectorId
+  connectorId: ConnectorId,
+  opportunity: Opportunity
 ): ConnectorStreamPayload | null {
   const seed = `${project.id}:${connectorId}`;
-  const targetMrr = getTargetMrr(project);
+  const targetMrr = getTargetMrr(project, opportunity);
   return generateStreamDemo(connectorId, seed, targetMrr);
 }
 
 export function syncConnectorAllDemo(
   project: UserProject,
   connectorId: ConnectorId,
+  opportunity: Opportunity,
   months = 6
 ): { snapshots: MetricsSnapshot[]; stream: ConnectorStreamPayload | null } {
   return {
-    snapshots: syncConnectorDemo(project, connectorId, months),
-    stream: syncConnectorStreamDemo(project, connectorId),
+    snapshots: syncConnectorDemo(project, connectorId, opportunity, months),
+    stream: syncConnectorStreamDemo(project, connectorId, opportunity),
   };
 }
 

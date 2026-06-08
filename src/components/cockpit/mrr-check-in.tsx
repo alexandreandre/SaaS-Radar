@@ -12,6 +12,7 @@ import {
 import { formatCurrency, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { usePortfolio } from "@/contexts/portfolio-context";
 
 type MrrCheckInProps = {
   project: UserProject;
@@ -19,6 +20,8 @@ type MrrCheckInProps = {
 };
 
 export function MrrCheckIn({ project, onRecord }: MrrCheckInProps) {
+  const { getCatalogOpportunity } = usePortfolio();
+  const opportunity = getCatalogOpportunity(project.opportunitySlug);
   const [amount, setAmount] = useState(String(project.currentMrr));
   const [note, setNote] = useState("");
   const [celebration, setCelebration] = useState<string | null>(null);
@@ -31,7 +34,7 @@ export function MrrCheckIn({ project, onRecord }: MrrCheckInProps) {
     e.preventDefault();
     const next = Number(amount) || 0;
     const previous = project.currentMrr;
-    const target = getTargetMrr(project);
+    const target = opportunity ? getTargetMrr(project, opportunity) : 0;
 
     const milestone = getNewlyCrossedMrrMilestone(previous, next);
     if (milestone) {
@@ -48,8 +51,8 @@ export function MrrCheckIn({ project, onRecord }: MrrCheckInProps) {
   };
 
   const days = daysSince(project.lastCheckInAt ?? project.createdAt);
-  const gap = getPromiseGapPercent(project);
-  const target = getTargetMrr(project);
+  const gap = opportunity ? getPromiseGapPercent(project, opportunity) : null;
+  const target = opportunity ? getTargetMrr(project, opportunity) : 0;
 
   return (
     <section className="rounded-xl border border-border bg-card p-6 shadow-card">

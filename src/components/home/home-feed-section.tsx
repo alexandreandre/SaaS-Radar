@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { opportunities } from "@/data/opportunities";
+import type { Opportunity } from "@/types/opportunity";
 import { getPresentSectorChips, getSectorFilterKey } from "@/data/sectors";
 import { cn } from "@/lib/utils";
 import { CountdownTimer } from "@/components/opportunities/countdown-timer";
@@ -24,11 +24,6 @@ const SectorSearchPicker = dynamic(
   { ssr: false }
 );
 
-const analystFeed = opportunities.filter((o) => !o.weeklyPick);
-const feedPreview = analystFeed.slice(0, 8);
-const analystTotal = analystFeed.length;
-const sectorChips = getPresentSectorChips(feedPreview.map((o) => o.sector));
-
 const chipClass = (active: boolean) =>
   cn(
     "rounded-sm px-3 py-1.5 font-data text-[10px] font-medium uppercase tracking-data transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -45,10 +40,18 @@ function FeedSkeleton() {
   );
 }
 
-export function HomeFeedSection() {
+export function HomeFeedSection({ opportunities }: { opportunities: Opportunity[] }) {
   const [sectorFilter, setSectorFilter] = useState<string>("all");
   const [visible, setVisible] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
+
+  const analystFeed = useMemo(() => opportunities.filter((o) => !o.weeklyPick), [opportunities]);
+  const feedPreview = useMemo(() => analystFeed.slice(0, 8), [analystFeed]);
+  const analystTotal = analystFeed.length;
+  const sectorChips = useMemo(
+    () => getPresentSectorChips(feedPreview.map((o) => o.sector)),
+    [feedPreview]
+  );
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -73,7 +76,7 @@ export function HomeFeedSection() {
   const filtered = useMemo(
     () =>
       filterKey === "all" ? feedPreview : feedPreview.filter((o) => o.sector === filterKey),
-    [filterKey]
+    [filterKey, feedPreview]
   );
 
   const topPickId = useMemo(() => {

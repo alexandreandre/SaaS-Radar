@@ -9,7 +9,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { getOpportunityBySlug } from "@/data/opportunities";
 import {
   mergeSnapshots,
   mergeProjectStreams,
@@ -18,6 +17,7 @@ import {
   type ConnectorId,
 } from "@/lib/connectors";
 import type { AdCampaign, Expense, MetricsSnapshot } from "@/lib/connectors/types";
+import type { Opportunity } from "@/types/opportunity";
 import {
   PORTFOLIO_STORAGE_KEY,
   computeNextStreak,
@@ -46,6 +46,8 @@ type PortfolioContextValue = {
   toggleMilestone: (id: string, milestoneId: string) => void;
   getProjectBySlug: (slug: string) => UserProject | undefined;
   getProjectById: (id: string) => UserProject | undefined;
+  opportunityCatalog: Opportunity[];
+  getCatalogOpportunity: (slug: string) => Opportunity | undefined;
   activeProject: UserProject | null;
   overdueCheckIns: number;
   stats: ReturnType<typeof getPortfolioStats>;
@@ -79,7 +81,13 @@ function persistProjects(projects: UserProject[]) {
   localStorage.setItem(PORTFOLIO_STORAGE_KEY, JSON.stringify(projects));
 }
 
-export function PortfolioProvider({ children }: { children: ReactNode }) {
+export function PortfolioProvider({
+  children,
+  opportunityCatalog,
+}: {
+  children: ReactNode;
+  opportunityCatalog: Opportunity[];
+}) {
   const [projects, setProjects] = useState<UserProject[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
@@ -87,6 +95,11 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     setProjects(readStoredProjects());
     setHydrated(true);
   }, []);
+
+  const getCatalogOpportunity = useCallback(
+    (slug: string) => opportunityCatalog.find((o) => o.slug === slug),
+    [opportunityCatalog]
+  );
 
   const commit = useCallback((updater: (prev: UserProject[]) => UserProject[]) => {
     setProjects((prev) => {
@@ -98,7 +111,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
 
   const addProject = useCallback(
     (slug: string, input: AddProjectInput): UserProject | null => {
-      const opportunity = getOpportunityBySlug(slug);
+      const opportunity = getCatalogOpportunity(slug);
       if (!opportunity) return null;
 
       let created: UserProject | null = null;
@@ -107,8 +120,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
           created = prev.find((p) => p.opportunitySlug === slug) ?? null;
           return prev;
         }
-        const base = createProjectFromOpportunity(slug, input);
-        if (!base) return prev;
+        const base = createProjectFromOpportunity(opportunity, input);
         const project = migrateProject({
           ...base,
           campaigns: generateDefaultCampaigns(base.id),
@@ -119,7 +131,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       });
       return created;
     },
-    [commit]
+    [commit, getCatalogOpportunity]
   );
 
   const removeProject = useCallback(
@@ -238,11 +250,17 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       commit((prev) =>
         prev.map((project) => {
           if (project.id !== projectId) return project;
+          const opportunity = getCatalogOpportunity(project.opportunitySlug);
+          if (!opportunity) return project;
           const now = new Date().toISOString();
-          const { snapshots, stream } = syncConnectorAllDemo(project, connectorId);
+          const { snapshots, stream } = syncConnectorAllDemo(
+            project,
+            connectorId,
+            opportunity
+          );
           const integrations = [...(project.integrations ?? [])];
           const idx = integrations.findIndex((i) => i.connectorId === connectorId);
-          const connector = getOpportunityBySlug(project.opportunitySlug);
+          const connector = opportunity;
           const entry = {
             connectorId,
             status: "demo" as const,
@@ -270,7 +288,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
         })
       );
     },
-    [commit]
+    [commit, getCatalogOpportunity]
   );
 
   const disconnectIntegration = useCallback(
@@ -452,8 +470,11 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   );
 
   const stats = useMemo(
-    () => (hydrated ? getPortfolioStats(projects) : getPortfolioStats([])),
-    [projects, hydrated]
+    () =>
+      hydrated
+        ? getPortfolioStats(projects, opportunityCatalog)
+        : getPortfolioStats([], opportunityCatalog),
+    [projects, hydrated, opportunityCatalog]
   );
 
   const value = useMemo<PortfolioContextValue>(
@@ -468,6 +489,8 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       toggleMilestone,
       getProjectBySlug,
       getProjectById,
+      opportunityCatalog,
+      getCatalogOpportunity,
       activeProject,
       overdueCheckIns,
       stats,
@@ -493,6 +516,8 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       toggleMilestone,
       getProjectBySlug,
       getProjectById,
+      opportunityCatalog,
+      getCatalogOpportunity,
       activeProject,
       overdueCheckIns,
       stats,

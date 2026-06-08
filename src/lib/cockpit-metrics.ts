@@ -63,7 +63,7 @@ function computeNrr(latest: NonNullable<ReturnType<typeof getLatestSnapshot>>): 
 
 export function buildCockpitMetrics(
   project: UserProject,
-  opportunity?: Opportunity
+  opportunity: Opportunity
 ): CockpitMetrics {
   const history = getMetricsHistory(project);
   const latest = getLatestSnapshot(history) ?? {
@@ -95,13 +95,11 @@ export function buildCockpitMetrics(
   const churnRate = getChurnRate(latest, previous ?? undefined);
   const arr = latest.mrr * 12;
   const arpu = latest.customers > 0 ? Math.round(latest.mrr / latest.customers) : 0;
-  const target = getTargetMrr(project);
+  const target = getTargetMrr(project, opportunity);
   const promiseProgressPct =
     target > 0 ? Math.min(100, Math.round((latest.mrr / target) * 100)) : 0;
 
-  const stackCoveragePct = opportunity
-    ? buildStackHealth(opportunity, project.integrations).coveragePct
-    : 0;
+  const stackCoveragePct = buildStackHealth(opportunity, project.integrations).coveragePct;
 
   const nrr = computeNrr(latest);
   const stripeStream = project.connectorStreams?.stripe;

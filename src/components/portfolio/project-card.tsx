@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, ExternalLink, MoreVertical, Pause, Play, Trash2 } from "lucide-react";
-import { getOpportunityBySlug } from "@/data/opportunities";
+import { usePortfolio } from "@/contexts/portfolio-context";
 import type { UserProject } from "@/lib/portfolio";
 import {
   getMilestoneProgress,
@@ -29,10 +29,11 @@ type ProjectCardProps = {
 };
 
 export function ProjectCard({ project, onPause, onResume, onRemove }: ProjectCardProps) {
-  const opportunity = getOpportunityBySlug(project.opportunitySlug);
+  const { getCatalogOpportunity } = usePortfolio();
+  const opportunity = getCatalogOpportunity(project.opportunitySlug);
   if (!opportunity) return null;
 
-  const target = getTargetMrr(project);
+  const target = getTargetMrr(project, opportunity);
   const progress = target > 0 ? Math.min(100, Math.round((project.currentMrr / target) * 100)) : 0;
   const milestoneProgress = getMilestoneProgress(project);
   const overdue = isCheckInOverdue(project);

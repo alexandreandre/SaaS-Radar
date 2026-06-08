@@ -1,11 +1,13 @@
 import { getGlobalStats } from "@/data/world-markets";
+import { getAllOpportunities } from "@/lib/opportunities";
 import { Footer } from "@/components/layout/footer";
 import { HomeHeroSection } from "@/components/home/home-hero-section";
 import { HomeFeedSection } from "@/components/home/home-feed-section";
 import { HomeStaticSections } from "@/components/home/home-static-sections";
 
-export default function HomePage() {
+export default async function HomePage() {
   const mapStats = getGlobalStats();
+  const opportunities = await getAllOpportunities();
 
   return (
     <>
@@ -25,7 +27,7 @@ export default function HomePage() {
           },
         }}
       />
-      <HomeFeedSection />
+      <HomeFeedSection opportunities={opportunities} />
       <HomeStaticSections />
       <Footer />
     </>

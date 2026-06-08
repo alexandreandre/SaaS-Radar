@@ -23,7 +23,7 @@ export function buildRadarActions(
   stackHealth: StackHealth
 ): RadarAction[] {
   const actions: RadarAction[] = [];
-  const target = getTargetMrr(project);
+  const target = getTargetMrr(project, opportunity);
   const progressPct = target > 0 ? (project.currentMrr / target) * 100 : 0;
   const campaigns = project.campaigns ?? [];
   const activeCampaigns = campaigns.filter((c) => c.status === "active");

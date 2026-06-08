@@ -6,6 +6,7 @@ import type { UserProject } from "@/lib/portfolio";
 import { getTargetMrr, getPromiseGapPercent } from "@/lib/portfolio";
 import { formatCurrency } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { usePortfolio } from "@/contexts/portfolio-context";
 
 type ShareMrrCardProps = {
   project: UserProject;
@@ -13,9 +14,11 @@ type ShareMrrCardProps = {
 };
 
 export function ShareMrrCard({ project, projectName }: ShareMrrCardProps) {
+  const { getCatalogOpportunity } = usePortfolio();
+  const opportunity = getCatalogOpportunity(project.opportunitySlug);
   const [copied, setCopied] = useState(false);
-  const target = getTargetMrr(project);
-  const gap = getPromiseGapPercent(project);
+  const target = opportunity ? getTargetMrr(project, opportunity) : 0;
+  const gap = opportunity ? getPromiseGapPercent(project, opportunity) : null;
 
   const text = [
     `🚀 ${projectName}`,

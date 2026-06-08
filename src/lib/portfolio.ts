@@ -1,4 +1,3 @@
-import { getOpportunityBySlug } from "@/data/opportunities";
 import type {
   AdCampaign,
   ConnectorId,
@@ -103,12 +102,9 @@ export function getScenarioMrr(opportunity: Opportunity, scenario: TargetScenari
 }
 
 export function createProjectFromOpportunity(
-  slug: string,
+  opportunity: Opportunity,
   input: AddProjectInput
-): UserProject | null {
-  const opportunity = getOpportunityBySlug(slug);
-  if (!opportunity) return null;
-
+): UserProject {
   const now = new Date().toISOString();
   const initialHistory: MrrEntry[] =
     input.currentMrr > 0
@@ -117,7 +113,7 @@ export function createProjectFromOpportunity(
 
   return {
     id: generateProjectId(),
-    opportunitySlug: slug,
+    opportunitySlug: opportunity.slug,
     startedAt: input.startedAt,
     phase: opportunity.buildableUnder30Days ? "build" : "launch",
     currentMrr: input.currentMrr,
@@ -130,9 +126,7 @@ export function createProjectFromOpportunity(
   };
 }
 
-export function getTargetMrr(project: UserProject): number {
-  const opportunity = getOpportunityBySlug(project.opportunitySlug);
-  if (!opportunity) return 0;
+export function getTargetMrr(project: UserProject, opportunity: Opportunity): number {
   return getScenarioMrr(opportunity, project.targetScenario);
 }
 
@@ -195,8 +189,11 @@ export function mergeRealityCurve(
   });
 }
 
-export function getPromiseGapPercent(project: UserProject): number | null {
-  const target = getTargetMrr(project);
+export function getPromiseGapPercent(
+  project: UserProject,
+  opportunity: Opportunity
+): number | null {
+  const target = getTargetMrr(project, opportunity);
   if (target <= 0) return null;
   return Math.round(((project.currentMrr - target) / target) * 100);
 }
@@ -209,12 +206,17 @@ export type PortfolioStats = {
   overdueCheckIns: number;
 };
 
-export function getPortfolioStats(projects: UserProject[]): PortfolioStats {
+export function getPortfolioStats(
+  projects: UserProject[],
+  catalog: Opportunity[] = []
+): PortfolioStats {
   const active = projects.filter((p) => p.phase !== "paused");
   const totalMrr = active.reduce((sum, p) => sum + p.currentMrr, 0);
 
   const progressValues = active.map((project) => {
-    const target = getTargetMrr(project);
+    const opportunity = catalog.find((o) => o.slug === project.opportunitySlug);
+    if (!opportunity) return 0;
+    const target = getTargetMrr(project, opportunity);
     if (target <= 0) return 0;
     return Math.min(100, Math.round((project.currentMrr / target) * 100));
   });
@@ -311,7 +313,7 @@ export function buildProjectTimeline(project: UserProject): TimelineEvent[] {
 }
 
 export function getNextActionMessage(project: UserProject, opportunity: Opportunity): string {
-  const target = getTargetMrr(project);
+  const target = getTargetMrr(project, opportunity);
   const progress = getMilestoneProgress(project);
 
   if (project.currentMrr === 0) {

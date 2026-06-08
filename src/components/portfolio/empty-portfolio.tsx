@@ -1,10 +1,15 @@
 import { Radar } from "lucide-react";
 import Link from "next/link";
-import { getDealOfTheWeek } from "@/data/opportunities";
 import { Button } from "@/components/ui/button";
 
-export function EmptyPortfolio() {
-  const deal = getDealOfTheWeek();
+type EmptyPortfolioProps = {
+  weeklyPickSlug?: string;
+};
+
+export function EmptyPortfolio({ weeklyPickSlug }: EmptyPortfolioProps) {
+  const weeklyPickHref = weeklyPickSlug
+    ? `/opportunities/${weeklyPickSlug}`
+    : "/opportunities";
 
   return (
     <section className="rounded-xl border border-dashed border-primary/30 bg-accent/20 px-6 py-16 text-center">
@@ -21,7 +26,7 @@ export function EmptyPortfolio() {
           <Link href="/opportunities">Explorer les opportunités</Link>
         </Button>
         <Button variant="outline" asChild>
-          <Link href={`/opportunities/${deal.slug}`}>Voir le pick de la semaine</Link>
+          <Link href={weeklyPickHref}>Voir le pick de la semaine</Link>
         </Button>
       </div>
     </section>

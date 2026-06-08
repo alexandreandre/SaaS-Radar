@@ -6,7 +6,6 @@ import { Suspense, useMemo } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
-import { getOpportunityBySlug } from "@/data/opportunities";
 import { usePortfolio } from "@/contexts/portfolio-context";
 import type { Opportunity } from "@/types/opportunity";
 import type { UserProject } from "@/lib/portfolio";
@@ -81,11 +80,11 @@ function CockpitLoaded({ project, opportunity }: CockpitLoadedProps) {
 }
 
 function CockpitPageContent({ projectId }: { projectId: string }) {
-  const { hydrated, getProjectById } = usePortfolio();
+  const { hydrated, getProjectById, getCatalogOpportunity } = usePortfolio();
   const project = getProjectById(projectId);
   const opportunity = useMemo(
-    () => (project ? getOpportunityBySlug(project.opportunitySlug) : null),
-    [project]
+    () => (project ? getCatalogOpportunity(project.opportunitySlug) : null),
+    [project, getCatalogOpportunity]
   );
 
   if (!hydrated) {

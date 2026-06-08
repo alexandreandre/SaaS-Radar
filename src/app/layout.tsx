@@ -5,6 +5,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TierProvider } from "@/contexts/tier-context";
 import { PortfolioProvider } from "@/contexts/portfolio-context";
+import { getAllOpportunities } from "@/lib/opportunities";
+import { enrichOpportunity } from "@/data/opportunity-enrichment";
 
 const sourceSans = Source_Sans_3({
   subsets: ["latin"],
@@ -32,11 +34,13 @@ export const metadata: Metadata = {
     "Opportunités SaaS validées à l'étranger, scores France Fit et Buildability, carte mondiale et outil d'analyste pour entrepreneurs français.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const opportunityCatalog = (await getAllOpportunities()).map(enrichOpportunity);
+
   return (
     <html lang="fr" suppressHydrationWarning>
       <body
@@ -44,7 +48,7 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <TierProvider>
-            <PortfolioProvider>
+            <PortfolioProvider opportunityCatalog={opportunityCatalog}>
               <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
             </PortfolioProvider>
           </TierProvider>
