@@ -1,5 +1,7 @@
 /**
- * Usage : npm run seed
+ * Usage : SEED_CONFIRM=1 npm run seed
+ * Legacy — réinjecte les 12 mocks depuis src/data/opportunities.ts.
+ * En production / flux sourcé : utilisez npm run sourcing à la place.
  * Prérequis : .env.local rempli + migration 001_opportunities appliquée dans Supabase
  */
 import { createClient } from "@supabase/supabase-js";
@@ -18,6 +20,16 @@ function createAdminClient() {
 }
 
 async function seed() {
+  if (process.env.SEED_CONFIRM !== "1") {
+    console.error("❌ Seed legacy désactivé — utilise npm run sourcing");
+    console.error("   Pour forcer le seed des mocks : SEED_CONFIRM=1 npm run seed");
+    process.exit(1);
+  }
+
+  console.warn(
+    "⚠️  Seed legacy activé — vous allez upsert les 12 mocks (risque de pollution DB sourcée)."
+  );
+
   const supabase = createAdminClient();
   const slugs = opportunities.map((o) => o.slug);
 

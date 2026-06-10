@@ -5,7 +5,13 @@ import { PaywallGate } from "@/components/billing/paywall-gate";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
-export function ArticleReader({ article }: { article: NewsArticle }) {
+export function ArticleReader({
+  article,
+  linkedOpportunitySlug,
+}: {
+  article: NewsArticle;
+  linkedOpportunitySlug?: string | null;
+}) {
   const requiredTier = article.tier === "free" ? "free" : article.tier;
 
   return (
@@ -58,11 +64,11 @@ export function ArticleReader({ article }: { article: NewsArticle }) {
         </PaywallGate>
       )}
 
-      {article.opportunitySlug && (
+      {linkedOpportunitySlug && (
         <div className="mt-12 rounded-lg border border-border bg-muted/40 p-5">
           <p className="label-data">Opportunité liée</p>
           <Button className="mt-3" asChild>
-            <Link href={`/opportunities/${article.opportunitySlug}`}>
+            <Link href={`/opportunities/${linkedOpportunitySlug}`}>
               Voir la fiche analyste →
             </Link>
           </Button>

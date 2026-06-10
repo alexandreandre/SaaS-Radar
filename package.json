@@ -11,7 +11,8 @@
     "analyze": "ANALYZE=true next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "tsx --env-file=.env.local scripts/seed.ts"
+    "seed": "tsx --env-file=.env.local scripts/seed.ts",
+    "sourcing": "tsx --env-file=.env.local scripts/sourcing.ts"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.3",
@@ -41,7 +42,8 @@
     "recharts": "^3.1.2",
     "server-only": "^0.0.1",
     "tailwind-merge": "^3.3.1",
-    "topojson-client": "^3.1.0"
+    "topojson-client": "^3.1.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@next/bundle-analyzer": "^16.2.7",

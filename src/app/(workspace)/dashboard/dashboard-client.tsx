@@ -9,34 +9,46 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import { TrendingDown, TrendingUp } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CheckInBanner } from "@/components/portfolio/portfolio-stats";
 import { NextActionCard } from "@/components/cockpit/next-action-card";
 
-const watchlistConfig = [
-  { slug: "sms-reminder-physio", delta: "Nouveau concurrent FR détecté", trend: "down" as const },
-  { slug: "hr-compliance-tracker", delta: "Score Opportunity +3", trend: "up" as const },
-  { slug: "property-inspection-reports", delta: "Stable", trend: "up" as const },
-];
+const WATCHLIST_HINTS = [
+  { delta: "Nouveau concurrent FR détecté", trend: "down" as const },
+  { delta: "Score Opportunity en hausse", trend: "up" as const },
+  { delta: "Stable", trend: "up" as const },
+] as const;
 
 export function DashboardClient() {
   const [signedIn] = useState(true);
-  const { hydrated, activeProject, projects, stats, toggleMilestone, getCatalogOpportunity } =
-    usePortfolio();
+  const {
+    hydrated,
+    activeProject,
+    projects,
+    stats,
+    toggleMilestone,
+    getCatalogOpportunity,
+    opportunityCatalog,
+  } = usePortfolio();
 
   const building = activeProject;
   const opportunity = building ? getCatalogOpportunity(building.opportunitySlug) : null;
   const finTarget = building && opportunity ? getTargetMrr(building, opportunity) : 0;
   const launchMilestones = building?.milestones.filter((m) => m.source === "revenue").slice(0, 5) ?? [];
 
-  const watchlist = watchlistConfig
-    .map((entry) => {
-      const opp = getCatalogOpportunity(entry.slug);
-      return opp ? { ...entry, name: opp.name } : null;
-    })
-    .filter((entry): entry is { slug: string; delta: string; trend: "up" | "down"; name: string } =>
-      entry !== null
-    );
+  const watchlist = useMemo(() => {
+    const excludeSlug = building?.opportunitySlug;
+    return [...opportunityCatalog]
+      .filter((o) => o.slug !== excludeSlug)
+      .sort((a, b) => b.scores.opportunity - a.scores.opportunity)
+      .slice(0, 3)
+      .map((opp, i) => ({
+        slug: opp.slug,
+        name: opp.name,
+        delta: WATCHLIST_HINTS[i]?.delta ?? "À surveiller",
+        trend: WATCHLIST_HINTS[i]?.trend ?? ("up" as const),
+      }));
+  }, [opportunityCatalog, building?.opportunitySlug]);
 
   if (!signedIn) {
     return (
@@ -190,6 +202,11 @@ export function DashboardClient() {
 
             <section className="rounded-xl border border-border bg-card p-6">
               <h2 className="font-semibold">Watchlist</h2>
+              {watchlist.length === 0 ? (
+                <p className="mt-4 text-sm text-muted-foreground">
+                  Aucune opportunité à surveiller pour le moment.
+                </p>
+              ) : (
               <ul className="mt-4 space-y-4">
                 {watchlist.map((o) => (
                   <li key={o.slug}>
@@ -207,6 +224,7 @@ export function DashboardClient() {
                   </li>
                 ))}
               </ul>
+              )}
             </section>
           </div>
         </div>

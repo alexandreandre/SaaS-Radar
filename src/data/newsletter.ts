@@ -1,4 +1,5 @@
 import type { Tier } from "@/lib/tier";
+import type { Opportunity, Sector } from "@/types/opportunity";
 
 export type ArticleCategory = "ia" | "actu-tech" | "saas";
 
@@ -272,4 +273,38 @@ export function getArticleBySlug(slug: string): NewsArticle | undefined {
 
 export function getTodayFlashBriefs(): FlashBrief[] {
   return flashBriefs.filter((f) => f.dateLabel === "Aujourd'hui");
+}
+
+/** Secteur préféré par article quand le slug lié n'existe plus en catalogue. */
+const ARTICLE_SECTOR_FALLBACK: Partial<Record<string, Sector>> = {
+  "reception-ia-dentaire-france": "healthcare",
+  "rappels-sms-kine-boring": "healthcare",
+  "devis-btp-artisans": "construction",
+  "portail-comptable-fr": "finance",
+};
+
+/**
+ * Résout le lien opportunité d'un article vers une fiche existante du catalogue.
+ * 1) slug exact si présent en DB, 2) meilleure fiche du secteur lié, 3) meilleur score global.
+ */
+export function resolveArticleOpportunitySlug(
+  article: NewsArticle,
+  catalog: Pick<Opportunity, "slug" | "sector" | "scores">[]
+): string | null {
+  if (catalog.length === 0) return null;
+
+  if (article.opportunitySlug) {
+    const exact = catalog.find((o) => o.slug === article.opportunitySlug);
+    if (exact) return exact.slug;
+  }
+
+  const preferredSector = ARTICLE_SECTOR_FALLBACK[article.slug];
+  if (preferredSector) {
+    const bySector = catalog
+      .filter((o) => o.sector === preferredSector)
+      .sort((a, b) => b.scores.opportunity - a.scores.opportunity);
+    if (bySector[0]) return bySector[0].slug;
+  }
+
+  return [...catalog].sort((a, b) => b.scores.opportunity - a.scores.opportunity)[0]?.slug ?? null;
 }

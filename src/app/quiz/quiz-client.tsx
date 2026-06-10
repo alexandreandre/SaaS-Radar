@@ -5,7 +5,7 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
-import type { Opportunity } from "@/types/opportunity";
+import type { Opportunity, Sector } from "@/types/opportunity";
 
 const questions = [
   {
@@ -90,102 +90,81 @@ const questions = [
   },
 ];
 
-function getRecommendation(answers: Record<string, string>): string {
-  const scores: Record<string, number> = {
-    "ai-receptionist-dental": 0,
-    "quote-generator-contractors": 0,
-    "hr-compliance-tracker": 0,
-    "accounting-client-portal": 0,
-    "sms-reminder-physio": 0,
-    "lawyer-time-billing": 0,
-  };
+const QUIZ_SECTOR_MAP: Record<string, Sector[]> = {
+  health: ["healthcare"],
+  construction: ["construction"],
+  finance: ["finance", "legal"],
+};
 
-  if (answers.situation === "cdi" || answers.situation === "student") {
-    scores["sms-reminder-physio"] += 3;
-    scores["quote-generator-contractors"] += 2;
-  }
-  if (answers.situation === "fulltime") {
-    scores["ai-receptionist-dental"] += 3;
-    scores["hr-compliance-tracker"] += 2;
-  }
+function scoreOpportunityForQuiz(opp: Opportunity, answers: Record<string, string>): number {
+  let score = opp.scores.opportunity;
 
-  if (answers.experience === "never") {
-    scores["sms-reminder-physio"] += 3;
-    scores["quote-generator-contractors"] += 2;
-  }
-  if (answers.experience === "already") {
-    scores["ai-receptionist-dental"] += 2;
-    scores["hr-compliance-tracker"] += 3;
-  }
+  const preferredSectors = QUIZ_SECTOR_MAP[answers.sector];
+  if (preferredSectors?.includes(opp.sector)) score += 20;
 
-  if (answers.tech === "none") {
-    scores["quote-generator-contractors"] += 4;
-    scores["sms-reminder-physio"] += 2;
-  }
+  if (answers.tech === "none" && opp.techComplexity === "low") score += 12;
+  if (answers.tech === "medium" && opp.techComplexity !== "high") score += 6;
   if (answers.tech === "dev") {
-    scores["ai-receptionist-dental"] += 4;
-    scores["hr-compliance-tracker"] += 3;
+    if (opp.techComplexity !== "low") score += 6;
+    if (opp.scores.buildability >= 7) score += 4;
   }
 
-  if (answers.sector === "health") {
-    scores["ai-receptionist-dental"] += 5;
-    scores["sms-reminder-physio"] += 4;
-  }
-  if (answers.sector === "construction") {
-    scores["quote-generator-contractors"] += 6;
-  }
-  if (answers.sector === "finance") {
-    scores["accounting-client-portal"] += 5;
-    scores["lawyer-time-billing"] += 4;
-  }
-  if (answers.sector === "any") {
-    scores["sms-reminder-physio"] += 2;
-    scores["quote-generator-contractors"] += 2;
-  }
-
-  if (answers.time === "low") {
-    scores["sms-reminder-physio"] += 3;
-    scores["quote-generator-contractors"] += 2;
-  }
-  if (answers.time === "high") {
-    scores["ai-receptionist-dental"] += 3;
-    scores["hr-compliance-tracker"] += 2;
+  if (opp.buildableUnder30Days) {
+    if (answers.time === "low") score += 10;
+    if (answers.experience === "never") score += 8;
+    if (answers.situation === "cdi" || answers.situation === "student") score += 6;
   }
 
   if (answers.goal === "quick") {
-    scores["sms-reminder-physio"] += 3;
-    scores["quote-generator-contractors"] += 3;
+    if (opp.revenueMin <= 5000) score += 6;
+    if (opp.buildableUnder30Days) score += 6;
+    if (opp.techComplexity === "low") score += 4;
   }
   if (answers.goal === "scale") {
-    scores["ai-receptionist-dental"] += 3;
-    scores["hr-compliance-tracker"] += 2;
+    score += opp.scores.franceFit;
+    if (opp.scores.competitionGap >= 7) score += 5;
   }
+  if (answers.goal === "test" && opp.buildableUnder30Days) score += 8;
 
-  return Object.entries(scores).sort((a, b) => b[1] - a[1])[0][0];
+  if (answers.situation === "fulltime") score += opp.scores.opportunity * 0.05;
+  if (answers.experience === "already") score += opp.scores.margin * 0.5;
+  if (answers.time === "high" && opp.techComplexity === "high") score += 4;
+
+  if (opp.lowCompetition) score += 4;
+  if (opp.boringBusiness) score += 2;
+
+  return score;
 }
 
-function getMatchReasons(answers: Record<string, string>, slug: string): string[] {
+function getRecommendation(
+  answers: Record<string, string>,
+  catalog: Opportunity[]
+): Opportunity | null {
+  if (catalog.length === 0) return null;
+  return [...catalog].sort(
+    (a, b) => scoreOpportunityForQuiz(b, answers) - scoreOpportunityForQuiz(a, answers)
+  )[0];
+}
+
+function getMatchReasons(answers: Record<string, string>, opp: Opportunity): string[] {
   const reasons: string[] = [];
 
-  if (
-    answers.tech === "none" &&
-    (slug === "quote-generator-contractors" || slug === "sms-reminder-physio")
-  ) {
+  if (answers.tech === "none" && opp.techComplexity === "low") {
     reasons.push("Lançable sans coder — no-code ou Claude Code suffisent");
   }
-  if (answers.tech === "dev" && slug === "ai-receptionist-dental") {
+  if (answers.tech === "dev" && opp.techComplexity !== "low") {
     reasons.push("Ta stack technique te donne un avantage compétitif immédiat");
   }
-  if (
-    answers.sector === "health" &&
-    (slug === "ai-receptionist-dental" || slug === "sms-reminder-physio")
-  ) {
+  if (answers.sector === "health" && opp.sector === "healthcare") {
     reasons.push("Tu connais ce marché — la vente sera 3x plus facile");
   }
-  if (answers.sector === "construction" && slug === "quote-generator-contractors") {
-    reasons.push("380 000 artisans utilisent encore Word pour leurs devis");
+  if (answers.sector === "construction" && opp.sector === "construction") {
+    reasons.push("Marché BTP fragmenté — beaucoup d'artisans encore sur Excel");
   }
-  if (answers.time === "low" && slug === "sms-reminder-physio") {
+  if (answers.sector === "finance" && (opp.sector === "finance" || opp.sector === "legal")) {
+    reasons.push("Secteur finance/juridique aligné avec ton profil");
+  }
+  if (answers.time === "low" && opp.buildableUnder30Days) {
     reasons.push("Buildable en quelques week-ends — complexité technique faible");
   }
   if (answers.goal === "quick") {
@@ -194,8 +173,11 @@ function getMatchReasons(answers: Record<string, string>, slug: string): string[
   if (answers.situation === "cdi") {
     reasons.push("Parfait pour un side project — pas besoin de quitter ton job");
   }
-  if (answers.experience === "never") {
+  if (answers.experience === "never" && opp.buildableUnder30Days) {
     reasons.push("Idéal pour un premier projet — pas besoin d'expérience préalable");
+  }
+  if (opp.lowCompetition) {
+    reasons.push("Peu de concurrence en France sur cette niche");
   }
 
   return reasons.slice(0, 3);
@@ -204,7 +186,7 @@ function getMatchReasons(answers: Record<string, string>, slug: string): string[
 export function QuizClient({ opportunities }: { opportunities: Opportunity[] }) {
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [recommendedSlug, setRecommendedSlug] = useState<string | null>(null);
+  const [recommended, setRecommended] = useState<Opportunity | null>(null);
 
   const handleAnswer = (value: string) => {
     const newAnswers = { ...answers, [questions[step].id]: value };
@@ -212,19 +194,18 @@ export function QuizClient({ opportunities }: { opportunities: Opportunity[] }) 
     if (step < questions.length - 1) {
       setStep((s) => s + 1);
     } else {
-      setRecommendedSlug(getRecommendation(newAnswers));
+      setRecommended(getRecommendation(newAnswers, opportunities));
     }
   };
 
-  const recommended = opportunities.find((o) => o.slug === recommendedSlug);
-  const matchReasons = recommended ? getMatchReasons(answers, recommended.slug) : [];
+  const matchReasons = recommended ? getMatchReasons(answers, recommended) : [];
   const currentQuestion = questions[step];
-  const isResult = recommendedSlug !== null;
+  const isResult = recommended !== null;
 
   const restart = () => {
     setStep(0);
     setAnswers({});
-    setRecommendedSlug(null);
+    setRecommended(null);
   };
 
   return (
@@ -290,8 +271,7 @@ export function QuizClient({ opportunities }: { opportunities: Opportunity[] }) 
                 </button>
               )}
             </motion.div>
-          ) : (
-            recommended && (
+          ) : recommended ? (
               <motion.div
                 key="result"
                 initial={{ opacity: 0, y: 20 }}
@@ -358,7 +338,24 @@ export function QuizClient({ opportunities }: { opportunities: Opportunity[] }) 
                   ↺ Refaire le test
                 </button>
               </motion.div>
-            )
+          ) : (
+            <motion.div
+              key="empty"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="w-full max-w-lg text-center"
+            >
+              <p className="text-muted-foreground">
+                Aucune opportunité disponible pour le moment. Revenez après le prochain sourcing.
+              </p>
+              <button
+                type="button"
+                onClick={restart}
+                className="mx-auto mt-6 block text-sm text-primary hover:underline"
+              >
+                ↺ Refaire le test
+              </button>
+            </motion.div>
           )}
         </AnimatePresence>
       </main>
