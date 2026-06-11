@@ -1,6 +1,6 @@
 import { MODELS, SECTORS } from "./constants";
 import { callOpenRouter, extractJsonObject, type CostTracker } from "./openrouter";
-import { factualLeadSchema, type FactualLead } from "./schema";
+import { factualLeadSchema, formatZodError, type FactualLead } from "./schema";
 
 const SONAR_SYSTEM = [
   "Tu es un analyste qui identifie de VRAIS MICRO-SaaS indie (anglophones, surtout US),",
@@ -100,6 +100,14 @@ function buildDiscoveryPrompt(params: DiscoverParams): string {
 
 /** Étape A — appelle Sonar et renvoie les leads dont la FORME est valide (Zod). */
 export async function discoverLeads(params: DiscoverParams): Promise<FactualLead[]> {
+  const debug = process.env.SOURCING_DEBUG === "1";
+
+  if (debug) {
+    console.log(`\n[DEBUG discover] leads demandés à Sonar (count param)=${params.count}`);
+    console.log(`[DEBUG discover] exclusions (${params.exclusions.length}): ${params.exclusions.slice(0, 5).join("; ")}${params.exclusions.length > 5 ? "…" : ""}`);
+    console.log(`[DEBUG discover] variation=${params.variation} sector=${params.sector ?? "(all)"}`);
+  }
+
   const { content, usage } = await callOpenRouter({
     model: MODELS.discovery,
     system: SONAR_SYSTEM,
@@ -107,17 +115,57 @@ export async function discoverLeads(params: DiscoverParams): Promise<FactualLead
   });
   params.tracker.add("Sonar", usage);
 
-  const json = extractJsonObject(content);
+  let json: unknown;
+  try {
+    json = extractJsonObject(content);
+  } catch (err) {
+    if (debug) {
+      console.error(
+        `[DEBUG discover] extractJsonObject THROW: ${err instanceof Error ? err.message : err}`
+      );
+    }
+    throw err;
+  }
+
+  if (debug) {
+    const topKeys =
+      json && typeof json === "object" && !Array.isArray(json)
+        ? Object.keys(json as Record<string, unknown>).join(", ")
+        : "(array or primitive)";
+    console.log(`[DEBUG discover] JSON extrait — type=${Array.isArray(json) ? "array" : typeof json} keys=${topKeys}`);
+  }
+
   const rawLeads: unknown[] = Array.isArray(json)
     ? json
     : Array.isArray((json as { leads?: unknown[] })?.leads)
       ? ((json as { leads: unknown[] }).leads)
       : [];
 
+  if (debug) {
+    console.log(`[DEBUG discover] rawLeads extraits=${rawLeads.length}`);
+  }
+
   const valid: FactualLead[] = [];
+  let rejected = 0;
   for (const raw of rawLeads) {
     const parsed = factualLeadSchema.safeParse(raw);
-    if (parsed.success) valid.push(parsed.data);
+    if (parsed.success) {
+      valid.push(parsed.data);
+    } else {
+      rejected++;
+      if (debug && rejected <= 3) {
+        const name =
+          raw && typeof raw === "object" && "name" in raw
+            ? String((raw as { name: unknown }).name)
+            : "(sans nom)";
+        console.log(`[DEBUG discover] Zod REJECT #${rejected} "${name}": ${formatZodError(parsed.error)}`);
+      }
+    }
   }
+
+  if (debug) {
+    console.log(`[DEBUG discover] Zod OK=${valid.length} REJECT=${rejected}\n`);
+  }
+
   return valid;
 }

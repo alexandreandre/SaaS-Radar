@@ -75,7 +75,7 @@ export async function callOpenRouter(params: CallParams): Promise<OpenRouterResu
   }
 
   const data = (await res.json()) as {
-    choices?: { message?: { content?: string } }[];
+    choices?: { message?: { content?: string }; finish_reason?: string }[];
     usage?: {
       prompt_tokens?: number;
       completion_tokens?: number;
@@ -85,7 +85,20 @@ export async function callOpenRouter(params: CallParams): Promise<OpenRouterResu
   };
 
   const content = data.choices?.[0]?.message?.content ?? "";
+  const finishReason = data.choices?.[0]?.finish_reason ?? "unknown";
   const u = data.usage ?? {};
+
+  if (process.env.SOURCING_DEBUG === "1") {
+    console.log("\n[DEBUG openrouter] ─────────────────────────────");
+    console.log(`[DEBUG openrouter] model=${model} finish_reason=${finishReason}`);
+    console.log(
+      `[DEBUG openrouter] content length=${content.length} chars | ` +
+        `tokens: prompt=${u.prompt_tokens ?? 0} completion=${u.completion_tokens ?? 0} total=${u.total_tokens ?? 0}`
+    );
+    console.log(`[DEBUG openrouter] raw HEAD (500):\n${content.slice(0, 500)}`);
+    console.log(`[DEBUG openrouter] raw TAIL (500):\n${content.slice(-500)}`);
+    console.log("[DEBUG openrouter] ─────────────────────────────\n");
+  }
 
   return {
     content,
@@ -103,31 +116,38 @@ export async function callOpenRouter(params: CallParams): Promise<OpenRouterResu
  * Tente : parse direct → bloc ```json → premier {...} équilibré.
  */
 export function extractJsonObject(raw: string): unknown {
+  const debug = process.env.SOURCING_DEBUG === "1";
   const trimmed = raw.trim();
 
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    // suite
-  }
+  const tryParse = (label: string, text: string): unknown | null => {
+    try {
+      const parsed = JSON.parse(text);
+      if (debug) console.log(`[DEBUG extractJsonObject] OK via ${label}`);
+      return parsed;
+    } catch (err) {
+      if (debug) {
+        console.log(
+          `[DEBUG extractJsonObject] FAIL ${label}: ${err instanceof Error ? err.message : err}`
+        );
+      }
+      return null;
+    }
+  };
+
+  const direct = tryParse("direct parse", trimmed);
+  if (direct !== null) return direct;
 
   const fence = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fence) {
-    try {
-      return JSON.parse(fence[1].trim());
-    } catch {
-      // suite
-    }
+    const fenced = tryParse("markdown fence", fence[1].trim());
+    if (fenced !== null) return fenced;
   }
 
   const first = trimmed.indexOf("{");
   const last = trimmed.lastIndexOf("}");
   if (first !== -1 && last > first) {
-    try {
-      return JSON.parse(trimmed.slice(first, last + 1));
-    } catch {
-      // suite
-    }
+    const sliced = tryParse(`brace slice [${first}..${last}]`, trimmed.slice(first, last + 1));
+    if (sliced !== null) return sliced;
   }
 
   throw new Error("Réponse OpenRouter non parsable en JSON");
