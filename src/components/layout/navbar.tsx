@@ -1,23 +1,34 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Radar, Rocket } from "lucide-react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { LayoutDashboard, Radar, Rocket } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { usePortfolio } from "@/contexts/portfolio-context";
-import { MAP_EXPLORE_HREF } from "@/lib/map-routes";
+import {
+  MAP_EXPLORE_HREF,
+  MAP_EXPLORE_QUERY,
+  isMapExploreActive,
+} from "@/lib/map-routes";
 
 const links = [
-  { href: "/dashboard", label: "Dashboard" },
+  { href: MAP_EXPLORE_HREF, label: "Carte du monde", mapExplore: true },
   { href: "/opportunities", label: "Opportunités" },
   { href: "/newsletter", label: "Newsletter" },
   { href: "/pricing", label: "Tarifs" },
   { href: "/quiz", label: "Quel SaaS pour moi ?" },
 ];
 
-function NavbarContent({ dark = false }: { dark?: boolean }) {
+function NavbarContent({
+  dark = false,
+  explore,
+}: {
+  dark?: boolean;
+  explore?: string | null;
+}) {
   const pathname = usePathname();
   const { hydrated, overdueCheckIns } = usePortfolio();
 
@@ -42,10 +53,9 @@ function NavbarContent({ dark = false }: { dark?: boolean }) {
         </Link>
         <nav className="hidden items-center gap-7 md:flex">
           {links.map((link) => {
-            const active =
-              link.href === "/dashboard"
-                ? pathname === "/dashboard" || pathname.startsWith("/dashboard/")
-                : pathname === link.href || pathname.startsWith(`${link.href}/`);
+            const active = link.mapExplore
+              ? isMapExploreActive(pathname, explore)
+              : pathname === link.href;
             return (
               <Link
                 key={link.href}
@@ -67,6 +77,7 @@ function NavbarContent({ dark = false }: { dark?: boolean }) {
           })}
         </nav>
         <div className="flex items-center gap-2">
+          <ThemeToggle dark={dark} />
           <Button
             variant={dark ? "outline" : "ghost"}
             size="sm"
@@ -86,16 +97,39 @@ function NavbarContent({ dark = false }: { dark?: boolean }) {
               ) : null}
             </Link>
           </Button>
+          <Button
+            variant={dark ? "outline" : "ghost"}
+            size="sm"
+            className={
+              dark
+                ? "border-hero-foreground/15 bg-transparent text-hero-foreground hover:bg-hero-foreground/10"
+                : ""
+            }
+            asChild
+          >
+            <Link href="/dashboard">
+              <LayoutDashboard className="h-4 w-4 sm:mr-0" />
+              <span className="hidden sm:inline">Dashboard</span>
+            </Link>
+          </Button>
           <Button size="sm" asChild>
             <Link href={MAP_EXPLORE_HREF}>Explorer</Link>
           </Button>
-          <ThemeToggle dark={dark} />
         </div>
       </div>
     </header>
   );
 }
 
+function NavbarWithSearchParams(props: { dark?: boolean }) {
+  const explore = useSearchParams().get(MAP_EXPLORE_QUERY);
+  return <NavbarContent {...props} explore={explore} />;
+}
+
 export function Navbar(props: { dark?: boolean }) {
-  return <NavbarContent {...props} />;
+  return (
+    <Suspense fallback={<NavbarContent {...props} />}>
+      <NavbarWithSearchParams {...props} />
+    </Suspense>
+  );
 }
