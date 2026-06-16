@@ -29,6 +29,74 @@ export interface OpenRouterResult {
   usage: OpenRouterUsage;
 }
 
+const MAX_HTTP_ATTEMPTS = 3;
+const BASE_BACKOFF_MS = 1000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Délai avant retry : respecte Retry-After (s ou date HTTP) sinon backoff exponentiel + jitter. */
+function retryDelayMs(res: Response | null, attempt: number): number {
+  const header = res?.headers.get("retry-after");
+  if (header) {
+    const asSeconds = Number(header);
+    if (Number.isFinite(asSeconds)) return Math.max(0, asSeconds * 1000);
+    const asDate = Date.parse(header);
+    if (!Number.isNaN(asDate)) return Math.max(0, asDate - Date.now());
+  }
+  const expo = BASE_BACKOFF_MS * 2 ** (attempt - 1);
+  return expo + Math.floor(Math.random() * 250);
+}
+
+/**
+ * fetch avec retry sur erreurs transitoires (429 + 5xx) et erreurs réseau.
+ * Les autres statuts (4xx hors 429) sont renvoyés tels quels — non transitoires.
+ */
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  label: string
+): Promise<Response> {
+  const debug = process.env.SOURCING_DEBUG === "1";
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= MAX_HTTP_ATTEMPTS; attempt++) {
+    let res: Response | null = null;
+    try {
+      res = await fetch(url, init);
+    } catch (err) {
+      lastError = err;
+      if (attempt === MAX_HTTP_ATTEMPTS) break;
+      const delay = retryDelayMs(null, attempt);
+      if (debug) {
+        console.log(
+          `[DEBUG openrouter] ${label} erreur réseau (tentative ${attempt}/${MAX_HTTP_ATTEMPTS}), retry dans ${delay}ms : ${err instanceof Error ? err.message : err}`
+        );
+      }
+      await sleep(delay);
+      continue;
+    }
+
+    const transient = res.status === 429 || res.status >= 500;
+    if (!transient || attempt === MAX_HTTP_ATTEMPTS) {
+      return res;
+    }
+
+    const delay = retryDelayMs(res, attempt);
+    if (debug) {
+      console.log(
+        `[DEBUG openrouter] ${label} HTTP ${res.status} (tentative ${attempt}/${MAX_HTTP_ATTEMPTS}), retry dans ${delay}ms`
+      );
+    }
+    await sleep(delay);
+  }
+
+  throw new Error(
+    `${label} : échec après ${MAX_HTTP_ATTEMPTS} tentatives — ${lastError instanceof Error ? lastError.message : String(lastError)}`
+  );
+}
+
 /**
  * Format de réponse OpenRouter, configurable PAR APPEL.
  * - Omis (undefined) → 'text' côté API (cas Sonar/perplexity, qui rejette json_object).
@@ -63,11 +131,15 @@ export async function callOpenRouter(params: CallParams): Promise<OpenRouterResu
     body.response_format = responseFormat;
   }
 
-  const res = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
-    method: "POST",
-    headers: baseHeaders(),
-    body: JSON.stringify(body),
-  });
+  const res = await fetchWithRetry(
+    `${OPENROUTER_BASE}/chat/completions`,
+    {
+      method: "POST",
+      headers: baseHeaders(),
+      body: JSON.stringify(body),
+    },
+    `OpenRouter ${model}`
+  );
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
@@ -158,9 +230,11 @@ export function extractJsonObject(raw: string): unknown {
  * Lève une erreur explicite (avec le slug manquant) sinon.
  */
 export async function assertModelsActive(models: string[]): Promise<void> {
-  const res = await fetch(`${OPENROUTER_BASE}/models`, {
-    headers: { Authorization: `Bearer ${getApiKey()}` },
-  });
+  const res = await fetchWithRetry(
+    `${OPENROUTER_BASE}/models`,
+    { headers: { Authorization: `Bearer ${getApiKey()}` } },
+    "OpenRouter /models"
+  );
   if (!res.ok) {
     throw new Error(`Impossible de lister les modèles OpenRouter (HTTP ${res.status})`);
   }

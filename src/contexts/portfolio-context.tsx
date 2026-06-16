@@ -18,6 +18,7 @@ import {
 } from "@/lib/connectors";
 import type { AdCampaign, Expense, MetricsSnapshot } from "@/lib/connectors/types";
 import type { Opportunity } from "@/types/opportunity";
+import { enrichOpportunity } from "@/data/opportunity-enrichment";
 import {
   PORTFOLIO_STORAGE_KEY,
   computeNextStreak,
@@ -97,7 +98,11 @@ export function PortfolioProvider({
   }, []);
 
   const getCatalogOpportunity = useCallback(
-    (slug: string) => opportunityCatalog.find((o) => o.slug === slug),
+    (slug: string) => {
+      const found = opportunityCatalog.find((o) => o.slug === slug);
+      // Enrichissement premium à la demande (le catalogue fourni est brut).
+      return found ? enrichOpportunity(found) : undefined;
+    },
     [opportunityCatalog]
   );
 

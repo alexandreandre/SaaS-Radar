@@ -13,6 +13,7 @@ import { CountryHoverCard } from "@/components/world/country-hover-card";
 import { CountryGeography } from "@/components/world/country-geography";
 import type { MapHeroFilter } from "@/components/world/map-hero-dashboard";
 import { useTargetMarket } from "@/context/target-market-context";
+import { useMapCatalog } from "@/context/map-catalog-context";
 import { getTargetFit } from "@/lib/target-market-fit";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ export function WorldMapHero({
   const { topology, status, retry } = useGeographyData();
   const { colors, getHeatColor, getHeatColorAmbient } = useMapPalette();
   const { target } = useTargetMarket();
+  const { slugsForCountry } = useMapCatalog();
   const [hovered, setHovered] = useState<string | null>(null);
   const [cardHovered, setCardHovered] = useState(false);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
@@ -65,7 +67,7 @@ export function WorldMapHero({
       const market = getMarketByCode(code);
       if (!market) return false;
       if (filter === "database") {
-        if (target.code === "FR") return market.opportunitySlugs.length > 0;
+        if (target.code === "FR") return slugsForCountry(market.code).length > 0;
         return (
           market.code !== target.code &&
           getTargetFit(market.code, target.code).score >= 60
@@ -79,7 +81,7 @@ export function WorldMapHero({
       }
       return true;
     },
-    [filter, target.code, unlocked]
+    [filter, target.code, unlocked, slugsForCountry]
   );
 
   const getFill = useCallback(

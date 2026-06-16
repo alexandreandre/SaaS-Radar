@@ -1,18 +1,41 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { LayoutDashboard, Radar, Rocket } from "lucide-react";
+import { LayoutDashboard, LogOut, Radar, Rocket } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { usePortfolio } from "@/contexts/portfolio-context";
+import { createClient } from "@/lib/supabase/client";
 import {
   MAP_EXPLORE_HREF,
   MAP_EXPLORE_QUERY,
   isMapExploreActive,
 } from "@/lib/map-routes";
+
+/** Etat d'authentification cote client (pour l'affichage navbar uniquement). */
+function useAuthState() {
+  const [signedIn, setSignedIn] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    let active = true;
+    supabase.auth.getUser().then(({ data }) => {
+      if (active) setSignedIn(!!data.user);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSignedIn(!!session?.user);
+    });
+    return () => {
+      active = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  return signedIn;
+}
 
 const links = [
   { href: MAP_EXPLORE_HREF, label: "Carte du monde", mapExplore: true },
@@ -31,6 +54,7 @@ function NavbarContent({
 }) {
   const pathname = usePathname();
   const { hydrated, overdueCheckIns } = usePortfolio();
+  const signedIn = useAuthState();
 
   return (
     <header
@@ -78,25 +102,58 @@ function NavbarContent({
         </nav>
         <div className="flex items-center gap-2">
           <ThemeToggle dark={dark} />
-          <Button
-            variant={dark ? "outline" : "ghost"}
-            size="sm"
-            className={cn(
-              "relative hidden sm:inline-flex",
-              dark
-                ? "border-hero-foreground/15 bg-transparent text-hero-foreground hover:bg-hero-foreground/10"
-                : ""
-            )}
-            asChild
-          >
-            <Link href="/mes-saas">
-              <Rocket className="h-4 w-4" />
-              Mes SaaS
-              {hydrated && overdueCheckIns > 0 ? (
-                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-background" />
-              ) : null}
-            </Link>
-          </Button>
+          {signedIn ? (
+            <>
+              <Button
+                variant={dark ? "outline" : "ghost"}
+                size="sm"
+                className={cn(
+                  "relative hidden sm:inline-flex",
+                  dark
+                    ? "border-hero-foreground/15 bg-transparent text-hero-foreground hover:bg-hero-foreground/10"
+                    : ""
+                )}
+                asChild
+              >
+                <Link href="/mes-saas">
+                  <Rocket className="h-4 w-4" />
+                  Mes SaaS
+                  {hydrated && overdueCheckIns > 0 ? (
+                    <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-background" />
+                  ) : null}
+                </Link>
+              </Button>
+              <form action="/auth/signout" method="post">
+                <Button
+                  type="submit"
+                  variant={dark ? "outline" : "ghost"}
+                  size="sm"
+                  aria-label="Se déconnecter"
+                  className={cn(
+                    dark
+                      ? "border-hero-foreground/15 bg-transparent text-hero-foreground hover:bg-hero-foreground/10"
+                      : ""
+                  )}
+                >
+                  <LogOut className="h-4 w-4" />
+                </Button>
+              </form>
+            </>
+          ) : signedIn === false ? (
+            <Button
+              variant={dark ? "outline" : "ghost"}
+              size="sm"
+              className={cn(
+                "hidden sm:inline-flex",
+                dark
+                  ? "border-hero-foreground/15 bg-transparent text-hero-foreground hover:bg-hero-foreground/10"
+                  : ""
+              )}
+              asChild
+            >
+              <Link href="/login">Connexion</Link>
+            </Button>
+          ) : null}
           <Button
             variant={dark ? "outline" : "ghost"}
             size="sm"

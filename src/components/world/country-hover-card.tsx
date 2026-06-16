@@ -6,6 +6,7 @@ import type { WorldMarket } from "@/types/world-market";
 import { getScopeLabel } from "@/data/world-markets";
 import { getTargetFit, getTargetFitLabel } from "@/lib/target-market-fit";
 import { useTargetMarket } from "@/context/target-market-context";
+import { useMapCatalog } from "@/context/map-catalog-context";
 import { ArrowRight, Sparkles, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -26,6 +27,8 @@ export function CountryHoverCard({
 }: CountryHoverCardProps) {
   const router = useRouter();
   const { target } = useTargetMarket();
+  const { slugsForCountry } = useMapCatalog();
+  const dbCount = slugsForCountry(market.code).length;
   const topEarner = market.topEarners[0];
   const topTrend = market.trends[0];
   const fit = getTargetFit(market.code, target.code);
@@ -78,7 +81,7 @@ export function CountryHoverCard({
         <div className="mt-3 grid grid-cols-3 gap-2">
           <MiniStat label="SaaS" value={formatCompact(market.trackedMicroSaas)} />
           <MiniStat label="Nouveaux" value={`+${market.newThisMonth}`} accent />
-          <MiniStat label="En base" value={String(market.opportunitySlugs.length)} />
+          <MiniStat label="En base" value={String(dbCount)} />
         </div>
 
         {topEarner && (

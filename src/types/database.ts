@@ -37,13 +37,23 @@ export type Database = {
           financial_scenarios: Json;
           cac_channels: Json;
           mvp_plan: Json;
-          claude_prompt: string | null;
+          claude_prompt: string;
           acquisition: Json;
           entrepreneurs_building: number;
-          foreign_inspiration: string | null;
+          foreign_inspiration: string;
+          url: string | null;
           weekly_pick: boolean;
           created_at: string;
-          updated_at: string;
+          // Champs optionnels (jsonb nullable) — voir migration 001_opportunities.sql
+          foreign_market_profile: Json | null;
+          infra_costs: Json | null;
+          french_competitors: Json | null;
+          launch_timeline: Json | null;
+          email_templates: Json | null;
+          partners_fr: Json | null;
+          roi_inputs: Json | null;
+          tam_breakdown: Json | null;
+          competition_alerts: Json | null;
         };
         Insert: Partial<Database["public"]["Tables"]["opportunities"]["Row"]> & {
           slug: string;
@@ -82,9 +92,14 @@ export type Database = {
           email: string | null;
           full_name: string | null;
           plan: string;
+          is_admin: boolean;
           opportunities_viewed_this_month: number;
           last_reset_at: string;
           created_at: string;
+          stripe_customer_id: string | null;
+          stripe_subscription_id: string | null;
+          subscription_status: string | null;
+          current_period_end: string | null;
         };
         Insert: { id: string } & Partial<Database["public"]["Tables"]["profiles"]["Row"]>;
         Update: Partial<Database["public"]["Tables"]["profiles"]["Row"]>;
@@ -107,6 +122,15 @@ export type Database = {
           created_at: string;
         };
         Insert: { email: string; source?: string };
+        Update: never;
+      };
+      stripe_events: {
+        Row: {
+          id: string;
+          type: string | null;
+          received_at: string;
+        };
+        Insert: { id: string; type?: string | null };
         Update: never;
       };
     };

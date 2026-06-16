@@ -6,9 +6,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import type { WorldMarket } from "@/types/world-market";
-import { opportunities } from "@/data/opportunities";
 import { getScopeLabel } from "@/data/world-markets";
 import { useTargetMarket } from "@/context/target-market-context";
+import { useMapCatalog } from "@/context/map-catalog-context";
 import {
   getTargetFit,
   getTargetFitLabel,
@@ -119,14 +119,15 @@ const CountryModalContent = memo(function CountryModalContent({
 }) {
   const router = useRouter();
   const { target } = useTargetMarket();
+  const { opportunitiesForCountry } = useMapCatalog();
   const fit = useMemo(() => getTargetFit(market.code, target.code), [market.code, target.code]);
 
   const dbOpps = useMemo(
     () =>
-      opportunities
-        .filter((o) => market.opportunitySlugs.includes(o.slug))
-        .sort((a, b) => b.scores.opportunity - a.scores.opportunity),
-    [market.opportunitySlugs]
+      [...opportunitiesForCountry(market.code)].sort(
+        (a, b) => b.scores.opportunity - a.scores.opportunity
+      ),
+    [opportunitiesForCountry, market.code]
   );
 
   const adaptableCount = market.topEarners.filter(

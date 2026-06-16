@@ -84,6 +84,30 @@ const acquisitionTabSchema = z.object({
   tactics: z.array(z.string().min(1)).min(1),
 });
 
+// ── Champs PREMIUM (optionnels) — générés uniquement sous --premium ───────────
+// Doivent rester optionnels : un run par défaut ne les produit pas, et un échec
+// premium ne doit jamais invalider une fiche (enrichOpportunity reste le fallback).
+const frenchCompetitorSchema = z.object({
+  name: z.string().min(1),
+  positioning: z.string().min(1),
+  pricing: z.string().min(1),
+  strength: z.string().min(1),
+  weakness: z.string().min(1),
+});
+
+const launchWeekSchema = z.object({
+  week: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]),
+  goal: z.string().min(1),
+  actions: z.array(z.string().min(1)).min(1),
+  kpi: z.string().min(1),
+});
+
+const emailTemplateSchema = z.object({
+  name: z.string().min(1),
+  subject: z.string().min(1),
+  body: z.string().min(1),
+});
+
 const franceFitCriteriaSchema = z.object({
   problemExists: z.boolean(),
   regulation: z.string().min(1),
@@ -129,6 +153,10 @@ export const analyticalSchema = z.object({
   acquisition: z.array(acquisitionTabSchema).min(1),
   claudePrompt: z.string().min(1),
   foreignMarketProfile: foreignMarketProfileSchema,
+  // Premium (optionnels) — présents seulement si --premium et si Gemini les a produits valides.
+  frenchCompetitors: z.array(frenchCompetitorSchema).min(1).optional(),
+  launchTimeline: z.array(launchWeekSchema).length(4).optional(),
+  emailTemplates: z.array(emailTemplateSchema).min(1).optional(),
 });
 
 export type AnalyticalData = z.infer<typeof analyticalSchema>;
@@ -251,4 +279,34 @@ export function formatZodError(error: z.ZodError): string {
   return error.issues
     .map((i) => `${i.path.join(".") || "(racine)"}: ${i.message}`)
     .join(" | ");
+}
+
+/**
+ * Champs de premier niveau d'une Opportunity CALCULÉS par assembleOpportunity (côté code),
+ * que Gemini ne contrôle pas. Une erreur opportunityRawSchema portant exclusivement sur
+ * ces chemins ne doit JAMAIS déclencher de retry Gemini (re-prompt inutile + coûteux).
+ */
+const CODE_COMPUTED_FIELDS = new Set([
+  "id",
+  "slug",
+  "scores", // scores.opportunity calculé ; sous-scores viennent d'analyticalSchema mais le refine global est code
+  "revenueMin",
+  "revenueMax",
+  "lowCompetition",
+  "cacChannels",
+  "createdAt",
+  "financialScenarios", // mrr injecté par le code + refine
+]);
+
+/**
+ * Indique si AU MOINS une erreur Zod porte sur un champ que Gemini contrôle réellement
+ * (donc qu'un retry avec feedback peut corriger). Si toutes les erreurs portent sur des
+ * champs calculés côté code, retourne false → on log et on skip plutôt que de re-prompter.
+ */
+export function hasGeminiFixableError(error: z.ZodError): boolean {
+  return error.issues.some((issue) => {
+    const root = issue.path[0];
+    if (typeof root !== "string") return true; // erreur racine : potentiellement corrigeable
+    return !CODE_COMPUTED_FIELDS.has(root);
+  });
 }

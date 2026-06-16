@@ -15,6 +15,19 @@ export function slugify(input: string): string {
 }
 
 /**
+ * Slug de base robuste : tente le nom, puis l'inspiration étrangère, sinon
+ * un fallback déterministe. Garantit une chaîne kebab-case non vide
+ * (sinon opportunityRawSchema rejette la fiche sans correction possible par Gemini).
+ */
+export function safeBaseSlug(lead: Pick<FactualLead, "name" | "foreignInspiration">): string {
+  const fromName = slugify(lead.name);
+  if (fromName) return fromName;
+  const fromInspiration = slugify(lead.foreignInspiration);
+  if (fromInspiration) return fromInspiration;
+  return `saas-${randomUUID().slice(0, 8)}`;
+}
+
+/**
  * Résout le slug final selon les 2 cas de collision :
  * - collision avec un slug DÉJÀ EN DB : on garde le slug tel quel (upsert idempotent).
  * - collision INTRA-BATCH : produit distinct → on suffixe -2, -3, ...
@@ -58,6 +71,26 @@ interface AssembleContext {
 }
 
 /**
+ * Lit le seuil de score plancher depuis SOURCING_MIN_SCORE (0-100).
+ * Retourne 0 (garde-fou désactivé) si absent/invalide.
+ */
+export function getMinScore(): number {
+  const raw = process.env.SOURCING_MIN_SCORE;
+  if (!raw) return 0;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+  return Math.min(parsed, 100);
+}
+
+/**
+ * Garde-fou qualité (publication directe — pas d'état draft) : une fiche dont
+ * scores.opportunity est sous le seuil est rejetée avant upsert (skip + log).
+ */
+export function meetsScoreGate(opportunity: Opportunity, minScore: number): boolean {
+  return opportunity.scores.opportunity >= minScore;
+}
+
+/**
  * Étape C — fusionne faits (Sonar) + analyse (Gemini) + champs CALCULÉS par le code
  * en une fiche Opportunity raw. Les cohérences critiques sont garanties ici.
  */
@@ -78,7 +111,7 @@ export function assembleOpportunity(
     financialScenarios.find((s) => s.name === "Optimiste") ??
     financialScenarios[financialScenarios.length - 1];
 
-  const slug = resolveSlug(slugify(lead.name), ctx.dbSlugs, ctx.batchSlugs);
+  const slug = resolveSlug(safeBaseSlug(lead), ctx.dbSlugs, ctx.batchSlugs);
 
   return {
     id: randomUUID(),
@@ -123,5 +156,10 @@ export function assembleOpportunity(
     url: lead.url,
     foreignMarketProfile: analytical.foreignMarketProfile,
     createdAt: new Date().toISOString(),
+    // Premium (optionnels) : inclus seulement si --premium les a produits.
+    // Sinon laissés undefined → enrichOpportunity() fournit le fallback au runtime.
+    ...(analytical.frenchCompetitors ? { frenchCompetitors: analytical.frenchCompetitors } : {}),
+    ...(analytical.launchTimeline ? { launchTimeline: analytical.launchTimeline } : {}),
+    ...(analytical.emailTemplates ? { emailTemplates: analytical.emailTemplates } : {}),
   };
 }

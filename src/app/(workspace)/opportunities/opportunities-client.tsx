@@ -24,7 +24,7 @@ const sortOptions: { value: SortOption; label: string }[] = [
 
 type OpportunitiesClientProps = {
   opportunities: Opportunity[];
-  dealOfDay: Opportunity;
+  dealOfDay: Opportunity | null;
 };
 
 export function OpportunitiesClient({ opportunities, dealOfDay }: OpportunitiesClientProps) {
@@ -62,7 +62,9 @@ function OpportunitiesContent({ opportunities, dealOfDay }: OpportunitiesClientP
     () => filterOpportunities(opportunities, filters),
     [opportunities, filters]
   );
-  const rest = filtered.filter((o) => o.slug !== dealOfDay.slug);
+  const rest = dealOfDay
+    ? filtered.filter((o) => o.slug !== dealOfDay.slug)
+    : filtered;
 
   const toggleSector = (s: Sector) => {
     setFilters((f) => ({
@@ -97,7 +99,7 @@ function OpportunitiesContent({ opportunities, dealOfDay }: OpportunitiesClientP
           )}
         </div>
 
-        <DealOfDayCard opportunity={dealOfDay} />
+        {dealOfDay && <DealOfDayCard opportunity={dealOfDay} />}
 
         <div className="mt-8 flex flex-col gap-8 lg:flex-row">
           <aside className="w-full shrink-0 lg:w-64">

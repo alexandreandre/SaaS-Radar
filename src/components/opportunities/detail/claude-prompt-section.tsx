@@ -147,6 +147,31 @@ interface ClaudePromptSectionProps {
 export function ClaudePromptSection({ opportunity, animationIndex }: ClaudePromptSectionProps) {
   const [techLevel, setTechLevel] = useState<TechLevel | null>(null);
   const [selectedTool, setSelectedTool] = useState<string>("Claude Code");
+
+  // Le prompt est un champ premium (Pro) retire cote serveur pour un tier insuffisant.
+  // On affiche alors un teaser de deblocage plutot qu'un bloc vide.
+  if (!opportunity.claudePrompt) {
+    return (
+      <AnimatedSection id="prompt" animationIndex={animationIndex} className="mb-12 scroll-mt-24">
+        <SectionTitle number={8} title="Prompt Claude Code" />
+        <div className="rounded-xl border border-dashed border-primary/30 bg-card p-8 text-center">
+          <p className="text-sm font-medium text-foreground">
+            Prompt complet réservé au plan Pro
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Débloquez le prompt prêt à coller dans Claude Code, Cursor ou v0 pour lancer le MVP en une session.
+          </p>
+          <a
+            href="/pricing"
+            className="mt-4 inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Passer au plan Pro
+          </a>
+        </div>
+      </AnimatedSection>
+    );
+  }
+
   const stack = getRecommendedStack(opportunity);
   const promptText = getPromptForTool(opportunity, selectedTool);
 

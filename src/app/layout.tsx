@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { TierProvider } from "@/contexts/tier-context";
 import { PortfolioProvider } from "@/contexts/portfolio-context";
 import { getAllOpportunities } from "@/lib/opportunities";
-import { enrichOpportunity } from "@/data/opportunity-enrichment";
+import { getCurrentUser, getTier } from "@/lib/auth";
 
 const sourceSans = Source_Sans_3({
   subsets: ["latin"],
@@ -39,7 +39,15 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const opportunityCatalog = (await getAllOpportunities()).map(enrichOpportunity);
+  // Catalogue brut : l'enrichissement premium est désormais fait à la volée par
+  // PortfolioProvider.getCatalogOpportunity (lookup ponctuel) plutôt que sur tout le
+  // catalogue à chaque requête racine — allège le rendu de toutes les pages.
+  const opportunityCatalog = await getAllOpportunities();
+
+  // Tier autoritatif cote serveur (profiles.plan) : injecte dans TierProvider pour
+  // qu'aucun compte authentifie ne puisse se sur-classer via localStorage.
+  const [user, serverTier] = await Promise.all([getCurrentUser(), getTier()]);
+  const isAuthenticated = !!user;
 
   return (
     <html lang="fr" suppressHydrationWarning>
@@ -47,7 +55,7 @@ export default async function RootLayout({
         className={`${sourceSans.variable} ${newsreader.variable} ${plexMono.variable} font-sans`}
       >
         <ThemeProvider>
-          <TierProvider>
+          <TierProvider serverTier={serverTier} isAuthenticated={isAuthenticated}>
             <PortfolioProvider opportunityCatalog={opportunityCatalog}>
               <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
             </PortfolioProvider>

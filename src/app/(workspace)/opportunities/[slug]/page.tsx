@@ -1,16 +1,22 @@
 import { notFound } from "next/navigation";
-import { getAllOpportunities, getEnrichedOpportunityBySlug } from "@/lib/opportunities";
+import { getEnrichedOpportunityBySlug } from "@/lib/opportunities";
+import { getTier } from "@/lib/auth";
+import { gateOpportunityForTier } from "@/lib/opportunity-access";
 import { OpportunityDetail } from "@/components/opportunities/opportunity-detail";
 
-export async function generateStaticParams() {
-  const opportunities = await getAllOpportunities();
-  return opportunities.map((o) => ({ slug: o.slug }));
-}
+// Le contenu depend du tier de l'utilisateur (strip premium serveur, lecture cookies)
+// -> rendu dynamique par requete. Pas de prerendu statique possible.
+export const dynamic = "force-dynamic";
 
 export default async function OpportunityPage({ params }: { params: { slug: string } }) {
-  const opportunity = await getEnrichedOpportunityBySlug(params.slug);
+  const [opportunity, tier] = await Promise.all([
+    getEnrichedOpportunityBySlug(params.slug),
+    getTier(),
+  ]);
   if (!opportunity) notFound();
-  return <OpportunityDetail opportunity={opportunity} />;
+  // SECURITE : on retire les champs premium hors tier AVANT de serialiser vers le client.
+  const gated = gateOpportunityForTier(opportunity, tier);
+  return <OpportunityDetail opportunity={gated} />;
 }
 
 export async function generateMetadata({ params }: { params: { slug: string } }) {

@@ -6,6 +6,9 @@ import { generateMarket } from "../src/lib/generate-market";
 import { HAND_CRAFTED } from "../src/data/world-markets-handcrafted";
 import type { WorldMarket } from "../src/types/world-market";
 
+// NB : ce script tourne au build (prebuild) et DOIT rester hors-ligne (pas de Supabase
+// en CI). Les opportunitySlugs ici ne sont qu'un fallback statique : à l'exécution, la
+// carte dérive les slugs/listes par pays depuis Supabase via MapCatalogProvider (runtime).
 function slugsByCountry(code: string): string[] {
   return opportunities.filter((o) => o.originCountryCode === code).map((o) => o.slug);
 }

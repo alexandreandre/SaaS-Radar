@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import { TrendingDown, TrendingUp } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { CheckInBanner } from "@/components/portfolio/portfolio-stats";
 import { NextActionCard } from "@/components/cockpit/next-action-card";
 
@@ -19,8 +19,13 @@ const WATCHLIST_HINTS = [
   { delta: "Stable", trend: "up" as const },
 ] as const;
 
-export function DashboardClient() {
-  const [signedIn] = useState(true);
+export function DashboardClient({
+  displayName,
+  planLabel,
+}: {
+  displayName: string;
+  planLabel: string;
+}) {
   const {
     hydrated,
     activeProject,
@@ -50,32 +55,19 @@ export function DashboardClient() {
       }));
   }, [opportunityCatalog, building?.opportunitySlug]);
 
-  if (!signedIn) {
-    return (
-      <>
-        <Navbar />
-        <main className="mx-auto max-w-md px-4 py-24 text-center">
-          <h1 className="text-2xl font-semibold">Connectez-vous</h1>
-          <p className="mt-2 text-muted-foreground">Accédez à votre journal de lancement</p>
-          <Button className="mt-6" onClick={() => {}}>
-            Se connecter (mock)
-          </Button>
-        </main>
-      </>
-    );
-  }
-
   return (
     <>
       <Navbar />
       <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-sm text-muted-foreground">Bonjour, Alex 👋</p>
+            <p className="text-sm text-muted-foreground">
+              Bonjour{displayName ? `, ${displayName}` : ""} 👋
+            </p>
             <h1 className="font-display text-2xl font-medium tracking-tight">Votre tableau de bord</h1>
           </div>
           <div className="flex items-center gap-2">
-            <BadgeMock>Plan Builder</BadgeMock>
+            <BadgeMock>Plan {planLabel}</BadgeMock>
             <Button variant="outline" size="sm" asChild>
               <Link href="/mes-saas">Mes SaaS →</Link>
             </Button>

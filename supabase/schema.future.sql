@@ -1,3 +1,12 @@
+-- ⚠️ SCHÉMA DE VISION — NON APPLIQUÉ EN PRODUCTION ⚠️
+-- Ce fichier décrit la cible long terme (ENUM typés, world_markets, profiles,
+-- watchlist, waitlist, RLS par utilisateur). Il N'EST PAS la source de vérité.
+-- La base réellement déployée est définie par les migrations versionnées :
+--   supabase/migrations/001_opportunities.sql (table opportunities)
+--   supabase/migrations/002_sourcing_runs.sql (observabilité du sourcing)
+-- Ne pas exécuter tel quel : diverge du schéma courant (ex. updated_at, ENUM).
+-- À convertir en migrations incrémentales le jour où ces tables seront activées.
+
 -- Extensions
 create extension if not exists "uuid-ossp";
 

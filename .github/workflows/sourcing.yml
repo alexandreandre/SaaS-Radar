@@ -1,0 +1,60 @@
+name: Sourcing hebdomadaire
+
+on:
+  schedule:
+    # Tous les lundis à 06:00 UTC
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      count:
+        description: "Nombre de fiches à sourcer"
+        required: false
+        default: "3"
+      sector:
+        description: "Secteur (optionnel)"
+        required: false
+        default: ""
+      premium:
+        description: "Activer l'enrichissement premium (--premium)"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: sourcing
+  cancel-in-progress: false
+
+jobs:
+  source:
+    name: Sourcing IA -> Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run sourcing
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SOURCING_REVALIDATE_URL: ${{ secrets.SOURCING_REVALIDATE_URL }}
+          REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
+          SOURCING_MIN_SCORE: ${{ vars.SOURCING_MIN_SCORE }}
+          COUNT: ${{ github.event.inputs.count || '3' }}
+          SECTOR: ${{ github.event.inputs.sector || '' }}
+          PREMIUM: ${{ github.event.inputs.premium || 'false' }}
+        run: |
+          ARGS="--count=${COUNT}"
+          if [ -n "${SECTOR}" ]; then ARGS="${ARGS} --sector=${SECTOR}"; fi
+          if [ "${PREMIUM}" = "true" ]; then ARGS="${ARGS} --premium"; fi
+          echo "npx tsx scripts/sourcing.ts ${ARGS}"
+          npx tsx scripts/sourcing.ts ${ARGS}

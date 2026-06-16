@@ -7,8 +7,23 @@ import { tierLabels } from "@/lib/tier";
 
 const tiers: Tier[] = ["free", "builder", "pro"];
 
-export function TierPreviewSwitcher({ className }: { className?: string }) {
-  const { tier, setTier } = useTier();
+export function TierPreviewSwitcher({
+  className,
+  allowInProd = false,
+}: {
+  className?: string;
+  /** Reserve aux super-admins : autorise le switcher meme en production. */
+  allowInProd?: boolean;
+}) {
+  const { tier, setTier, isAuthenticated } = useTier();
+
+  // En prod, le tier est autoritatif cote serveur : on ne propose plus l'apercu
+  // librement (un Free pourrait sinon se donner Pro). Reserve au dev ou aux super-admins.
+  const isDev = process.env.NODE_ENV !== "production";
+  if (!isDev && !allowInProd) return null;
+  // Pour un compte authentifie, setTier est de toute facon un no-op (serveur gagne) :
+  // on masque le switcher hors mode admin pour eviter une UI trompeuse.
+  if (isAuthenticated && !allowInProd) return null;
 
   return (
     <div className={cn("flex flex-col gap-2 sm:flex-row sm:items-center", className)}>

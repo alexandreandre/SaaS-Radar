@@ -8,7 +8,46 @@ const GEMINI_SYSTEM = [
   "Tu réponds STRICTEMENT par un objet JSON conforme au schéma demandé, sans aucune prose.",
 ].join(" ");
 
-function buildStructurePrompt(lead: FactualLead, zodFeedback?: string): string {
+function buildPremiumBlock(): string {
+  return [
+    "",
+    "MODE PREMIUM ACTIVÉ — ajoute EN PLUS ces 3 champs optionnels (sinon ne les inclus pas) :",
+    JSON.stringify(
+      {
+        frenchCompetitors: [
+          {
+            name: "Concurrent FR",
+            positioning: "Positionnement",
+            pricing: "Tarif",
+            strength: "Force",
+            weakness: "Faiblesse",
+          },
+        ],
+        launchTimeline: [
+          { week: 1, goal: "Objectif S1", actions: ["Action 1"], kpi: "KPI S1" },
+          { week: 2, goal: "Objectif S2", actions: ["Action 1"], kpi: "KPI S2" },
+          { week: 3, goal: "Objectif S3", actions: ["Action 1"], kpi: "KPI S3" },
+          { week: 4, goal: "Objectif S4", actions: ["Action 1"], kpi: "KPI S4" },
+        ],
+        emailTemplates: [
+          { name: "Cold email 1", subject: "Objet", body: "Corps de l'email" },
+        ],
+      },
+      null,
+      0
+    ),
+    "- frenchCompetitors : 2-4 concurrents FR réels si tu en connais ; sinon OMETS le champ.",
+    "- launchTimeline : EXACTEMENT 4 semaines (week 1 à 4).",
+    "- emailTemplates : 1-3 templates de prospection FR concrets.",
+    "- Ces champs sont OPTIONNELS : en cas de doute, OMETS-LES plutôt que d'inventer.",
+  ].join("\n");
+}
+
+function buildStructurePrompt(
+  lead: FactualLead,
+  opts: { zodFeedback?: string; premium?: boolean } = {}
+): string {
+  const { zodFeedback, premium } = opts;
   const correction = zodFeedback
     ? [
         "",
@@ -17,6 +56,7 @@ function buildStructurePrompt(lead: FactualLead, zodFeedback?: string): string {
         "",
       ].join("\n")
     : "";
+  const premiumBlock = premium ? buildPremiumBlock() : "";
 
   return [
     "Voici un SaaS étranger (faits vérifiés) :",
@@ -105,6 +145,7 @@ function buildStructurePrompt(lead: FactualLead, zodFeedback?: string): string {
     "- clientType / techComplexity / franceCompetition : une des valeurs autorisées uniquement.",
     "- claudePrompt : un vrai prompt de build complet et exploitable, pas un résumé.",
     "- Aucune prose hors de l'objet JSON.",
+    premiumBlock,
   ]
     .filter(Boolean)
     .join("\n");
@@ -114,12 +155,12 @@ function buildStructurePrompt(lead: FactualLead, zodFeedback?: string): string {
 export async function structureLead(
   lead: FactualLead,
   tracker: CostTracker,
-  zodFeedback?: string
+  opts: { zodFeedback?: string; premium?: boolean } = {}
 ): Promise<unknown> {
   const { content, usage } = await callOpenRouter({
     model: MODELS.structure,
     system: GEMINI_SYSTEM,
-    user: buildStructurePrompt(lead, zodFeedback),
+    user: buildStructurePrompt(lead, opts),
     // Gemini accepte json_object ; on force le JSON ici.
     responseFormat: { type: "json_object" },
   });

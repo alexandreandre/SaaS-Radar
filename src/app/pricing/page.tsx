@@ -7,6 +7,8 @@ import { Check, ChevronDown, X } from "lucide-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { cn } from "@/lib/utils";
+import { CheckoutButton } from "./checkout-button";
+import { PLAN_PRICING, formatEuro, type PaidPlan } from "@/lib/billing/plans";
 
 const cardVariants = {
   hidden: { opacity: 0, y: 20 },
@@ -77,16 +79,22 @@ function AnimatedPrice({ value }: { value: string }) {
   );
 }
 
-function PriceBlock({ monthly }: { monthly: boolean }) {
+function PriceBlock({ plan, monthly }: { plan: PaidPlan; monthly: boolean }) {
+  const pricing = PLAN_PRICING[plan];
+  const perMonth = monthly ? pricing.monthlyAmount : pricing.yearlyPerMonth;
   return (
     <>
       <div className="mb-1 flex items-end gap-2">
         <p className="font-display text-4xl font-medium tabular-nums text-foreground">
-          <AnimatedPrice value={monthly ? "XX€" : "XX€"} />
+          <AnimatedPrice value={formatEuro(perMonth)} />
         </p>
         <p className="mb-1 text-sm text-muted-foreground">/mois</p>
       </div>
-      <p className="text-xs text-muted-foreground">Prix à confirmer</p>
+      <p className="text-xs text-muted-foreground">
+        {monthly
+          ? "Facturé mensuellement, sans engagement"
+          : `Soit ${formatEuro(pricing.yearlyAmount)} facturés une fois par an`}
+      </p>
     </>
   );
 }
@@ -109,8 +117,8 @@ export default function PricingPage() {
             <span className="text-muted-foreground">Lancez-le en 14 jours.</span>
           </h1>
           <p className="mx-auto mb-8 max-w-xl text-lg text-muted-foreground">
-            Opportunités validées, guides complets et prompts Claude Code — ou achetez une seule
-            fiche si vous avez déjà votre idée.
+            Opportunités validées, guides complets et prompts Claude Code pour lancer votre
+            prochain SaaS.
           </p>
 
           <div className="flex items-center justify-center gap-3">
@@ -157,31 +165,31 @@ export default function PricingPage() {
         </section>
 
         <section className="mx-auto mb-12 max-w-2xl px-4">
-          <div className="flex flex-col items-stretch justify-between gap-6 rounded-2xl border border-border bg-muted/20 p-6 sm:flex-row sm:items-center">
+          <div className="flex flex-col items-stretch justify-between gap-6 rounded-2xl border border-dashed border-border bg-muted/10 p-6 opacity-80 sm:flex-row sm:items-center">
             <div>
-              <p className="mb-1 font-data text-xs uppercase tracking-widest text-muted-foreground">
+              <p className="mb-1 flex items-center gap-2 font-data text-xs uppercase tracking-widest text-muted-foreground">
                 Pas encore prêt pour un abonnement ?
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium normal-case tracking-normal text-muted-foreground">
+                  Bientôt
+                </span>
               </p>
               <h3 className="mb-1 font-display text-xl font-medium text-foreground">
                 Achetez une opportunité à la carte
               </h3>
               <p className="text-sm text-muted-foreground">
                 Accédez à une seule fiche complète — guide, business plan, prompt Claude Code
-                inclus.
+                inclus. Disponible prochainement.
               </p>
             </div>
             <div className="shrink-0 text-left sm:text-right">
-              <p className="text-3xl font-bold text-foreground">
-                X€
-                <span className="ml-1 text-sm font-normal text-muted-foreground">/fiche</span>
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">Prix à confirmer</p>
-              <Link
-                href="/opportunities"
-                className="mt-3 inline-block rounded-xl bg-foreground px-5 py-2.5 text-sm font-semibold text-background transition-opacity hover:opacity-90"
+              <button
+                type="button"
+                disabled
+                aria-disabled="true"
+                className="mt-3 inline-block cursor-not-allowed rounded-xl bg-muted px-5 py-2.5 text-sm font-semibold text-muted-foreground"
               >
-                Choisir une opportunité →
-              </Link>
+                Bientôt disponible
+              </button>
             </div>
           </div>
         </section>
@@ -246,15 +254,16 @@ export default function PricingPage() {
 
             <div className="rounded-2xl border border-primary/50 bg-primary/5 p-8">
               <p className="mb-1 text-sm font-medium text-primary">Builder</p>
-              <PriceBlock monthly={monthly} />
+              <PriceBlock plan="builder" monthly={monthly} />
               <p className="mb-6 mt-4 text-sm text-muted-foreground">Tout ce qu&apos;il faut pour lancer</p>
 
-              <Link
-                href="/checkout/builder"
-                className="mb-8 block w-full rounded-xl bg-primary py-2.5 text-center font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+              <CheckoutButton
+                plan="builder"
+                interval={monthly ? "month" : "year"}
+                className="mb-8 block w-full rounded-xl bg-primary py-2.5 text-center font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
               >
                 Commencer avec Builder →
-              </Link>
+              </CheckoutButton>
 
               <ul className="space-y-3 text-sm text-foreground">
                 {[
@@ -292,15 +301,16 @@ export default function PricingPage() {
             className="rounded-2xl border border-border bg-muted/20 p-8"
           >
             <p className="mb-1 text-sm font-medium text-muted-foreground">Pro</p>
-            <PriceBlock monthly={monthly} />
+            <PriceBlock plan="pro" monthly={monthly} />
             <p className="mb-6 mt-4 text-sm text-muted-foreground">Pour aller vite et bien</p>
 
-            <Link
-              href="/checkout/pro"
-              className="mb-8 block w-full rounded-xl border border-border py-2.5 text-center font-semibold text-foreground transition-colors hover:bg-muted/30"
+            <CheckoutButton
+              plan="pro"
+              interval={monthly ? "month" : "year"}
+              className="mb-8 block w-full rounded-xl border border-border py-2.5 text-center font-semibold text-foreground transition-colors hover:bg-muted/30 disabled:opacity-60"
             >
               Commencer avec Pro →
-            </Link>
+            </CheckoutButton>
 
             <ul className="space-y-3 text-sm text-foreground">
               {[

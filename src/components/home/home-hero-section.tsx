@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { HomeMapGateway } from "@/components/world/home-map-gateway";
 import { MAP_EXPLORE_QUERY, MAP_EXPLORE_VALUE } from "@/lib/map-routes";
+import type { MapCatalogOpportunity } from "@/context/map-catalog-context";
 import { cn } from "@/lib/utils";
 
 export type HomeMapStats = {
@@ -13,7 +14,12 @@ export type HomeMapStats = {
   hottestMarket: { flag: string; name: string };
 };
 
-function HomeHeroInner({ mapStats }: { mapStats: HomeMapStats }) {
+type HomeHeroProps = {
+  mapStats: HomeMapStats;
+  mapCatalog: MapCatalogOpportunity[];
+};
+
+function HomeHeroInner({ mapStats, mapCatalog }: HomeHeroProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [mapUnlocked, setMapUnlocked] = useState(false);
@@ -51,6 +57,7 @@ function HomeHeroInner({ mapStats }: { mapStats: HomeMapStats }) {
           onUnlock={handleMapUnlock}
           onLock={handleMapLock}
           deferMap={exploreParam !== MAP_EXPLORE_VALUE}
+          mapCatalog={mapCatalog}
         />
       </div>
 
@@ -118,10 +125,10 @@ function HomeHeroFallback({ mapStats }: { mapStats: HomeMapStats }) {
   );
 }
 
-export function HomeHeroSection({ mapStats }: { mapStats: HomeMapStats }) {
+export function HomeHeroSection({ mapStats, mapCatalog }: HomeHeroProps) {
   return (
     <Suspense fallback={<HomeHeroFallback mapStats={mapStats} />}>
-      <HomeHeroInner mapStats={mapStats} />
+      <HomeHeroInner mapStats={mapStats} mapCatalog={mapCatalog} />
     </Suspense>
   );
 }
