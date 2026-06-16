@@ -144,6 +144,9 @@ function buildStructurePrompt(
     "  • mvpPlan.features : périmètre MVP minimal (3-5 features max), pas une reproduction de la suite US.",
     "- clientType / techComplexity / franceCompetition : une des valeurs autorisées uniquement.",
     "- claudePrompt : un vrai prompt de build complet et exploitable, pas un résumé.",
+    "- ANCRAGE FAITS : ne contredis JAMAIS les faits du JSON lead fourni.",
+    "  Si tu doutes, baisse les subScores et mets buildableUnder30Days=false.",
+    "- foreignMarketProfile.tractionHighlights : reprends UNIQUEMENT les tractionSignals du lead (pas de nouveaux chiffres inventés).",
     "- Aucune prose hors de l'objet JSON.",
     premiumBlock,
   ]
@@ -155,10 +158,10 @@ function buildStructurePrompt(
 export async function structureLead(
   lead: FactualLead,
   tracker: CostTracker,
-  opts: { zodFeedback?: string; premium?: boolean } = {}
+  opts: { zodFeedback?: string; premium?: boolean; model?: string } = {}
 ): Promise<unknown> {
   const { content, usage } = await callOpenRouter({
-    model: MODELS.structure,
+    model: opts.model ?? MODELS.structure,
     system: GEMINI_SYSTEM,
     user: buildStructurePrompt(lead, opts),
     // Gemini accepte json_object ; on force le JSON ici.

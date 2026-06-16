@@ -268,6 +268,23 @@ même temps. Pas de pub payante tant que le tunnel ne convertit pas.
 > **quoi faire / comment / combien de temps / résultat attendu.** Objectif des 90
 > premiers jours : **5 000 inscrits newsletter + 50 premiers payants**.
 
+### Paramètres confirmés (cadrage du 15 juin 2026)
+
+- **Founder-led content : OUI**, un fondateur publie sous son nom → c'est le
+  canal n°1, on s'appuie dessus en priorité (Étape 1.1-1.2).
+- **Temps dispo : 4-8h/semaine** → tenable pour 3 posts/semaine + présence
+  communautés. On batche le contenu le dimanche (~3h) + 20 min/jour de
+  communauté. On ne lance qu'**un seul canal de contenu** au départ (pas X *et*
+  LinkedIn en parallèle).
+- **Budget : à clarifier — repère par défaut.** Le **strict nécessaire coûte
+  < 30€/mois** (et peut démarrer à 0€) :
+  - Plausible ~9€/mois *(ou PostHog gratuit)* — analytics.
+  - Brevo **gratuit** jusqu'à 300 emails/jour — newsletter.
+  - Stripe **gratuit** (commission sur ventes uniquement).
+  - X / LinkedIn / communautés / Reddit — **gratuit**.
+  - **Tout le plan des 90 jours est faisable en quasi-organique.** La pub payante
+    reste **écartée** tant que le tunnel ne convertit pas (cf. §2.4).
+
 ### Vue d'ensemble (calendrier)
 
 | Phase | Semaines | Objectif | Métrique cible |

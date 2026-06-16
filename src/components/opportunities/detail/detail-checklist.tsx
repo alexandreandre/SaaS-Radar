@@ -37,7 +37,7 @@ export function DetailChecklist({ opportunityName }: DetailChecklistProps) {
   }, []);
 
   return (
-    <aside className="sticky top-24 hidden w-[280px] shrink-0 lg:block">
+    <aside className="sticky top-24 hidden h-fit w-[280px] shrink-0 self-start lg:block">
       <p className="mb-3 truncate text-xs uppercase tracking-wider text-muted-foreground" title={opportunityName}>
         Navigation
       </p>

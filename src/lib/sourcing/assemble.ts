@@ -56,6 +56,37 @@ export function computeOpportunityScore(sub: AnalyticalData["subScores"]): numbe
   return Math.round(weighted * 10);
 }
 
+export type ScoreFactsContext = {
+  sourceVerified: boolean;
+  factConfidence?: "low" | "medium" | "high" | null;
+  tractionCount: number;
+  techComplexity?: string;
+  franceCompetition?: string;
+};
+
+/** Score 0-100 basé sur la qualité des faits (pas le LLM). */
+export function computeFactsScore(ctx: ScoreFactsContext): number {
+  let score = 40;
+  if (ctx.sourceVerified) score += 25;
+  if (ctx.factConfidence === "high") score += 20;
+  else if (ctx.factConfidence === "medium") score += 12;
+  else if (ctx.factConfidence === "low") score += 0;
+  score += Math.min(ctx.tractionCount * 5, 15);
+  if (ctx.techComplexity === "high") score -= 10;
+  if (ctx.franceCompetition === "high") score -= 8;
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+/** Score hybride : 60% Gemini + 40% faits vérifiables. */
+export function computeHybridOpportunityScore(
+  sub: AnalyticalData["subScores"],
+  facts: ScoreFactsContext
+): number {
+  const geminiScore = computeOpportunityScore(sub);
+  const factsScore = computeFactsScore(facts);
+  return Math.round(0.6 * geminiScore + 0.4 * factsScore);
+}
+
 /** Fusionne la stack canonique (mappable) avec les extras de Gemini, sans doublon. */
 function mergeStack(extras: string[]): string[] {
   const out: string[] = [...CANONICAL_STACK];
@@ -68,6 +99,7 @@ function mergeStack(extras: string[]): string[] {
 interface AssembleContext {
   dbSlugs: Set<string>;
   batchSlugs: Set<string>;
+  facts?: ScoreFactsContext;
 }
 
 /**
@@ -88,6 +120,25 @@ export function getMinScore(): number {
  */
 export function meetsScoreGate(opportunity: Opportunity, minScore: number): boolean {
   return opportunity.scores.opportunity >= minScore;
+}
+
+/**
+ * Rejette un MRR optimiste > 3× la moyenne marché sans signal traction fort.
+ */
+export function checkMrrSanity(
+  opportunity: Opportunity,
+  avgTopMrrUsd?: number | null
+): string | null {
+  if (!avgTopMrrUsd || avgTopMrrUsd <= 0) return null;
+  const marketEur = Math.round(avgTopMrrUsd * 0.92);
+  if (opportunity.revenueMax <= marketEur * 3) return null;
+
+  const strongTraction = opportunity.tractionSignals.some((s) =>
+    /MRR|ARR|revenue|chiffre|clients payants/i.test(`${s.label} ${s.value}`)
+  );
+  if (strongTraction) return null;
+
+  return `MRR max ${opportunity.revenueMax}€ > 3× moyenne marché (~${marketEur}€) sans signal traction fort`;
 }
 
 /**
@@ -113,6 +164,13 @@ export function assembleOpportunity(
 
   const slug = resolveSlug(safeBaseSlug(lead), ctx.dbSlugs, ctx.batchSlugs);
 
+  const factsCtx: ScoreFactsContext = ctx.facts ?? {
+    sourceVerified: false,
+    tractionCount: lead.tractionSignals.length,
+    techComplexity: analytical.techComplexity,
+    franceCompetition: analytical.franceCompetition,
+  };
+
   return {
     id: randomUUID(),
     slug,
@@ -134,7 +192,7 @@ export function assembleOpportunity(
     lowCompetition:
       analytical.franceCompetition === "none" || analytical.franceCompetition === "low",
     scores: {
-      opportunity: computeOpportunityScore(analytical.subScores),
+      opportunity: computeHybridOpportunityScore(analytical.subScores, factsCtx),
       ...analytical.subScores,
     },
     franceFitCriteria: analytical.franceFitCriteria,

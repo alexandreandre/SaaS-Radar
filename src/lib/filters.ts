@@ -13,6 +13,8 @@ export interface FilterState {
   b2bOnly: boolean;
   search: string;
   sort: SortOption;
+  thisWeekOnly: boolean;
+  favoritesOnly: boolean;
 }
 
 export const defaultFilters: FilterState = {
@@ -26,6 +28,8 @@ export const defaultFilters: FilterState = {
   b2bOnly: false,
   search: "",
   sort: "opportunity",
+  thisWeekOnly: false,
+  favoritesOnly: false,
 };
 
 export function filterOpportunities(
@@ -67,13 +71,24 @@ export function filterOpportunities(
         o.pitch.toLowerCase().includes(q)
     );
   }
+  if (filters.thisWeekOnly) {
+    const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    result = result.filter((o) => {
+      const ts = o.publishedAt ?? o.createdAt;
+      return new Date(ts).getTime() >= weekAgo;
+    });
+  }
 
   switch (filters.sort) {
     case "opportunity":
       result.sort((a, b) => b.scores.opportunity - a.scores.opportunity);
       break;
     case "newest":
-      result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      result.sort(
+        (a, b) =>
+          new Date(b.publishedAt ?? b.createdAt).getTime() -
+          new Date(a.publishedAt ?? a.createdAt).getTime()
+      );
       break;
     case "buildability":
       result.sort((a, b) => b.scores.buildability - a.scores.buildability);

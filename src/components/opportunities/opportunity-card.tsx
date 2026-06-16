@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useMounted } from "@/hooks/use-mounted";
 import type { Opportunity } from "@/types/opportunity";
+import { FavoriteButton } from "@/components/opportunities/favorite-button";
 import { ScoreGauge } from "@/components/scores/score-gauge";
 import { ScoreStars } from "@/components/scores/score-stars";
 import { formatCurrency, cn } from "@/lib/utils";
@@ -56,13 +57,22 @@ export function OpportunityCard({
                 {opportunity.originCountry}
                 <span className="mx-1.5">·</span>
                 {sectorLabel}
+                {opportunity.publishedAt && (
+                  <>
+                    <span className="mx-1.5">·</span>
+                    {new Date(opportunity.publishedAt).toLocaleDateString("fr-FR", {
+                      day: "numeric",
+                      month: "short",
+                    })}
+                  </>
+                )}
               </p>
               <h3 className="mt-2 text-base font-semibold leading-snug group-hover:text-primary">
                 {opportunity.name}
               </h3>
               <p className="mt-1 text-sm text-muted-foreground">{opportunity.targetClient}</p>
             </div>
-            <div className="shrink-0 -mr-1 -mt-1">
+            <div className="flex shrink-0 flex-col items-end gap-2">
               <ScoreGauge
                 label=""
                 value={opportunity.scores.opportunity}
@@ -104,10 +114,18 @@ export function OpportunityCard({
                 </span>
               </p>
             </div>
-            <span className="inline-flex items-center gap-1 text-sm font-medium text-primary transition-transform group-hover:translate-x-0.5">
-              Voir le plan
-              <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <FavoriteButton
+                slug={opportunity.slug}
+                size="sm"
+                variant="pill"
+                stopNavigation
+              />
+              <span className="inline-flex items-center gap-1 text-sm font-medium text-primary transition-transform group-hover:translate-x-0.5">
+                Voir le plan
+                <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+              </span>
+            </div>
           </div>
         </article>
       </Link>

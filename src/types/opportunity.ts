@@ -188,6 +188,8 @@ export interface Opportunity {
   url?: string;
   foreignMarketProfile?: ForeignMarketProfile;
   createdAt: string;
+  publishedAt?: string;
+  sourceVerified?: boolean;
   weeklyPick?: boolean;
   infraCosts?: InfraCost[];
   frenchCompetitors?: FrenchCompetitor[];

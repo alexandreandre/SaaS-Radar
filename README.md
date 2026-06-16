@@ -46,12 +46,19 @@ Le schéma déployé est défini par les migrations versionnées dans `supabase/
 
 - `001_opportunities.sql` — table `opportunities` (source de vérité du catalogue)
 - `002_sourcing_runs.sql` — observabilité des runs de sourcing
-- `003_profiles.sql` — table `profiles` (auth) : `plan`, `is_admin`, quota mensuel ;
+- `003_profiles.sql` — table `profiles` (auth) : `plan`, `is_admin`, `admin_role`, quota mensuel ;
   trigger `handle_new_user()` en `SECURITY DEFINER` qui crée le profil à l'inscription ;
   RLS empêchant l'utilisateur de modifier lui-même son `plan`/`is_admin`.
 - `004_billing.sql` — colonnes Stripe sur `profiles` (`stripe_customer_id`,
   `stripe_subscription_id`, `subscription_status`, `current_period_end`, verrouillées par
   RLS côté user) + table `stripe_events` (idempotence du webhook).
+- `005_admin_rbac.sql` — `profiles.admin_role`, table `admin_audit_log`, rate limits.
+- `006_sourcing_drafts.sql` — `opportunity_drafts`, colonnes observabilité `sourcing_runs`,
+  `opportunities.status`, `sourcing_schedules`.
+- `007_newsletter.sql` — `newsletter_subscribers`, campagnes, events.
+- `008_billing_analytics.sql` — `billing_snapshots`, `stripe_price_id` sur profiles.
+- `009_world_markets.sql` — table `world_markets`, `user_projects`, `connector_snapshots`,
+  `admin_sessions`.
 
 `supabase/schema.future.sql` décrit une **vision** long terme (ENUM typés, `world_markets`,
 etc.) **non appliquée** : ne pas l'exécuter tel quel.
@@ -67,8 +74,8 @@ Auth Supabase (`@supabase/ssr`) : **magic link** (email OTP) + **Google OAuth**.
 - `src/lib/auth.ts` — helpers serveur `getCurrentUser()`, `getProfile()`, `getTier()`
   (fallback `free` si profil absent), `isAdmin()`.
 - Routes protégées (redirect `/login?next=...` si non connecté) : `/dashboard`,
-  `/mes-saas`, `/cockpit/[id]`, `/account`. `/admin/sourcing` exige en plus
-  `profiles.is_admin`. Les pages catalogue/carte restent publiques.
+  `/mes-saas`, `/cockpit/[id]`, `/account`. `/admin/*` exige `profiles.admin_role` (viewer+)
+  et MFA TOTP (AAL2). Les pages catalogue/carte restent publiques.
 - **Tier autoritatif serveur** : `profiles.plan` est injecté dans `TierProvider` ; pour un
   compte authentifié, la clé `localStorage` `saas-radar:preview-tier` est purgée (anti-flash)
   et le switcher d'aperçu est désactivé.
@@ -127,7 +134,7 @@ npm run sourcing:test-a                       # test isolé de l'étape A (Sonar
 ```
 
 Automatisation : `.github/workflows/sourcing.yml` (cron hebdomadaire + déclenchement manuel).
-Pilotage super-admin : `/admin/sourcing` (protégé par `ADMIN_SOURCING_SECRET`).
+Pilotage admin : `/admin/sourcing` (session + MFA ; secret machine pour CI uniquement).
 
 ## Tests & CI
 
@@ -152,7 +159,7 @@ npx tsc --noEmit
 | `/login` | Connexion (magic link + Google OAuth) |
 | `/dashboard` | Tableau de bord (protégé) |
 | `/account` | Compte : email, plan, déconnexion (protégé) |
-| `/admin/sourcing` | Super-admin : pilotage et suivi du sourcing (`is_admin` + secret API) |
+| `/admin` | Back-office modulaire (RBAC + MFA TOTP) : overview, sourcing v2, catalogue, users, billing, newsletter, markets, audit, sécurité |
 
 ## Données
 

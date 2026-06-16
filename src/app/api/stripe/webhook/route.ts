@@ -41,7 +41,9 @@ async function applySubscription(
 ): Promise<void> {
   const customerId = customerIdOf(sub.customer);
   const item = sub.items.data[0];
-  const mappedPlan = priceIdToPlan(item?.price?.id);
+  const priceId = item?.price?.id ?? null;
+  const interval = item?.price?.recurring?.interval === "year" ? "year" : "month";
+  const mappedPlan = priceIdToPlan(priceId);
   const status = sub.status;
   // active/trialing/past_due conservent l'acces (grace) ; le reste retombe en free.
   const keepsAccess =
@@ -75,6 +77,8 @@ async function applySubscription(
       current_period_end: periodEnd,
       stripe_customer_id: customerId ?? undefined,
       stripe_subscription_id: sub.id,
+      stripe_price_id: priceId,
+      billing_interval: plan === "free" ? null : interval,
     })
     .eq("id", targetId);
 }

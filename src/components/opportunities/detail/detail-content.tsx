@@ -7,6 +7,7 @@ import { ChiffresSection } from "@/components/opportunities/detail/chiffres-sect
 import { WhySection } from "@/components/opportunities/detail/why-section";
 import { SaasOrigineSection } from "@/components/opportunities/detail/saas-origine-section";
 import { GuideSection } from "@/components/opportunities/detail/guide-section";
+import { DetailChecklist } from "@/components/opportunities/detail/detail-checklist";
 
 const FinancialSection = dynamic(
   () => import("@/components/opportunities/detail/financial-section").then((m) => m.FinancialSection),
@@ -41,10 +42,15 @@ function SectionSkeleton() {
   return <div className="my-8 h-32 animate-pulse rounded-lg border border-border bg-muted/40" />;
 }
 
-export function DetailContent({ opportunity }: { opportunity: Opportunity }) {
-  return (
+export function DetailContent({
+  opportunity,
+  variant = "page",
+}: {
+  opportunity: Opportunity;
+  variant?: "page" | "embedded";
+}) {
+  const sectionsFrom2 = (
     <>
-      <OpportunitySection opportunity={opportunity} animationIndex={0} />
       <ChiffresSection opportunity={opportunity} animationIndex={1} />
       <FinancialSection opportunity={opportunity} animationIndex={2} />
       <WhySection opportunity={opportunity} animationIndex={3} />
@@ -53,6 +59,27 @@ export function DetailContent({ opportunity }: { opportunity: Opportunity }) {
       <AcquisitionSection opportunity={opportunity} animationIndex={6} />
       <ClaudePromptSection opportunity={opportunity} animationIndex={7} />
       <GuideSection opportunity={opportunity} animationIndex={8} />
+    </>
+  );
+
+  if (variant === "embedded") {
+    return (
+      <>
+        <OpportunitySection opportunity={opportunity} animationIndex={0} />
+        {sectionsFrom2}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="flex gap-10">
+        <DetailChecklist opportunityName={opportunity.name} />
+        <div className="min-w-0 flex-1">
+          <OpportunitySection opportunity={opportunity} animationIndex={0} />
+        </div>
+      </div>
+      <div className="w-full">{sectionsFrom2}</div>
     </>
   );
 }

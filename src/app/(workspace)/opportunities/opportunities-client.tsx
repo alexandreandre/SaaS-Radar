@@ -5,9 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { OpportunityCard } from "@/components/opportunities/opportunity-card";
-import { DealOfDayCard } from "@/components/opportunities/deal-of-day";
 import { sectorLabels } from "@/data/opportunities";
 import { defaultFilters, filterOpportunities, type FilterState, type SortOption } from "@/lib/filters";
+import { useFavorites } from "@/contexts/favorites-context";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
@@ -24,13 +24,12 @@ const sortOptions: { value: SortOption; label: string }[] = [
 
 type OpportunitiesClientProps = {
   opportunities: Opportunity[];
-  dealOfDay: Opportunity | null;
 };
 
-export function OpportunitiesClient({ opportunities, dealOfDay }: OpportunitiesClientProps) {
+export function OpportunitiesClient({ opportunities }: OpportunitiesClientProps) {
   return (
     <Suspense fallback={<OpportunitiesFallback />}>
-      <OpportunitiesContent opportunities={opportunities} dealOfDay={dealOfDay} />
+      <OpportunitiesContent opportunities={opportunities} />
     </Suspense>
   );
 }
@@ -47,25 +46,29 @@ function OpportunitiesFallback() {
   );
 }
 
-function OpportunitiesContent({ opportunities, dealOfDay }: OpportunitiesClientProps) {
+function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
   const searchParams = useSearchParams();
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
+  const { favoriteSlugs, guestHint, clearGuestHint } = useFavorites();
+  const favoriteSet = useMemo(() => new Set(favoriteSlugs), [favoriteSlugs]);
 
   useEffect(() => {
     const country = searchParams.get("country");
-    if (country) {
-      setFilters((f) => ({ ...f, countryCode: country.toUpperCase() }));
-    }
+    const favorites = searchParams.get("favorites");
+    setFilters((f) => ({
+      ...f,
+      ...(country ? { countryCode: country.toUpperCase() } : {}),
+      ...(favorites === "1" ? { favoritesOnly: true } : {}),
+    }));
   }, [searchParams]);
 
-  const filtered = useMemo(
-    () => filterOpportunities(opportunities, filters),
-    [opportunities, filters]
-  );
-  const rest = dealOfDay
-    ? filtered.filter((o) => o.slug !== dealOfDay.slug)
-    : filtered;
-
+  const filtered = useMemo(() => {
+    let result = filterOpportunities(opportunities, filters);
+    if (filters.favoritesOnly) {
+      result = result.filter((o) => favoriteSet.has(o.slug));
+    }
+    return result;
+  }, [opportunities, filters, favoriteSet]);
   const toggleSector = (s: Sector) => {
     setFilters((f) => ({
       ...f,
@@ -99,7 +102,18 @@ function OpportunitiesContent({ opportunities, dealOfDay }: OpportunitiesClientP
           )}
         </div>
 
-        {dealOfDay && <DealOfDayCard opportunity={dealOfDay} />}
+        {guestHint && (
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-primary">
+            <span>{guestHint}</span>
+            <button
+              type="button"
+              className="text-xs underline underline-offset-2"
+              onClick={clearGuestHint}
+            >
+              OK
+            </button>
+          </div>
+        )}
 
         <div className="mt-8 flex flex-col gap-8 lg:flex-row">
           <aside className="w-full shrink-0 lg:w-64">
@@ -192,6 +206,24 @@ function OpportunitiesContent({ opportunities, dealOfDay }: OpportunitiesClientP
               </div>
 
               <div className="flex items-center justify-between">
+                <Label htmlFor="favoritesOnly">Mes favoris</Label>
+                <Switch
+                  id="favoritesOnly"
+                  checked={filters.favoritesOnly}
+                  onCheckedChange={(v) => setFilters((f) => ({ ...f, favoritesOnly: v }))}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="thisWeek">Nouveautés cette semaine</Label>
+                <Switch
+                  id="thisWeek"
+                  checked={filters.thisWeekOnly}
+                  onCheckedChange={(v) => setFilters((f) => ({ ...f, thisWeekOnly: v }))}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
                 <Label htmlFor="build30">Buildable en &lt;30 jours</Label>
                 <Switch
                   id="build30"
@@ -227,11 +259,15 @@ function OpportunitiesContent({ opportunities, dealOfDay }: OpportunitiesClientP
           </aside>
 
           <div className="flex-1">
-            {rest.length === 0 ? (
+            {filtered.length === 0 ? (
               <div className="rounded-lg border border-dashed border-border bg-muted/50 p-12 text-center">
                 <p className="font-medium">Aucun résultat</p>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Essayez de retirer un filtre pour voir plus d&apos;opportunités.
+                  {filters.favoritesOnly
+                    ? favoriteSlugs.length === 0
+                      ? "Aucun favori — clique ♥ sur une fiche pour l'ajouter."
+                      : "Aucune de vos fiches favorites ne correspond aux autres filtres."
+                    : "Essayez de retirer un filtre pour voir plus d'opportunités."}
                 </p>
                 <Button className="mt-4" variant="outline" onClick={() => setFilters(defaultFilters)}>
                   Réinitialiser les filtres
@@ -239,7 +275,7 @@ function OpportunitiesContent({ opportunities, dealOfDay }: OpportunitiesClientP
               </div>
             ) : (
               <div className="grid gap-4 sm:grid-cols-2">
-                {rest.map((o, i) => (
+                {filtered.map((o, i) => (
                   <OpportunityCard key={o.id} opportunity={o} index={i} />
                 ))}
               </div>

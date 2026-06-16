@@ -27,6 +27,7 @@ export function mapRowToOpportunity(row: OpportunityRow): Opportunity {
     claudePrompt: row.claude_prompt,
     url: row.url ?? undefined,
     createdAt: row.created_at,
+    publishedAt: row.published_at ?? undefined,
     scores: row.scores as unknown as Opportunity['scores'],
     franceFitCriteria: row.france_fit_criteria as unknown as Opportunity['franceFitCriteria'],
     tractionSignals: row.traction_signals as unknown as Opportunity['tractionSignals'],

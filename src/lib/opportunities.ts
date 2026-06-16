@@ -14,6 +14,7 @@ async function fetchAllOpportunitiesFromDb(): Promise<Opportunity[]> {
   const { data, error } = await supabase
     .from('opportunities')
     .select('*')
+    .eq('status', 'published')
     .order('created_at', { ascending: false })
   if (error) throw new Error(error.message)
   return (data ?? []).map(mapRowToOpportunity)
@@ -48,6 +49,7 @@ export async function getOpportunityBySlug(slug: string): Promise<Opportunity | 
     .from('opportunities')
     .select('*')
     .eq('slug', slug)
+    .eq('status', 'published')
     .single()
   if (error) return null
   return mapRowToOpportunity(data)
@@ -58,6 +60,7 @@ export const getWeeklyPick = cache(async (): Promise<Opportunity | null> => {
   const { data, error } = await supabase
     .from('opportunities')
     .select('*')
+    .eq('status', 'published')
     .eq('weekly_pick', true)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -88,6 +91,7 @@ export async function getOpportunitiesBySector(sector: string): Promise<Opportun
     const { data, error } = await supabase
       .from('opportunities')
       .select('*')
+      .eq('status', 'published')
       .eq('sector', sector)
       .order('created_at', { ascending: false })
     if (error) throw new Error(error.message)

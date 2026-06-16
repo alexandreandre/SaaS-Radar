@@ -13,6 +13,7 @@
     "lint": "next lint",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "sourcing": "tsx --env-file=.env.local scripts/sourcing.ts",
+    "sourcing:worker": "tsx --env-file=.env.local scripts/sourcing-worker.ts",
     "sourcing:premium": "tsx --env-file=.env.local scripts/sourcing.ts --premium",
     "sourcing:test-a": "tsx --env-file=.env.local scripts/test-discover-a.ts",
     "test": "node --import tsx --test scripts/sourcing.test.ts"

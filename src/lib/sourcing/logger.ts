@@ -5,7 +5,7 @@
  */
 
 export type SourcingEvent =
-  | { type: "start"; count: number; sector?: string; premium: boolean }
+  | { type: "start"; count: number; sector?: string; premium: boolean; country?: string }
   | { type: "models-ok"; models: string[] }
   | { type: "existing-loaded"; count: number }
   | { type: "round"; round: number; leads: number }
@@ -44,7 +44,7 @@ export function consoleLogger(): LogFn {
     switch (event.type) {
       case "start":
         console.log(
-          `🚀 Sourcing — count=${event.count}${event.sector ? `, sector=${event.sector}` : ""}${event.premium ? ", premium" : ""}`
+          `🚀 Sourcing — count=${event.count}${event.country ? `, country=${event.country}` : ""}${event.sector ? `, sector=${event.sector}` : ""}${event.premium ? ", premium" : ""}`
         );
         break;
       case "models-ok":

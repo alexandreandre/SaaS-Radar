@@ -1,0 +1,38 @@
+name: Sourcing worker
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: sourcing-worker
+  cancel-in-progress: false
+
+jobs:
+  worker:
+    name: Process sourcing job queue
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run worker (max 10 jobs)
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SOURCING_REVALIDATE_URL: ${{ secrets.SOURCING_REVALIDATE_URL }}
+          REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
+          SOURCING_MIN_SCORE: ${{ vars.SOURCING_MIN_SCORE }}
+          SOURCING_NOTIFY_WEBHOOK_URL: ${{ secrets.SOURCING_NOTIFY_WEBHOOK_URL }}
+        run: npx tsx scripts/sourcing-worker.ts --max=10

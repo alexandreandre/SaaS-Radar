@@ -20,7 +20,7 @@ export function SubscribeForm({
   const [subscribed, setSubscribed] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     const trimmed = email.trim();
@@ -28,7 +28,18 @@ export function SubscribeForm({
       setError("Entrez une adresse email valide.");
       return;
     }
-    setSubscribed(true);
+    try {
+      const res = await fetch("/api/newsletter/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmed, source: "newsletter-page" }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Inscription impossible");
+      setSubscribed(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur réseau");
+    }
   };
 
   if (subscribed) {

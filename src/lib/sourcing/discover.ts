@@ -1,9 +1,10 @@
 import { MODELS, SECTORS } from "./constants";
 import { callOpenRouter, extractJsonObject, type CostTracker } from "./openrouter";
 import { factualLeadSchema, formatZodError, type FactualLead } from "./schema";
+import { formatExclusionBlock, type DynamicExclusions } from "./dynamic-exclusions";
 
 const SONAR_SYSTEM = [
-  "Tu es un analyste qui identifie de VRAIS MICRO-SaaS indie (anglophones, surtout US),",
+  "Tu es un analyste qui identifie de VRAIS MICRO-SaaS indie bootstrappés,",
   "pas des plateformes établies. Tu effectues une recherche web réelle et tu ne rapportes",
   "QUE des faits vérifiables. Tu réponds STRICTEMENT par un objet JSON, sans aucune prose.",
 ].join(" ");
@@ -11,16 +12,25 @@ const SONAR_SYSTEM = [
 interface DiscoverParams {
   count: number;
   sector?: string;
+  originCountryCode: string;
+  originCountryName: string;
+  originFlag: string;
   exclusions: string[];
+  dynamicExclusions?: DynamicExclusions;
+  nicheHints?: string[];
   variation: boolean;
   tracker: CostTracker;
+  model?: string;
 }
 
 function buildDiscoveryPrompt(params: DiscoverParams): string {
-  const { count, sector, exclusions, variation } = params;
+  const { count, sector, exclusions, variation, originCountryCode, originCountryName, originFlag } =
+    params;
   const sectorLine = sector
     ? `Concentre-toi UNIQUEMENT sur le secteur "${sector}".`
     : `Classe chaque produit dans EXACTEMENT un de ces secteurs : ${SECTORS.join(", ")}.`;
+
+  const countryLine = `Concentre-toi UNIQUEMENT sur des micro-SaaS opérant principalement sur le marché ${originCountryName} (${originCountryCode}). Chaque lead DOIT avoir originCountryCode="${originCountryCode}", originCountry="${originCountryName}", originFlag="${originFlag}".`;
 
   const exclusionLine =
     exclusions.length > 0
@@ -28,14 +38,26 @@ function buildDiscoveryPrompt(params: DiscoverParams): string {
       : "";
 
   const variationLine = variation
-    ? "Propose des produits DIFFÉRENTS de tes suggestions précédentes (autres sous-niches, autres pays anglophones)."
+    ? `Propose des produits DIFFÉRENTS de tes suggestions précédentes (autres sous-niches dans ${originCountryName} uniquement).`
     : "";
+
+  const dynamicBlock = params.dynamicExclusions
+    ? formatExclusionBlock(params.dynamicExclusions)
+    : "";
+
+  const nicheLine =
+    params.nicheHints && params.nicheHints.length > 0
+      ? `Angles à explorer en priorité pour ce marché : ${params.nicheHints.join("; ")}.`
+      : "";
 
   return [
     `Trouve ${count} MICRO-SaaS B2B/B2C réels, indie et bootstrappés, clonables en France par UN solo-founder.`,
+    countryLine,
     sectorLine,
     `RÈGLE SECTEUR STRICTE : si un produit ne rentre dans AUCUN des secteurs autorisés (${SECTORS.join(", ")}), ÉCARTE-LE.`,
     exclusionLine,
+    dynamicBlock,
+    nicheLine,
     variationLine,
     "",
     "PROFIL MICRO-SaaS OBLIGATOIRE (critique — ne ramène PAS de plateformes) :",
@@ -71,9 +93,9 @@ function buildDiscoveryPrompt(params: DiscoverParams): string {
             name: "Nom réel du produit",
             pitch: "Pitch court et concret",
             url: "https://exemple.com",
-            originCountry: "États-Unis",
-            originCountryCode: "US",
-            originFlag: "🇺🇸",
+            originCountry: originCountryName,
+            originCountryCode: originCountryCode,
+            originFlag: originFlag,
             sector: "healthcare",
             targetClient: "Description du client cible",
             foreignInspiration: "Nom (pays) — résumé d'une ligne",
@@ -101,71 +123,98 @@ function buildDiscoveryPrompt(params: DiscoverParams): string {
 /** Étape A — appelle Sonar et renvoie les leads dont la FORME est valide (Zod). */
 export async function discoverLeads(params: DiscoverParams): Promise<FactualLead[]> {
   const debug = process.env.SOURCING_DEBUG === "1";
+  const model = params.model ?? MODELS.discovery;
 
   if (debug) {
     console.log(`\n[DEBUG discover] leads demandés à Sonar (count param)=${params.count}`);
     console.log(`[DEBUG discover] exclusions (${params.exclusions.length}): ${params.exclusions.slice(0, 5).join("; ")}${params.exclusions.length > 5 ? "…" : ""}`);
-    console.log(`[DEBUG discover] variation=${params.variation} sector=${params.sector ?? "(all)"}`);
+    console.log(`[DEBUG discover] variation=${params.variation} sector=${params.sector ?? "(all)"} country=${params.originCountryCode}`);
   }
 
-  const { content, usage } = await callOpenRouter({
-    model: MODELS.discovery,
-    system: SONAR_SYSTEM,
-    user: buildDiscoveryPrompt(params),
-  });
-  params.tracker.add("Sonar", usage);
+  let lastZodErrors: string[] = [];
 
-  let json: unknown;
-  try {
-    json = extractJsonObject(content);
-  } catch (err) {
-    if (debug) {
-      console.error(
-        `[DEBUG discover] extractJsonObject THROW: ${err instanceof Error ? err.message : err}`
-      );
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const retrySuffix =
+      attempt > 1
+        ? [
+            "",
+            "⚠️ RETRY — ta réponse précédente était invalide ou vide.",
+            "Réponds UNIQUEMENT avec l'objet JSON, sans prose ni markdown.",
+            lastZodErrors.length > 0
+              ? `Erreurs fréquentes à corriger : ${lastZodErrors.slice(0, 3).join(" | ")}`
+              : "",
+          ]
+            .filter(Boolean)
+            .join("\n")
+        : "";
+
+    const userPrompt = buildDiscoveryPrompt(params) + retrySuffix;
+
+    const { content, usage } = await callOpenRouter({
+      model,
+      system: SONAR_SYSTEM,
+      user: userPrompt,
+    });
+    params.tracker.add("Sonar", usage);
+
+    let json: unknown;
+    try {
+      json = extractJsonObject(content);
+    } catch (err) {
+      if (debug) {
+        console.error(
+          `[DEBUG discover] extractJsonObject THROW: ${err instanceof Error ? err.message : err}`
+        );
+      }
+      if (attempt === 2) throw err;
+      continue;
     }
-    throw err;
-  }
 
-  if (debug) {
-    const topKeys =
-      json && typeof json === "object" && !Array.isArray(json)
-        ? Object.keys(json as Record<string, unknown>).join(", ")
-        : "(array or primitive)";
-    console.log(`[DEBUG discover] JSON extrait — type=${Array.isArray(json) ? "array" : typeof json} keys=${topKeys}`);
-  }
+    if (debug) {
+      const topKeys =
+        json && typeof json === "object" && !Array.isArray(json)
+          ? Object.keys(json as Record<string, unknown>).join(", ")
+          : "(array or primitive)";
+      console.log(`[DEBUG discover] JSON extrait — type=${Array.isArray(json) ? "array" : typeof json} keys=${topKeys}`);
+    }
 
-  const rawLeads: unknown[] = Array.isArray(json)
-    ? json
-    : Array.isArray((json as { leads?: unknown[] })?.leads)
-      ? ((json as { leads: unknown[] }).leads)
-      : [];
+    const rawLeads: unknown[] = Array.isArray(json)
+      ? json
+      : Array.isArray((json as { leads?: unknown[] })?.leads)
+        ? ((json as { leads: unknown[] }).leads)
+        : [];
 
-  if (debug) {
-    console.log(`[DEBUG discover] rawLeads extraits=${rawLeads.length}`);
-  }
+    if (debug) {
+      console.log(`[DEBUG discover] rawLeads extraits=${rawLeads.length}`);
+    }
 
-  const valid: FactualLead[] = [];
-  let rejected = 0;
-  for (const raw of rawLeads) {
-    const parsed = factualLeadSchema.safeParse(raw);
-    if (parsed.success) {
-      valid.push(parsed.data);
-    } else {
-      rejected++;
-      if (debug && rejected <= 3) {
-        const name =
-          raw && typeof raw === "object" && "name" in raw
-            ? String((raw as { name: unknown }).name)
-            : "(sans nom)";
-        console.log(`[DEBUG discover] Zod REJECT #${rejected} "${name}": ${formatZodError(parsed.error)}`);
+    const valid: FactualLead[] = [];
+    lastZodErrors = [];
+    let rejected = 0;
+    for (const raw of rawLeads) {
+      const parsed = factualLeadSchema.safeParse(raw);
+      if (parsed.success) {
+        valid.push(parsed.data);
+      } else {
+        rejected++;
+        lastZodErrors.push(formatZodError(parsed.error));
+        if (debug && rejected <= 3) {
+          const name =
+            raw && typeof raw === "object" && "name" in raw
+              ? String((raw as { name: unknown }).name)
+              : "(sans nom)";
+          console.log(`[DEBUG discover] Zod REJECT #${rejected} "${name}": ${formatZodError(parsed.error)}`);
+        }
       }
     }
+
+    if (debug) {
+      console.log(`[DEBUG discover] Zod OK=${valid.length} REJECT=${rejected}\n`);
+    }
+
+    if (valid.length > 0) return valid;
+    if (attempt === 2) return valid;
   }
 
-  if (debug) {
-    console.log(`[DEBUG discover] Zod OK=${valid.length} REJECT=${rejected}\n`);
-  }
-
-  return valid;
+  return [];
 }

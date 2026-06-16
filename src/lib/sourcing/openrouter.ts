@@ -272,6 +272,15 @@ export class CostTracker {
     this.stats.set(label, cur);
   }
 
+  totalCostUsd(): number {
+    return Array.from(this.stats.values()).reduce((sum, s) => sum + s.costUsd, 0);
+  }
+
+  totalTokens(): { input: number; output: number } {
+    const tokens = Array.from(this.stats.values()).reduce((sum, s) => sum + s.tokens, 0);
+    return { input: tokens, output: 0 };
+  }
+
   private stat(label: string): ModelStat {
     return this.stats.get(label) ?? { costUsd: 0, tokens: 0, costKnown: false, calls: 0 };
   }

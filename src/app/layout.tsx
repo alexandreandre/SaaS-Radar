@@ -5,6 +5,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TierProvider } from "@/contexts/tier-context";
 import { PortfolioProvider } from "@/contexts/portfolio-context";
+import { FavoritesProvider } from "@/contexts/favorites-context";
 import { getAllOpportunities } from "@/lib/opportunities";
 import { getCurrentUser, getTier } from "@/lib/auth";
 
@@ -57,7 +58,9 @@ export default async function RootLayout({
         <ThemeProvider>
           <TierProvider serverTier={serverTier} isAuthenticated={isAuthenticated}>
             <PortfolioProvider opportunityCatalog={opportunityCatalog}>
-              <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+              <FavoritesProvider>
+                <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+              </FavoritesProvider>
             </PortfolioProvider>
           </TierProvider>
         </ThemeProvider>

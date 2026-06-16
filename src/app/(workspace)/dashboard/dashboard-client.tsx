@@ -4,20 +4,14 @@ import Link from "next/link";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { usePortfolio } from "@/contexts/portfolio-context";
+import { useFavorites } from "@/contexts/favorites-context";
 import { getTargetMrr, isCheckInOverdue } from "@/lib/portfolio";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
-import { TrendingDown, TrendingUp } from "lucide-react";
 import { useMemo } from "react";
 import { CheckInBanner } from "@/components/portfolio/portfolio-stats";
 import { NextActionCard } from "@/components/cockpit/next-action-card";
-
-const WATCHLIST_HINTS = [
-  { delta: "Nouveau concurrent FR détecté", trend: "down" as const },
-  { delta: "Score Opportunity en hausse", trend: "up" as const },
-  { delta: "Stable", trend: "up" as const },
-] as const;
 
 export function DashboardClient({
   displayName,
@@ -35,25 +29,19 @@ export function DashboardClient({
     getCatalogOpportunity,
     opportunityCatalog,
   } = usePortfolio();
+  const { favoriteSlugs, hydrated: favoritesHydrated } = useFavorites();
 
   const building = activeProject;
   const opportunity = building ? getCatalogOpportunity(building.opportunitySlug) : null;
   const finTarget = building && opportunity ? getTargetMrr(building, opportunity) : 0;
   const launchMilestones = building?.milestones.filter((m) => m.source === "revenue").slice(0, 5) ?? [];
 
-  const watchlist = useMemo(() => {
-    const excludeSlug = building?.opportunitySlug;
-    return [...opportunityCatalog]
-      .filter((o) => o.slug !== excludeSlug)
-      .sort((a, b) => b.scores.opportunity - a.scores.opportunity)
-      .slice(0, 3)
-      .map((opp, i) => ({
-        slug: opp.slug,
-        name: opp.name,
-        delta: WATCHLIST_HINTS[i]?.delta ?? "À surveiller",
-        trend: WATCHLIST_HINTS[i]?.trend ?? ("up" as const),
-      }));
-  }, [opportunityCatalog, building?.opportunitySlug]);
+  const favorites = useMemo(() => {
+    const bySlug = new Map(opportunityCatalog.map((o) => [o.slug, o]));
+    return favoriteSlugs
+      .map((slug) => bySlug.get(slug))
+      .filter((o): o is NonNullable<typeof o> => o != null);
+  }, [opportunityCatalog, favoriteSlugs]);
 
   return (
     <>
@@ -193,29 +181,39 @@ export function DashboardClient({
             ) : null}
 
             <section className="rounded-xl border border-border bg-card p-6">
-              <h2 className="font-semibold">Watchlist</h2>
-              {watchlist.length === 0 ? (
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="font-semibold">Mes favoris</h2>
+                {favorites.length > 0 && (
+                  <Link
+                    href="/opportunities?favorites=1"
+                    className="text-xs text-primary hover:underline"
+                  >
+                    Voir tout
+                  </Link>
+                )}
+              </div>
+              {!favoritesHydrated ? (
+                <p className="mt-4 text-sm text-muted-foreground">Chargement…</p>
+              ) : favorites.length === 0 ? (
                 <p className="mt-4 text-sm text-muted-foreground">
-                  Aucune opportunité à surveiller pour le moment.
+                  Aucun favori pour le moment.{" "}
+                  <Link href="/opportunities" className="text-primary hover:underline">
+                    Parcourir le catalogue
+                  </Link>
                 </p>
               ) : (
-              <ul className="mt-4 space-y-4">
-                {watchlist.map((o) => (
-                  <li key={o.slug}>
-                    <Link href={`/opportunities/${o.slug}`} className="group block">
-                      <p className="text-sm font-medium group-hover:text-primary">{o.name}</p>
-                      <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                        {o.trend === "up" ? (
-                          <TrendingUp className="h-3 w-3 text-emerald-600" />
-                        ) : (
-                          <TrendingDown className="h-3 w-3 text-amber-600" />
-                        )}
-                        {o.delta}
-                      </p>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+                <ul className="mt-4 space-y-4">
+                  {favorites.slice(0, 5).map((o) => (
+                    <li key={o.slug}>
+                      <Link href={`/opportunities/${o.slug}`} className="group block">
+                        <p className="text-sm font-medium group-hover:text-primary">{o.name}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {o.originFlag} {o.originCountry} · Score {Math.round(o.scores.opportunity)}
+                        </p>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               )}
             </section>
           </div>

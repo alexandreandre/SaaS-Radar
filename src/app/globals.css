@@ -71,11 +71,11 @@
   }
 
   html {
-    @apply scroll-smooth;
+    @apply scroll-smooth min-h-full w-full;
   }
 
   body {
-    @apply bg-background text-foreground antialiased font-sans;
+    @apply min-h-full w-full bg-background text-foreground antialiased font-sans;
   }
 
   @media (prefers-reduced-motion: reduce) {

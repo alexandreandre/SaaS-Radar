@@ -23,6 +23,7 @@ export interface OpportunityRow {
   claude_prompt: string
   url: string | null
   created_at: string
+  published_at?: string | null
   scores: Record<string, number>
   france_fit_criteria: Record<string, unknown>
   traction_signals: unknown[]

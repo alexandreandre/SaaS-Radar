@@ -12,6 +12,8 @@ import { discoverLeads } from "./discover";
 import { structureLead } from "./structure";
 import {
   assembleOpportunity,
+  checkMrrSanity,
+  computeHybridOpportunityScore,
   getMinScore,
   meetsScoreGate,
   slugify,
@@ -29,14 +31,43 @@ import {
   type LogFn,
   type RunReport,
   type RunSkip,
+  type SourcingEvent,
 } from "./logger";
+import { findDedupMatches, loadExistingForDedup } from "@/lib/admin/sourcing-dedup";
+import { processDraftsAutoPublish } from "@/lib/admin/process-draft-auto-publish";
+import { loadPublishSettings } from "@/lib/admin/publish-policy";
+import { verifyLeadSources, passesUrlGate, type SourceVerification } from "./verify-sources";
+import { verifyLeadFacts, type FactVerification } from "./verify-facts";
+import { verifyPremiumFields } from "./premium-verify";
+import { assertWithinMonthlyCostCap } from "./cost-guard";
+import { notifyPendingDraftsIfEnabled } from "./notify-pending";
+import { recordRunMetrics } from "./metrics";
+import { withPromptVersion } from "./prompt-version";
+import { mapWithConcurrency } from "./concurrency";
+import { getCachedLeads, setCachedLeads } from "./discover-cache";
+import { loadDynamicExclusions } from "./dynamic-exclusions";
+import type { ScoreFactsContext } from "./assemble";
+import {
+  assertValidCountryCode,
+  DEFAULT_SOURCING_COUNTRY,
+  normalizeCountryCode,
+  type SourcingCountry,
+} from "./countries";
+import { isCatalogueProfile, type PipelineProfile } from "./pipeline-profile.shared";
+
+export type { PipelineProfile } from "./pipeline-profile.shared";
+export { isCatalogueProfile } from "./pipeline-profile.shared";
 
 export interface RunOptions {
   count: number;
+  /** Code ISO2 du marché d'origine ciblé (ex. US, GB). */
+  originCountryCode?: string;
   sector?: string;
   premium?: boolean;
   /** Seuil de score plancher. Si non fourni, lit SOURCING_MIN_SCORE. */
   minScore?: number;
+  /** standard = filtres qualité ; catalogue = publication directe minimale (dedup + Zod). */
+  pipelineProfile?: PipelineProfile;
   /** Logger d'événements. Défaut : console (CLI). */
   onLog?: LogFn;
   /** Déclenche la revalidation prod après upsert. Défaut : true. */
@@ -45,6 +76,16 @@ export interface RunOptions {
   persistRun?: boolean;
   /** Promeut la meilleure fiche du batch en weekly_pick. Défaut : true. */
   manageWeeklyPick?: boolean;
+  /** direct = upsert opportunities ; draft = file d'approbation. Défaut : draft. */
+  mode?: "direct" | "draft";
+  /** ID run existant (jobs async). */
+  runId?: string | null;
+  /** Utilisateur ayant déclenché le run. */
+  triggeredBy?: string;
+  /** Config persistée sur sourcing_runs.config */
+  config?: Record<string, unknown>;
+  /** Plafond coût USD pour ce run (stop mid-batch si dépassé). */
+  maxCostUsd?: number;
 }
 
 function createAdminClient() {
@@ -63,7 +104,15 @@ type Supabase = ReturnType<typeof createAdminClient>;
 /** Crée la ligne sourcing_runs en début de run. Best-effort : ne bloque jamais le run. */
 async function insertRunRecord(
   supabase: Supabase,
-  opts: { requested: number; sector?: string; premium: boolean; startedAt: string }
+  opts: {
+    requested: number;
+    sector?: string;
+    premium: boolean;
+    originCountryCode: string;
+    startedAt: string;
+    triggeredBy?: string;
+    config?: Record<string, unknown>;
+  }
 ): Promise<string | null> {
   try {
     const { data, error } = await supabase
@@ -74,6 +123,9 @@ async function insertRunRecord(
         count_requested: opts.requested,
         sector: opts.sector ?? null,
         premium: opts.premium,
+        origin_country_code: opts.originCountryCode,
+        triggered_by: opts.triggeredBy ?? null,
+        config: opts.config ?? {},
       })
       .select("id")
       .single();
@@ -91,11 +143,12 @@ async function insertRunRecord(
 async function finishRunRecord(
   supabase: Supabase,
   id: string | null,
-  report: RunReport
+  report: RunReport,
+  extras?: { costUsd?: number; tokensInput?: number; tokensOutput?: number; events?: unknown[] }
 ): Promise<void> {
   if (!id) return;
   try {
-    await supabase
+    const { error } = await supabase
       .from("sourcing_runs")
       .update({
         finished_at: report.finishedAt,
@@ -105,8 +158,13 @@ async function finishRunRecord(
         count_written: report.written,
         cost_line: report.costLine,
         skipped: report.skipped,
+        cost_usd: extras?.costUsd ?? null,
+        tokens_input: extras?.tokensInput ?? 0,
+        tokens_output: extras?.tokensOutput ?? 0,
+        events: extras?.events ?? [],
       })
       .eq("id", id);
+    if (error) throw new Error(error.message);
   } catch (err) {
     console.warn(
       `[sourcing_runs] mise à jour ignorée : ${err instanceof Error ? err.message : err}`
@@ -162,63 +220,130 @@ async function failRunRecord(
   }
 }
 
-async function loadExisting(supabase: Supabase): Promise<{
-  slugs: Set<string>;
-  names: Set<string>;
-}> {
-  const { data, error } = await supabase.from("opportunities").select("slug,name");
-  if (error) {
-    throw new Error(`Lecture des fiches existantes : ${error.message}`);
+async function loadMarketAvgMrr(
+  supabase: Supabase,
+  countryCode: string
+): Promise<number | null> {
+  try {
+    const { data } = await supabase
+      .from("world_markets")
+      .select("avg_top_mrr_usd")
+      .eq("code", countryCode.toUpperCase())
+      .maybeSingle();
+    return data?.avg_top_mrr_usd != null ? Number(data.avg_top_mrr_usd) : null;
+  } catch {
+    return null;
   }
-  const slugs = new Set<string>();
-  const names = new Set<string>();
-  for (const row of data ?? []) {
-    if (row.slug) slugs.add(row.slug as string);
-    if (row.name) names.add((row.name as string).toLowerCase().trim());
-  }
-  return { slugs, names };
 }
 
 /** Étape A + filtrage : collecte des leads valides, avec over-fetch et 2nd round. */
 async function collectLeads(opts: {
   count: number;
   sector?: string;
+  originCountry: SourcingCountry;
   existingSlugs: Set<string>;
   existingNames: Set<string>;
+  existingUrls: Set<string>;
+  domainToSlug: Map<string, string>;
   tracker: CostTracker;
   log: LogFn;
+  discoveryModel: string;
+  nicheHints?: string[];
+  maxLeads?: number;
+  maxRounds?: number;
+  overfetchFactor?: number;
 }): Promise<FactualLead[]> {
-  const { count, sector, existingSlugs, existingNames, tracker, log } = opts;
-  const requested = Math.max(count * OVERFETCH_FACTOR, OVERFETCH_MIN);
+  const {
+    count,
+    sector,
+    originCountry,
+    existingSlugs,
+    existingNames,
+    existingUrls,
+    domainToSlug,
+    tracker,
+    log,
+    discoveryModel,
+    nicheHints,
+    maxLeads = count,
+    maxRounds = MAX_DISCOVERY_ROUNDS,
+    overfetchFactor = OVERFETCH_FACTOR,
+  } = opts;
+  const targetCode = originCountry.code;
+  const requested = Math.max(count * overfetchFactor, OVERFETCH_MIN);
   const seenNames = new Set<string>();
   const selected: FactualLead[] = [];
 
-  for (let round = 1; round <= MAX_DISCOVERY_ROUNDS && selected.length < count; round++) {
-    const exclusions = Array.from(existingNames).concat(Array.from(seenNames));
-    const leads = await discoverLeads({
-      count: requested,
-      sector,
-      exclusions,
-      variation: round > 1,
-      tracker,
-    });
+  const dynamicExclusions = await loadDynamicExclusions(targetCode, sector);
+
+  for (let round = 1; round <= maxRounds && selected.length < maxLeads; round++) {
+    const exclusions = Array.from(existingNames)
+      .concat(Array.from(seenNames))
+      .concat(dynamicExclusions.productNames);
+
+    const cached =
+      round === 1
+        ? await getCachedLeads(targetCode, sector, exclusions)
+        : null;
+
+    const leads =
+      cached ??
+      (await discoverLeads({
+        count: requested,
+        sector,
+        originCountryCode: originCountry.code,
+        originCountryName: originCountry.name,
+        originFlag: originCountry.flag,
+        exclusions,
+        dynamicExclusions,
+        nicheHints,
+        variation: round > 1,
+        tracker,
+        model: discoveryModel,
+      }));
+
+    if (!cached && round === 1 && leads.length > 0) {
+      await setCachedLeads(targetCode, sector, exclusions, leads);
+    }
+
     log({ type: "round", round, leads: leads.length });
 
     for (const lead of leads) {
       const slug = slugify(lead.name);
       const nameKey = lead.name.toLowerCase().trim();
 
+      if (normalizeCountryCode(lead.originCountryCode) !== targetCode) {
+        log({
+          type: "lead-skip",
+          name: lead.name,
+          reason: `pays ${lead.originCountryCode} ≠ ${targetCode}`,
+        });
+        continue;
+      }
       if (existingSlugs.has(slug) || existingNames.has(nameKey)) continue;
       if (seenNames.has(nameKey)) continue;
       if (sector && lead.sector !== sector) continue;
 
+      if (lead.url) {
+        const urlKey = lead.url.toLowerCase().trim();
+        if (existingUrls.has(urlKey)) continue;
+        try {
+          const host = new URL(lead.url).hostname.replace(/^www\./, "");
+          const parts = host.split(".");
+          const domain = parts.length >= 2 ? parts.slice(-2).join(".") : host;
+          if (domainToSlug.has(domain)) continue;
+        } catch {
+          /* ignore invalid url */
+        }
+      }
+
       seenNames.add(nameKey);
       selected.push(lead);
-      if (selected.length >= count) break;
+      if (selected.length >= maxLeads) break;
     }
   }
 
-  return selected.slice(0, count);
+  return selected.slice(0, maxLeads);
 }
 
 type BuildResult =
@@ -239,16 +364,29 @@ async function buildForLead(
     batchSlugs: Set<string>;
     tracker: CostTracker;
     premium: boolean;
+    structureModel: string;
+    sourceCheck: SourceVerification;
+    factVerification: FactVerification;
+    minScore: number;
+    catalogue: boolean;
   }
 ): Promise<BuildResult> {
   let feedback: string | undefined;
+  const usePremium = ctx.premium;
+
+  const factsCtx: ScoreFactsContext = {
+    sourceVerified: ctx.sourceCheck.verified,
+    factConfidence: ctx.factVerification.confidence,
+    tractionCount: lead.tractionSignals.length,
+  };
 
   for (let attempt = 1; attempt <= 2; attempt++) {
     let raw: unknown;
     try {
       raw = await structureLead(lead, ctx.tracker, {
         zodFeedback: feedback,
-        premium: ctx.premium,
+        premium: usePremium,
+        model: ctx.structureModel,
       });
     } catch (err) {
       feedback = err instanceof Error ? err.message : String(err);
@@ -257,12 +395,11 @@ async function buildForLead(
 
     const analytical = analyticalSchema.safeParse(raw);
     if (!analytical.success) {
-      // Erreur sur un champ contrôlé par Gemini → retry avec feedback.
       feedback = formatZodError(analytical.error);
       continue;
     }
 
-    if (!analytical.data.buildableUnder30Days) {
+    if (!ctx.catalogue && !analytical.data.buildableUnder30Days) {
       return {
         ok: false,
         reason:
@@ -270,9 +407,26 @@ async function buildForLead(
       };
     }
 
+    const earlyScore = computeHybridOpportunityScore(analytical.data.subScores, {
+      ...factsCtx,
+      techComplexity: analytical.data.techComplexity,
+      franceCompetition: analytical.data.franceCompetition,
+    });
+    if (!ctx.catalogue && ctx.minScore > 0 && earlyScore < ctx.minScore - 10) {
+      return {
+        ok: false,
+        reason: `early exit score ${earlyScore} < ${ctx.minScore - 10}`,
+      };
+    }
+
     const opportunity = assembleOpportunity(lead, analytical.data, {
       dbSlugs: ctx.dbSlugs,
       batchSlugs: ctx.batchSlugs,
+      facts: {
+        ...factsCtx,
+        techComplexity: analytical.data.techComplexity,
+        franceCompetition: analytical.data.franceCompetition,
+      },
     });
 
     const validated = opportunityRawSchema.safeParse(opportunity);
@@ -296,28 +450,55 @@ async function buildForLead(
 }
 
 /**
- * Orchestration complète du sourcing, réutilisable depuis le CLI et une future API admin.
- * Publication DIRECTE (pas d'état draft) ; garde-fou qualité optionnel via minScore.
+ * Orchestration complète du sourcing, réutilisable depuis le CLI et l'API admin.
+ * Mode draft par défaut ; auto-publication selon sourcing_settings.
  */
 export async function runSourcing(options: RunOptions): Promise<RunReport> {
   const log = options.onLog ?? consoleLogger();
   const premium = options.premium ?? false;
-  const minScore = options.minScore ?? getMinScore();
+  const catalogue = isCatalogueProfile(options);
+  const minScore = catalogue ? 0 : (options.minScore ?? getMinScore());
+  const settings = await loadPublishSettings();
+  const mode = options.mode ?? settings.default_mode ?? "direct";
+  const countryCode = normalizeCountryCode(
+    options.originCountryCode ?? DEFAULT_SOURCING_COUNTRY
+  );
+  const originCountry = await assertValidCountryCode(countryCode);
   const startedAt = new Date().toISOString();
   const skipped: RunSkip[] = [];
+  const events: SourcingEvent[] = [];
+  const onLog: LogFn = (event) => {
+    events.push(event);
+    log(event);
+  };
 
-  log({ type: "start", count: options.count, sector: options.sector, premium });
+  onLog({ type: "start", count: options.count, sector: options.sector, premium, country: originCountry.code });
+
+  await assertWithinMonthlyCostCap();
 
   const supabase = createAdminClient();
+  const discoveryModel = settings.discovery_model ?? MODELS.discovery;
+  const structureModel = settings.structure_model ?? MODELS.structure;
+  const runConfig = withPromptVersion({
+    ...(options.config ?? {}),
+    discoveryModel,
+    structureModel,
+  });
+  const maxCostUsd = options.maxCostUsd;
   const runId =
-    options.persistRun === false
-      ? null
-      : await insertRunRecord(supabase, {
-          requested: options.count,
-          sector: options.sector,
-          premium,
-          startedAt,
-        });
+    options.runId !== undefined
+      ? options.runId
+      : options.persistRun === false
+        ? null
+        : await insertRunRecord(supabase, {
+            requested: options.count,
+            sector: options.sector,
+            premium,
+            originCountryCode: originCountry.code,
+            startedAt,
+            triggeredBy: options.triggeredBy,
+            config: runConfig,
+          });
 
   try {
     return await execute();
@@ -327,69 +508,193 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
   }
 
   async function execute(): Promise<RunReport> {
-  await assertModelsActive([MODELS.discovery, MODELS.structure]);
-  log({ type: "models-ok", models: [MODELS.discovery, MODELS.structure] });
+  await assertModelsActive([discoveryModel, structureModel]);
+  onLog({ type: "models-ok", models: [discoveryModel, structureModel] });
 
-  const { slugs: existingSlugs, names: existingNames } = await loadExisting(supabase);
-  log({ type: "existing-loaded", count: existingSlugs.size });
+  const dedupIndex = await loadExistingForDedup(supabase);
+  const { slugs: existingSlugs, names: existingNames, urls: existingUrls, domainToSlug } =
+    dedupIndex;
+  onLog({ type: "existing-loaded", count: existingSlugs.size });
 
   const tracker = new CostTracker();
+
+  const nicheHints =
+    (options.config?.nicheHints as string[] | undefined) ??
+    ((options.config?.scheduleConfig as { nicheHints?: string[] })?.nicheHints);
 
   const selected = await collectLeads({
     count: options.count,
     sector: options.sector,
+    originCountry,
     existingSlugs,
     existingNames,
+    existingUrls,
+    domainToSlug,
     tracker,
-    log,
+    log: onLog,
+    discoveryModel,
+    nicheHints,
+    maxLeads: catalogue ? Math.max(options.count * 3, OVERFETCH_MIN) : options.count,
+    maxRounds: catalogue ? 3 : MAX_DISCOVERY_ROUNDS,
+    overfetchFactor: catalogue ? 6 : OVERFETCH_FACTOR,
   });
-  log({ type: "leads-selected", count: selected.length });
+  onLog({ type: "leads-selected", count: selected.length });
 
   const batchSlugs = new Set<string>();
-  const opportunities: Opportunity[] = [];
+  type ProcessedLead = {
+    opportunity: Opportunity;
+    lead: FactualLead;
+    sourceCheck: SourceVerification;
+    factVerification: FactVerification;
+    needsReview: boolean;
+    premiumVerified: boolean | null;
+  };
 
-  for (const lead of selected) {
+  const processed = await mapWithConcurrency(selected, 2, async (lead) => {
+    if (maxCostUsd != null && tracker.totalCostUsd() >= maxCostUsd) {
+      return null;
+    }
+
+    const sourceCheck: SourceVerification = catalogue
+      ? {
+          verified: true,
+          invalidUrls: [],
+          validCount: 1,
+          totalCount: 1,
+          verificationLevel: "partial",
+        }
+      : await verifyLeadSources(lead);
+    if (!catalogue && !passesUrlGate(sourceCheck)) {
+      skipped.push({
+        name: lead.name,
+        reason: `URLs invalides (${sourceCheck.invalidUrls.join(", ") || "aucune URL valide"})`,
+      });
+      onLog({
+        type: "lead-skip",
+        name: lead.name,
+        reason: `URLs invalides — ${sourceCheck.validCount}/${sourceCheck.totalCount} joignables`,
+      });
+      return null;
+    }
+
+    const factVerification: FactVerification = catalogue
+      ? {
+          confidence: "medium",
+          confirmed: true,
+          tractionVerified: true,
+        }
+      : await verifyLeadFacts(lead, tracker, discoveryModel);
+    const needsReview =
+      !catalogue &&
+      (factVerification.confidence === "low" ||
+        !factVerification.confirmed ||
+        !factVerification.tractionVerified);
+
+    if (
+      !catalogue &&
+      factVerification.confidence === "low" &&
+      !factVerification.confirmed &&
+      !factVerification.tractionVerified
+    ) {
+      skipped.push({ name: lead.name, reason: "fact-check Sonar négatif" });
+      onLog({ type: "lead-skip", name: lead.name, reason: "fact-check Sonar négatif" });
+      return null;
+    }
+
     const result = await buildForLead(lead, {
       dbSlugs: existingSlugs,
       batchSlugs,
       tracker,
       premium,
+      structureModel,
+      sourceCheck,
+      factVerification,
+      minScore,
+      catalogue,
     });
+
     if (!result.ok) {
       skipped.push({ name: lead.name, reason: result.reason });
-      log({ type: "lead-skip", name: lead.name, reason: result.reason });
-      continue;
+      onLog({ type: "lead-skip", name: lead.name, reason: result.reason });
+      return null;
     }
 
     const { opportunity } = result;
 
-    // Garde-fou qualité (publication directe) : rejet sous le seuil de score.
-    if (minScore > 0 && !meetsScoreGate(opportunity, minScore)) {
+    const avgMrr = await loadMarketAvgMrr(supabase, opportunity.originCountryCode);
+    const mrrIssue = catalogue ? null : checkMrrSanity(opportunity, avgMrr);
+    if (mrrIssue) {
+      skipped.push({ name: opportunity.name, reason: mrrIssue });
+      onLog({ type: "lead-skip", name: opportunity.name, reason: mrrIssue });
+      return null;
+    }
+
+    if (!catalogue && minScore > 0 && !meetsScoreGate(opportunity, minScore)) {
       skipped.push({
         name: opportunity.name,
         reason: `score ${opportunity.scores.opportunity} < seuil ${minScore}`,
       });
-      log({
+      onLog({
         type: "score-gate-skip",
         name: opportunity.name,
         slug: opportunity.slug,
         score: opportunity.scores.opportunity,
         min: minScore,
       });
-      continue;
+      return null;
     }
 
     batchSlugs.add(opportunity.slug);
-    opportunities.push(opportunity);
-    log({
+    onLog({
       type: "lead-ok",
       name: opportunity.name,
       slug: opportunity.slug,
       score: opportunity.scores.opportunity,
     });
+
+    return {
+      opportunity,
+      lead,
+      sourceCheck,
+      factVerification,
+      needsReview,
+      premiumVerified: premium ? verifyPremiumFields(opportunity) : null,
+    } satisfies ProcessedLead;
+  });
+
+  const opportunities: Opportunity[] = [];
+  const leadBySlug = new Map<string, FactualLead>();
+  const metaBySlug = new Map<
+    string,
+    {
+      sourceCheck: SourceVerification;
+      factVerification: FactVerification;
+      needsReview: boolean;
+      premiumVerified: boolean | null;
+    }
+  >();
+
+  for (const item of processed) {
+    if (!item) continue;
+    opportunities.push(item.opportunity);
+    leadBySlug.set(item.opportunity.slug, item.lead);
+    metaBySlug.set(item.opportunity.slug, {
+      sourceCheck: item.sourceCheck,
+      factVerification: item.factVerification,
+      needsReview: item.needsReview,
+      premiumVerified: item.premiumVerified,
+    });
   }
 
   const costLine = tracker.formatCostLine();
+  const costUsd = tracker.totalCostUsd();
+  const tokens = tracker.totalTokens();
+  const finishExtras = {
+    costUsd: costUsd > 0 ? costUsd : undefined,
+    tokensInput: tokens.input,
+    tokensOutput: tokens.output,
+    events,
+  };
 
   const baseReport: Omit<RunReport, "status" | "finishedAt"> = {
     startedAt,
@@ -404,43 +709,111 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
   };
 
   if (opportunities.length === 0) {
-    log({ type: "warn", message: "Aucune fiche valide produite — rien à écrire." });
-    log({ type: "done", written: 0, requested: options.count, costLine });
+    onLog({ type: "warn", message: "Aucune fiche valide produite — rien à écrire." });
+    onLog({ type: "done", written: 0, requested: options.count, costLine });
     const report: RunReport = {
       ...baseReport,
       written: 0,
       status: "empty",
       finishedAt: new Date().toISOString(),
     };
-    await finishRunRecord(supabase, runId, report);
+    await finishRunRecord(supabase, runId, report, finishExtras);
+    await recordRunMetrics(report, { costUsd });
     return report;
   }
 
   if (opportunities.length < options.count) {
-    log({
+    onLog({
       type: "warn",
       message: `seulement ${opportunities.length}/${options.count} fiche(s) produite(s).`,
     });
   }
 
-  const rows = opportunities.map(toOpportunityRow);
-  const { error } = await supabase
-    .from("opportunities")
-    .upsert(rows, { onConflict: "slug" });
-  if (error) {
-    throw new Error(`Upsert opportunities : ${error.message}`);
+  if (mode === "draft") {
+    let verifiedCount = 0;
+    const draftRows = opportunities.map((opp) => {
+      const meta = metaBySlug.get(opp.slug);
+      const sourceVerified = meta?.sourceCheck.verified === true;
+      if (sourceVerified) verifiedCount++;
+      return {
+        source_run_id: runId,
+        slug: opp.slug,
+        name: opp.name,
+        payload: { ...opp, sourceVerified },
+        score: opp.scores.opportunity,
+        status: "pending",
+        dedup_matches: findDedupMatches(opp, dedupIndex),
+        source_lead: leadBySlug.get(opp.slug) ?? null,
+        source_verified: sourceVerified,
+        invalid_urls: meta?.sourceCheck.invalidUrls ?? [],
+        verification_level: meta?.sourceCheck.verificationLevel ?? "none",
+        needs_review: meta?.needsReview === true,
+        fact_confidence: meta?.factVerification.confidence ?? null,
+        premium_verified: meta?.premiumVerified ?? null,
+      };
+    });
+    const { data: inserted, error } = await supabase
+      .from("opportunity_drafts")
+      .insert(draftRows)
+      .select("id");
+    if (error) throw new Error(`Insert drafts : ${error.message}`);
+
+    const draftIds = (inserted ?? []).map((d) => d.id as string);
+    if (draftIds.length > 0) {
+      const autoResults = await processDraftsAutoPublish({
+        draftIds,
+        runPremium: premium,
+        triggeredBy: options.triggeredBy,
+      });
+      const autoPublished = autoResults.filter((r) => r.published).length;
+      if (autoPublished > 0) {
+        onLog({
+          type: "warn",
+          message: `${autoPublished} brouillon(s) auto-publié(s) selon les règles configurées.`,
+        });
+        if (options.revalidate !== false) {
+          await triggerRevalidation();
+        }
+      }
+      await notifyPendingDraftsIfEnabled(runId);
+    }
+
+    onLog({ type: "upsert-ok", count: draftRows.length });
+    onLog({ type: "done", written: draftRows.length, requested: options.count, costLine });
+    const report: RunReport = {
+      ...baseReport,
+      written: draftRows.length,
+      status: opportunities.length < options.count ? "partial" : "ok",
+      finishedAt: new Date().toISOString(),
+    };
+    await finishRunRecord(supabase, runId, report, finishExtras);
+    await recordRunMetrics(report, { costUsd, verifiedDrafts: verifiedCount });
+    return report;
   }
 
-  log({ type: "upsert-ok", count: rows.length });
+  const rows = opportunities.map(toOpportunityRow);
+  const rowsWithStatus = rows.map((r) => ({
+    ...r,
+    status: "published",
+    published_at: new Date().toISOString(),
+  }));
+  const { error: upsertError } = await supabase
+    .from("opportunities")
+    .upsert(rowsWithStatus, { onConflict: "slug" });
+  if (upsertError) {
+    throw new Error(`Upsert opportunities : ${upsertError.message}`);
+  }
 
-  if (options.manageWeeklyPick !== false) {
+  onLog({ type: "upsert-ok", count: rows.length });
+
+  if (options.manageWeeklyPick === true) {
     const best = [...opportunities].sort(
       (a, b) => b.scores.opportunity - a.scores.opportunity
     )[0];
-    if (best) await promoteWeeklyPick(supabase, best.slug, log);
+    if (best) await promoteWeeklyPick(supabase, best.slug, onLog);
   }
 
-  log({ type: "done", written: rows.length, requested: options.count, costLine });
+  onLog({ type: "done", written: rows.length, requested: options.count, costLine });
 
   if (options.revalidate !== false) {
     await triggerRevalidation();
@@ -452,7 +825,8 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
     status: opportunities.length < options.count ? "partial" : "ok",
     finishedAt: new Date().toISOString(),
   };
-  await finishRunRecord(supabase, runId, report);
+  await finishRunRecord(supabase, runId, report, finishExtras);
+  await recordRunMetrics(report, { costUsd });
   return report;
   }
 }

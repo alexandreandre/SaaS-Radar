@@ -4,6 +4,11 @@ import type { User } from '@supabase/supabase-js'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import type { Tier } from '@/lib/tier'
 import type { Database } from '@/types/database'
+import {
+  type AdminRole,
+  hasAdminAccess,
+  normalizeAdminRole,
+} from '@/lib/admin/rbac'
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row']
 
@@ -51,6 +56,7 @@ export const getProfile = cache(async (): Promise<ProfileRow | null> => {
         null,
       plan: 'free',
       is_admin: false,
+      admin_role: 'none',
       opportunities_viewed_this_month: 0,
       last_reset_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
@@ -58,6 +64,8 @@ export const getProfile = cache(async (): Promise<ProfileRow | null> => {
       stripe_subscription_id: null,
       subscription_status: null,
       current_period_end: null,
+      stripe_price_id: null,
+      billing_interval: null,
     }
     await supabase
       .from('profiles')
@@ -81,10 +89,15 @@ export async function getTier(): Promise<Tier> {
   return normalizeTier(profile?.plan)
 }
 
-/** True si l'utilisateur courant est super-admin (profiles.is_admin). */
-export async function isAdmin(): Promise<boolean> {
+/** Role admin normalise (compat is_admin -> owner). */
+export async function getAdminRole(): Promise<AdminRole> {
   const profile = await getProfile()
-  return profile?.is_admin === true
+  return normalizeAdminRole(profile?.admin_role, profile?.is_admin)
+}
+
+/** True si l'utilisateur courant a acces admin (viewer+). */
+export async function isAdmin(): Promise<boolean> {
+  return hasAdminAccess(await getAdminRole())
 }
 
 /** Limite mensuelle de consultations pour le plan Free (quota optionnel). */

@@ -6,6 +6,7 @@ import { useMounted } from "@/hooks/use-mounted";
 import { ArrowRight } from "lucide-react";
 import type { Opportunity } from "@/types/opportunity";
 import { CountdownTimer } from "@/components/opportunities/countdown-timer";
+import { FavoriteButton } from "@/components/opportunities/favorite-button";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
 import { sectorLabels } from "@/data/opportunities";
@@ -26,7 +27,10 @@ export function DealOfDayCard({ opportunity }: { opportunity: Opportunity }) {
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Badge className="border-transparent bg-destructive text-destructive-foreground">Deal du jour</Badge>
-          <CountdownTimer variant="day" />
+          <div className="flex items-center gap-2">
+            <FavoriteButton slug={opportunity.slug} size="sm" variant="pill" stopNavigation />
+            <CountdownTimer variant="day" />
+          </div>
         </div>
 
         <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

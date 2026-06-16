@@ -7,7 +7,6 @@ import { Footer } from "@/components/layout/footer";
 import type { Opportunity } from "@/types/opportunity";
 import { sectorLabels } from "@/data/opportunities";
 import { DetailHeader } from "@/components/opportunities/detail/detail-header";
-import { DetailChecklist } from "@/components/opportunities/detail/detail-checklist";
 import { DetailContent } from "@/components/opportunities/detail/detail-content";
 import { BuildOpportunityStickyCta } from "@/components/cockpit/build-opportunity-sticky";
 
@@ -26,23 +25,28 @@ export function OpportunityDetail({ opportunity }: { opportunity: Opportunity })
           >
             <ArrowLeft className="h-7 w-7" aria-hidden />
           </Link>
-          <p className="shrink-0 text-sm text-muted-foreground">
-            <span>
-              {opportunity.originFlag} {opportunity.originCountry}
-            </span>
-            <span className="mx-1.5">·</span>
-            <span>{sector}</span>
-          </p>
-        </div>
-
-        <DetailHeader opportunity={opportunity} />
-
-        <div className="flex gap-10">
-          <DetailChecklist opportunityName={opportunity.name} />
-          <div className="min-w-0 flex-1">
-            <DetailContent opportunity={opportunity} />
+          <div className="flex shrink-0 items-center gap-3">
+            <p className="text-sm text-muted-foreground">
+              <span>
+                {opportunity.originFlag} {opportunity.originCountry}
+              </span>
+              <span className="mx-1.5">·</span>
+              <span>{sector}</span>
+            </p>
           </div>
         </div>
+
+        <DetailHeader
+          opportunity={opportunity}
+          meta={{
+            publishedAt: opportunity.publishedAt,
+            sourceVerified: opportunity.sourceVerified,
+            showOriginalLink: true,
+            showScoreBreakdown: true,
+          }}
+        />
+
+        <DetailContent opportunity={opportunity} />
       </main>
       <BuildOpportunityStickyCta opportunity={opportunity} />
       <Footer />
