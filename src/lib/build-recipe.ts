@@ -157,3 +157,66 @@ export function getWeekForRoadmapStep(
 ): number {
   return getStepWeek(step, index, totalSteps);
 }
+
+export function getContextualStackEntries(opportunity: Opportunity, stepIndex: number) {
+  const guide = opportunity.mvpPlan.stackGuide ?? [];
+  if (guide.length === 0 || stepIndex > 1) return [];
+  return guide.slice(0, 2);
+}
+
+export function getContextualPitfall(opportunity: Opportunity, stepIndex: number): string | null {
+  const pitfalls = opportunity.mvpPlan.pitfalls ?? [];
+  if (pitfalls.length === 0) return null;
+  return pitfalls[stepIndex % pitfalls.length] ?? null;
+}
+
+export function shouldShowLaunchChecklist(
+  project: UserProject,
+  opportunity: Opportunity,
+): boolean {
+  const { done, total, percent } = getRoadmapProgress(project, opportunity);
+  if (total === 0) return false;
+  return percent >= 90 || done >= total - 1;
+}
+
+export function shouldShowRevenueMilestonesOnBuild(
+  project: UserProject,
+  opportunity: Opportunity,
+): boolean {
+  if (project.builderStage === "has_mrr" || project.builderStage === "building") return true;
+  return getRoadmapProgress(project, opportunity).percent >= 80;
+}
+
+export function getPromptKitTabForStep(
+  stepIndex: number,
+  opportunity: Opportunity,
+): "scaffold" | number {
+  const kit = resolveBuildPrompts(opportunity);
+  if (!kit || kit.features.length === 0) return "scaffold";
+  if (stepIndex === 0) return "scaffold";
+  return Math.min(stepIndex - 1, kit.features.length - 1);
+}
+
+export function getBuildStepCelebrationMessage(
+  project: UserProject,
+  opportunity: Opportunity,
+  milestoneId: string,
+): string | null {
+  if (getStepIndexFromMilestoneId(milestoneId) === null) return null;
+
+  const updatedProject: UserProject = {
+    ...project,
+    milestones: project.milestones.map((m) =>
+      m.id === milestoneId ? { ...m, done: true } : m,
+    ),
+  };
+  const progress = getRoadmapProgress(updatedProject, opportunity);
+
+  if (progress.done >= progress.total && progress.total > 0) {
+    return "MVP build terminé — ouvrez la checklist de lancement";
+  }
+  if (progress.done === 1) {
+    return "Première étape validée — continuez !";
+  }
+  return `Étape ${progress.done}/${progress.total} — vous avancez bien`;
+}

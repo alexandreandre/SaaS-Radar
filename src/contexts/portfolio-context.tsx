@@ -31,7 +31,15 @@ import {
   countOverdueCheckIns,
   migrateProject,
   monthFromDate,
+  toggleLaunchChecklistItem as applyLaunchChecklistToggle,
+  resetBuildSetup,
+  restoreBuildSetupSnapshot,
+  setBuildSetup,
   type AddProjectInput,
+  type BuildSetup,
+  type GitHubConnection,
+  type HostConnection,
+  type ResetBuildOptions,
   type ProjectPhase,
   type TargetScenario,
   type UserProject,
@@ -47,6 +55,12 @@ type PortfolioContextValue = {
   setProjectPhase: (id: string, phase: ProjectPhase) => void;
   recordMrr: (id: string, amount: number, note?: string) => void;
   toggleMilestone: (id: string, milestoneId: string) => void;
+  toggleLaunchChecklistItem: (id: string, itemIndex: number) => void;
+  setBuildSetupForProject: (id: string, setup: BuildSetup) => void;
+  restoreBuildVersion: (id: string, savedAt: string) => void;
+  resetBuild: (id: string, opts?: ResetBuildOptions) => void;
+  setGitHubConnection: (id: string, connection: GitHubConnection | undefined) => void;
+  setHostConnection: (id: string, connection: HostConnection | undefined) => void;
   getProjectBySlug: (slug: string) => UserProject | undefined;
   getProjectById: (id: string) => UserProject | undefined;
   opportunityCatalog: Opportunity[];
@@ -264,18 +278,106 @@ export function PortfolioProvider({
           };
 
           if (isOnboardingComplete(updated) && !updated.onboardingCompleted) {
-            return {
+            const completed = {
               ...updated,
               onboardingCompleted: true,
               onboardingCompletedAt: now,
             };
+            queueProjectMetricsSync(completed);
+            return completed;
           }
 
+          queueProjectMetricsSync(updated);
           return updated;
         })
       );
     },
     [commit]
+  );
+
+  const toggleLaunchChecklistItem = useCallback(
+    (id: string, itemIndex: number) => {
+      commit((prev) =>
+        prev.map((project) => {
+          if (project.id !== id) return project;
+          const updated = applyLaunchChecklistToggle(project, itemIndex);
+          queueProjectMetricsSync(updated);
+          return updated;
+        }),
+      );
+    },
+    [commit],
+  );
+
+  const setBuildSetupForProject = useCallback(
+    (id: string, setup: BuildSetup) => {
+      commit((prev) =>
+        prev.map((project) => {
+          if (project.id !== id) return project;
+          const updated = setBuildSetup(project, setup);
+          queueProjectMetricsSync(updated);
+          return updated;
+        }),
+      );
+    },
+    [commit],
+  );
+
+  const restoreBuildVersion = useCallback(
+    (id: string, savedAt: string) => {
+      commit((prev) =>
+        prev.map((project) => {
+          if (project.id !== id) return project;
+          const restored = restoreBuildSetupSnapshot(project, savedAt);
+          if (!restored) return project;
+          queueProjectMetricsSync(restored);
+          return restored;
+        }),
+      );
+    },
+    [commit],
+  );
+
+  const resetBuild = useCallback(
+    (id: string, opts?: ResetBuildOptions) => {
+      commit((prev) =>
+        prev.map((project) => {
+          if (project.id !== id) return project;
+          const updated = resetBuildSetup(project, opts);
+          queueProjectMetricsSync(updated);
+          return updated;
+        }),
+      );
+    },
+    [commit],
+  );
+
+  const setGitHubConnection = useCallback(
+    (id: string, connection: GitHubConnection | undefined) => {
+      commit((prev) =>
+        prev.map((project) => {
+          if (project.id !== id) return project;
+          const updated = { ...project, githubConnection: connection };
+          queueProjectMetricsSync(updated);
+          return updated;
+        }),
+      );
+    },
+    [commit],
+  );
+
+  const setHostConnection = useCallback(
+    (id: string, connection: HostConnection | undefined) => {
+      commit((prev) =>
+        prev.map((project) => {
+          if (project.id !== id) return project;
+          const updated = { ...project, hostConnection: connection };
+          queueProjectMetricsSync(updated);
+          return updated;
+        }),
+      );
+    },
+    [commit],
   );
 
   const completeOnboarding = useCallback(
@@ -555,6 +657,12 @@ export function PortfolioProvider({
       setProjectPhase,
       recordMrr,
       toggleMilestone,
+      toggleLaunchChecklistItem,
+      setBuildSetupForProject,
+      restoreBuildVersion,
+      resetBuild,
+      setGitHubConnection,
+      setHostConnection,
       getProjectBySlug,
       getProjectById,
       opportunityCatalog,
@@ -584,6 +692,12 @@ export function PortfolioProvider({
       setProjectPhase,
       recordMrr,
       toggleMilestone,
+      toggleLaunchChecklistItem,
+      setBuildSetupForProject,
+      restoreBuildVersion,
+      resetBuild,
+      setGitHubConnection,
+      setHostConnection,
       getProjectBySlug,
       getProjectById,
       opportunityCatalog,

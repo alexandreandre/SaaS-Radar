@@ -30,6 +30,39 @@ export type Milestone = {
   source: MilestoneSource;
 };
 
+export type BuildSetup = {
+  toolId: string;
+  mvpPrompt: string;
+  setupRecipe: string;
+  quickStart: string;
+  generatedAt: string;
+};
+
+export type BuildSetupSnapshot = BuildSetup & {
+  savedAt: string;
+  label?: string;
+};
+
+export type GitHubConnection = {
+  repoFullName: string;
+  installationId: number;
+  connectedAt: string;
+};
+
+export type HostConnection = {
+  provider: "vercel" | "netlify";
+  projectId?: string;
+  projectName?: string;
+  productionUrl?: string;
+  connectedAt: string;
+};
+
+export type ResetBuildOptions = {
+  keepRoadmap?: boolean;
+  keepHistory?: boolean;
+  keepTool?: boolean;
+};
+
 export type UserProject = {
   id: string;
   opportunitySlug: string;
@@ -54,6 +87,11 @@ export type UserProject = {
   onboardingCompletedAt?: string;
   firstMilestoneAt?: string;
   launchRoomSeenAt?: string;
+  launchChecklistDone?: number[];
+  buildSetup?: BuildSetup;
+  buildSetupHistory?: BuildSetupSnapshot[];
+  githubConnection?: GitHubConnection;
+  hostConnection?: HostConnection;
 };
 
 export type { ConnectorId, ConnectorStreams };
@@ -449,7 +487,79 @@ export function migrateProject(project: UserProject): UserProject {
     onboardingCompleted: hasLegacyOnboardingFlag
       ? (project.onboardingCompleted ?? false)
       : true,
+    launchChecklistDone: project.launchChecklistDone ?? [],
+    buildSetupHistory: project.buildSetupHistory ?? [],
   };
+}
+
+const MAX_BUILD_HISTORY = 10;
+
+export function pushBuildSetupSnapshot(project: UserProject): UserProject {
+  if (!project.buildSetup) return project;
+  const snapshot: BuildSetupSnapshot = {
+    ...project.buildSetup,
+    savedAt: new Date().toISOString(),
+    label: project.buildSetup.toolId,
+  };
+  const history = [snapshot, ...(project.buildSetupHistory ?? [])].slice(0, MAX_BUILD_HISTORY);
+  return { ...project, buildSetupHistory: history };
+}
+
+export function setBuildSetup(project: UserProject, setup: BuildSetup): UserProject {
+  const withHistory = project.buildSetup ? pushBuildSetupSnapshot(project) : project;
+  return { ...withHistory, buildSetup: setup };
+}
+
+export function restoreBuildSetupSnapshot(
+  project: UserProject,
+  savedAt: string,
+): UserProject | null {
+  const snapshot = (project.buildSetupHistory ?? []).find((s) => s.savedAt === savedAt);
+  if (!snapshot) return null;
+  const current = project.buildSetup ? pushBuildSetupSnapshot(project) : project;
+  const { savedAt: _s, label: _l, ...setup } = snapshot;
+  return {
+    ...current,
+    buildSetup: setup,
+    buildSetupHistory: (current.buildSetupHistory ?? []).filter((h) => h.savedAt !== savedAt),
+  };
+}
+
+export function resetBuildSetup(
+  project: UserProject,
+  opts: ResetBuildOptions = {},
+): UserProject {
+  const next: UserProject = { ...project };
+  if (!opts.keepTool) {
+    next.buildSetup = undefined;
+  }
+  if (!opts.keepHistory) {
+    next.buildSetupHistory = [];
+  }
+  if (!opts.keepRoadmap) {
+    next.milestones = project.milestones.map((m) =>
+      m.source === "launch" && m.id.startsWith("build-step-")
+        ? { ...m, done: false, doneAt: undefined }
+        : m,
+    );
+  }
+  return next;
+}
+
+export function toggleLaunchChecklistItem(
+  project: UserProject,
+  itemIndex: number,
+): UserProject {
+  const current = project.launchChecklistDone ?? [];
+  const has = current.includes(itemIndex);
+  const launchChecklistDone = has
+    ? current.filter((i) => i !== itemIndex)
+    : [...current, itemIndex].sort((a, b) => a - b);
+  return { ...project, launchChecklistDone };
+}
+
+export function isLaunchChecklistItemDone(project: UserProject, itemIndex: number): boolean {
+  return (project.launchChecklistDone ?? []).includes(itemIndex);
 }
 
 export function getMetricsHistory(project: UserProject): MetricsSnapshot[] {

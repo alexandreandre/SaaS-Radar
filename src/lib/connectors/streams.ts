@@ -35,6 +35,18 @@ export type DevStream = {
   openIssues: number;
   errorRate: number;
   uptimePct: number;
+  commitsLast7d?: number;
+  commitsDelta?: number;
+  openPrs?: number;
+  stars?: number;
+  lastWorkflowConclusion?: string | null;
+  viewsLast14d?: number;
+  defaultBranch?: string;
+  lastPushAt?: string | null;
+  repoFullName?: string;
+  healthScore?: number;
+  deploymentUrl?: string;
+  lastDeploymentState?: string | null;
 };
 
 export type CrmStream = {

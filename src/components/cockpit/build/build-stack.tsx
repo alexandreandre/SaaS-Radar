@@ -5,22 +5,14 @@ import type { Opportunity } from "@/types/opportunity";
 
 type BuildStackProps = {
   opportunity: Opportunity;
+  collapsed?: boolean;
 };
 
-export function BuildStack({ opportunity }: BuildStackProps) {
+function StackContent({ opportunity }: { opportunity: Opportunity }) {
   const guide = opportunity.mvpPlan.stackGuide ?? [];
-  if (guide.length === 0) return null;
 
   return (
-    <section className="rounded-xl border border-border bg-card p-6 shadow-card">
-      <div className="mb-4">
-        <p className="font-data text-[10px] uppercase tracking-data text-primary">Stack</p>
-        <h3 className="mt-1 text-lg font-semibold">Recette de setup</h3>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Chaque outil, son rôle et comment le configurer — dans l&apos;ordre.
-        </p>
-      </div>
-
+    <>
       <div className="grid gap-3 sm:grid-cols-2">
         {guide.map((entry) => (
           <article
@@ -62,6 +54,45 @@ export function BuildStack({ opportunity }: BuildStackProps) {
           Stack complète : {opportunity.mvpPlan.stack.join(" · ")}
         </p>
       ) : null}
-    </section>
+    </>
+  );
+}
+
+export function BuildStack({ opportunity, collapsed = true }: BuildStackProps) {
+  const guide = opportunity.mvpPlan.stackGuide ?? [];
+  if (guide.length === 0) return null;
+
+  if (!collapsed) {
+    return (
+      <section className="rounded-xl border border-border bg-card p-6 shadow-card">
+        <div className="mb-4">
+          <p className="font-data text-[10px] uppercase tracking-data text-primary">Stack</p>
+          <h3 className="mt-1 text-lg font-semibold">Recette de setup</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Chaque outil, son rôle et comment le configurer — dans l&apos;ordre.
+          </p>
+        </div>
+        <StackContent opportunity={opportunity} />
+      </section>
+    );
+  }
+
+  return (
+    <details className="rounded-xl border border-border bg-card shadow-card">
+      <summary className="cursor-pointer list-none px-5 py-4 marker:content-none [&::-webkit-details-marker]:hidden">
+        <div>
+          <p className="font-data text-[10px] uppercase tracking-data text-muted-foreground">
+            Ressources
+          </p>
+          <p className="mt-0.5 font-medium">Stack &amp; setup ({guide.length} outils)</p>
+        </div>
+      </summary>
+      <div className="border-t border-border px-5 pb-5 pt-4">
+        <p className="mb-4 text-sm text-muted-foreground">
+          Chaque outil, son rôle et comment le configurer — dans l&apos;ordre.
+        </p>
+        <StackContent opportunity={opportunity} />
+      </div>
+    </details>
   );
 }

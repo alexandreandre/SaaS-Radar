@@ -15,6 +15,13 @@ export function queueProjectMetricsSync(project: UserProject) {
       mrrHistory: project.mrrHistory,
       lastCheckInAt: project.lastCheckInAt,
       checkInStreak: project.checkInStreak,
+      milestones: project.milestones,
+      launchChecklistDone: project.launchChecklistDone ?? [],
+      buildSetup: project.buildSetup,
+      buildSetupHistory: project.buildSetupHistory,
+      githubConnection: project.githubConnection,
+      hostConnection: project.hostConnection,
+      connectorStreams: project.connectorStreams,
     }),
   }).catch(() => {});
 }

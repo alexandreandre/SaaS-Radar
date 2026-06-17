@@ -2,6 +2,8 @@ import type { UserProject } from "@/lib/portfolio";
 import type { CockpitMetrics } from "@/lib/cockpit-metrics";
 import type { CockpitModuleId } from "@/lib/cockpit-modules";
 import { CONNECTORS } from "@/lib/connectors/registry";
+import { getBuildGitHubAlert } from "@/lib/build/github-alerts";
+import type { DevStream } from "@/lib/connectors/streams";
 import {
   computeCac,
   computeLtv,
@@ -162,6 +164,17 @@ export function buildCockpitAlerts(
       id: "sentry-spike",
       severity: "critical",
       message: `Pic d'erreurs Sentry : ${sentryStream.errorRate} % — risque impact produit.`,
+      actionModule: "build",
+    });
+  }
+
+  const githubStream = project.connectorStreams?.github as DevStream | undefined;
+  const githubAlert = getBuildGitHubAlert(project, githubStream);
+  if (githubAlert && githubAlert.severity !== "info") {
+    alerts.push({
+      id: "github-build",
+      severity: githubAlert.severity,
+      message: githubAlert.message,
       actionModule: "build",
     });
   }

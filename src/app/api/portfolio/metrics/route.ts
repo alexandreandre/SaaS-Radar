@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { syncProjectMetrics, type SyncProjectMetricsInput } from "@/lib/portfolio-sync";
-import type { ProjectPhase } from "@/lib/portfolio";
+import type { BuildSetup, BuildSetupSnapshot, GitHubConnection, HostConnection, ProjectPhase } from "@/lib/portfolio";
+import type { ConnectorStreams } from "@/lib/connectors/streams";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,6 +32,29 @@ function parseBody(body: unknown): SyncProjectMetricsInput | null {
     mrrHistory: Array.isArray(b.mrrHistory) ? b.mrrHistory : [],
     lastCheckInAt: typeof b.lastCheckInAt === "string" ? b.lastCheckInAt : undefined,
     checkInStreak: typeof b.checkInStreak === "number" ? b.checkInStreak : undefined,
+    milestones: Array.isArray(b.milestones) ? b.milestones : undefined,
+    launchChecklistDone: Array.isArray(b.launchChecklistDone)
+      ? b.launchChecklistDone.filter((i): i is number => typeof i === "number")
+      : undefined,
+    buildSetup:
+      b.buildSetup && typeof b.buildSetup === "object"
+        ? (b.buildSetup as BuildSetup)
+        : undefined,
+    buildSetupHistory: Array.isArray(b.buildSetupHistory)
+      ? (b.buildSetupHistory as BuildSetupSnapshot[])
+      : undefined,
+    githubConnection:
+      b.githubConnection && typeof b.githubConnection === "object"
+        ? (b.githubConnection as GitHubConnection)
+        : undefined,
+    hostConnection:
+      b.hostConnection && typeof b.hostConnection === "object"
+        ? (b.hostConnection as HostConnection)
+        : undefined,
+    connectorStreams:
+      b.connectorStreams && typeof b.connectorStreams === "object"
+        ? (b.connectorStreams as ConnectorStreams)
+        : undefined,
   };
 }
 
