@@ -2,9 +2,10 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { isCredentialsEncryptionConfigured } from "@/lib/crypto/credentials";
 import {
-  exchangeStripeConnectCode,
+  exchangeStripeAppCode,
   oauthTokenToCredential,
 } from "@/lib/connectors/stripe/oauth";
+import { StripeConnectorError } from "@/lib/connectors/stripe/client";
 import { saveStripeCredential } from "@/lib/connectors/stripe/sync-service";
 
 export const runtime = "nodejs";
@@ -55,13 +56,17 @@ export async function GET(request: Request) {
   }
 
   try {
-    const token = await exchangeStripeConnectCode(code);
+    const token = await exchangeStripeAppCode(code);
     const credential = oauthTokenToCredential(token);
     await saveStripeCredential(user.id, projectId, credential);
-  } catch {
+  } catch (err) {
     const cockpitUrl = new URL(`/cockpit/${projectId}`, request.url);
     cockpitUrl.searchParams.set("module", "integrations");
-    cockpitUrl.searchParams.set("stripe_error", "token");
+    if (err instanceof StripeConnectorError && err.code === "metric_inaccessible") {
+      cockpitUrl.searchParams.set("stripe_error", "permissions");
+    } else {
+      cockpitUrl.searchParams.set("stripe_error", "token");
+    }
     return NextResponse.redirect(cockpitUrl);
   }
 

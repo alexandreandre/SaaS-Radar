@@ -139,12 +139,12 @@ function buildEnvVars(stack: string[]): EnvVarSpec[] {
   if (stackIncludes(stack, "supabase")) {
     vars.push(
       {
-        name: "NEXT_PUBLIC_SUPABASE_URL",
+        name: "SUPABASE_URL",
         role: "URL du projet Supabase",
         where: "supabase.com → Project Settings → API → Project URL",
       },
       {
-        name: "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+        name: "SUPABASE_ANON_KEY",
         role: "Clé publique client (anon key)",
         where: "supabase.com → Project Settings → API → anon public",
       },

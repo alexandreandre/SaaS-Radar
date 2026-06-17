@@ -36,7 +36,7 @@ jobs:
         env:
           # Valeurs factices : le build (prebuild world-markets + next build) ne doit pas
           # dépendre de secrets. La lecture Supabase runtime tolère l'absence en build.
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+          SUPABASE_URL: https://placeholder.supabase.co
+          SUPABASE_ANON_KEY: placeholder-anon-key
           STRIPE_SECRET_KEY: sk_test_ci_placeholder
           STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder

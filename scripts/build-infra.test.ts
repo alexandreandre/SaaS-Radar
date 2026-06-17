@@ -47,7 +47,7 @@ test("getInfraProfile cursor → recommended-stack avec env Supabase", () => {
   assert.equal(profile.primaryBackend, "supabase");
   assert.ok(profile.services.includes("auth"));
   assert.ok(profile.services.includes("database"));
-  assert.ok(profile.envVars.some((v) => v.name === "NEXT_PUBLIC_SUPABASE_URL"));
+  assert.ok(profile.envVars.some((v) => v.name === "SUPABASE_URL"));
   assert.match(profile.uiSummaryFr, /Supabase/i);
 });
 
@@ -88,7 +88,7 @@ Tables: profiles, rate_profiles, quotes avec politiques RLS par utilisateur.
 Inscription et connexion email/mot de passe via Supabase Auth.
 
 ## Configuration & secrets
-Créer .env.example avec NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
+Créer .env.example avec SUPABASE_URL, SUPABASE_ANON_KEY,
 SUPABASE_SERVICE_ROLE_KEY en placeholders.
 
 ## Fonctionnalités

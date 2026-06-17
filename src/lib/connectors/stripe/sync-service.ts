@@ -10,6 +10,7 @@ import {
   fetchStripeAccount,
   validateCredential,
 } from "@/lib/connectors/stripe/client";
+import { ensureFreshCredential } from "@/lib/connectors/stripe/token-refresh";
 import type { StripeCredential } from "@/lib/connectors/stripe/types";
 import type { ConnectorSyncResult } from "@/lib/connectors/types";
 
@@ -25,11 +26,12 @@ export async function runStripeSync(
   userId: string,
   projectId: string,
 ): Promise<ConnectorSyncResult & { accountLabel: string }> {
-  const credential = await loadStripeCredential(userId, projectId);
-  if (!credential) {
+  const stored = await loadStripeCredential(userId, projectId);
+  if (!stored) {
     throw new Error("Stripe non connecté pour ce projet");
   }
 
+  const credential = await ensureFreshCredential(userId, projectId, stored);
   const account = await fetchStripeAccount(credential);
   const meta = buildAccountMeta(account, credential);
   const result = await fetchStripeConnectorSync(credential);

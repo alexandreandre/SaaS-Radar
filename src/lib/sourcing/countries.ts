@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { getSupabaseUrl } from "@/lib/supabase/env";
 
 export type SourcingCountry = {
   code: string;
@@ -13,11 +14,11 @@ let cacheAt = 0;
 const CACHE_MS = 60_000;
 
 function createAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const url = getSupabaseUrl();
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
     throw new Error(
-      "Renseignez NEXT_PUBLIC_SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY"
+      "Renseignez SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY"
     );
   }
   return createClient(url, key);

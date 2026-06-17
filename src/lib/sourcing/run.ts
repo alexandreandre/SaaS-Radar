@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { getSupabaseUrl } from "@/lib/supabase/env";
 import { toOpportunityRow } from "@/lib/supabase/mappers";
 import type { Opportunity } from "@/types/opportunity";
 import {
@@ -99,11 +100,11 @@ export interface RunOptions {
 }
 
 function createAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const url = getSupabaseUrl();
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
     throw new Error(
-      "Renseignez NEXT_PUBLIC_SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY"
+      "Renseignez SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY"
     );
   }
   return createClient(url, key);

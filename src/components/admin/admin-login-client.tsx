@@ -5,21 +5,12 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { buildAuthCallbackUrl, sanitizeAdminNext } from "@/lib/auth/callback-url";
+import { getClientSiteOrigin } from "@/lib/site-url";
 import { Button } from "@/components/ui/button";
 
 function callbackUrl(next: string): string {
-  const origin = window.location.origin;
-  const params = new URLSearchParams();
-  if (next) params.set("next", next);
-  const qs = params.toString();
-  return `${origin}/auth/callback${qs ? `?${qs}` : ""}`;
-}
-
-/** Redirection post-auth : uniquement des chemins /admin (anti open-redirect). */
-function sanitizeAdminNext(raw: string | null): string {
-  if (!raw || !raw.startsWith("/admin") || raw.startsWith("//")) return "/admin";
-  if (raw.startsWith("/admin/login")) return "/admin";
-  return raw;
+  return buildAuthCallbackUrl(getClientSiteOrigin(), next);
 }
 
 export function AdminLoginClient({
@@ -46,12 +37,14 @@ export function AdminLoginClient({
     if (!email) return;
     setStatus("sending");
     setError(null);
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: callbackUrl(next) },
+    const res = await fetch("/api/auth/magic-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, next, scope: "admin" }),
     });
-    if (otpError) {
-      setError(otpError.message);
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) {
+      setError(data.error ?? "Impossible d'envoyer le lien");
       setStatus("idle");
       return;
     }

@@ -12,11 +12,12 @@ import {
 } from "../src/lib/sourcing/constants";
 import { discoverLeads } from "../src/lib/sourcing/discover";
 import { assertModelsActive, CostTracker } from "../src/lib/sourcing/openrouter";
+import { getSupabaseUrl } from "../src/lib/supabase/env";
 
 const TARGET_COUNT = Number.parseInt(process.env.TEST_COUNT ?? "10", 10) || 10;
 
 async function loadExclusions(): Promise<string[]> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const url = getSupabaseUrl();
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return [];
   const supabase = createClient(url, key);

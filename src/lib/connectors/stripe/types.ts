@@ -13,6 +13,8 @@ export type StripeOAuthCredential = {
   stripeAccountId: string;
   livemode: boolean;
   currency: string;
+  /** ISO — expiration du access_token (Stripe Apps OAuth, ~1 h). */
+  tokenExpiresAt?: string;
 };
 
 export type StripeCredential = StripeRakCredential | StripeOAuthCredential;

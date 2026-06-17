@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getSupabaseUrl } from "@/lib/supabase/env";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdminApi, withAdminAudit } from "@/lib/admin/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -16,9 +17,9 @@ export async function GET(request: Request) {
   const recovered = await recoverStaleRuns();
 
   const checks = {
-    supabase: !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    supabase: !!getSupabaseUrl() && !!process.env.SUPABASE_SERVICE_ROLE_KEY,
     stripe: !!process.env.STRIPE_SECRET_KEY,
-    stripeConnectOAuth: !!process.env.STRIPE_CONNECT_CLIENT_ID?.trim(),
+    stripeAppOAuth: !!process.env.STRIPE_APP_CLIENT_ID?.trim(),
     openrouter: !!process.env.OPENROUTER_API_KEY,
     revalidate: !!process.env.REVALIDATE_SECRET,
   };

@@ -7,13 +7,14 @@
 import { createClient } from "@supabase/supabase-js";
 import { opportunities } from "../src/data/opportunities";
 import { toOpportunityRow } from "../src/lib/supabase/mappers";
+import { getSupabaseUrl } from "../src/lib/supabase/env";
 
 function createAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const url = getSupabaseUrl();
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
     throw new Error(
-      "Renseignez NEXT_PUBLIC_SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY dans .env.local"
+      "Renseignez SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY dans .env.local"
     );
   }
   return createClient(url, key);

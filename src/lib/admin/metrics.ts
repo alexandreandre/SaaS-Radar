@@ -1,5 +1,6 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getSupabaseUrl } from "@/lib/supabase/env";
 import { PLAN_PRICING, type PaidPlan } from "@/lib/billing/plans";
 import { listAuditLogs } from "@/lib/admin/audit";
 import { loadPublishSettings } from "@/lib/admin/publish-policy";
@@ -90,7 +91,7 @@ export type AdminOverviewMetrics = {
 
 export function getAdminHealthChecks(): AdminHealthChecks {
   return {
-    supabase: !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+    supabase: !!getSupabaseUrl() && !!process.env.SUPABASE_SERVICE_ROLE_KEY,
     stripe: !!process.env.STRIPE_SECRET_KEY,
     openrouter: !!process.env.OPENROUTER_API_KEY,
     revalidate: !!process.env.REVALIDATE_SECRET,

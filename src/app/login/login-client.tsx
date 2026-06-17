@@ -5,26 +5,17 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Radar } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { buildAuthCallbackUrl, sanitizeAuthNext } from "@/lib/auth/callback-url";
+import { getClientSiteOrigin } from "@/lib/site-url";
 import { Button } from "@/components/ui/button";
 
-/** Construit l'URL absolue de callback en propageant `next`. */
 function callbackUrl(next: string): string {
-  const origin = window.location.origin;
-  const params = new URLSearchParams();
-  if (next) params.set("next", next);
-  const qs = params.toString();
-  return `${origin}/auth/callback${qs ? `?${qs}` : ""}`;
-}
-
-function sanitizeNext(raw: string | null): string {
-  // N'autorise qu'un chemin interne (evite open-redirect).
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/mes-saas";
-  return raw;
+  return buildAuthCallbackUrl(getClientSiteOrigin(), next);
 }
 
 export function LoginClient() {
   const searchParams = useSearchParams();
-  const next = sanitizeNext(searchParams.get("next"));
+  const next = sanitizeAuthNext(searchParams.get("next"));
   const hasAuthError = searchParams.get("error") === "auth";
 
   const [email, setEmail] = useState("");
@@ -40,12 +31,14 @@ export function LoginClient() {
     if (!email) return;
     setStatus("sending");
     setError(null);
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: callbackUrl(next) },
+    const res = await fetch("/api/auth/magic-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, next, scope: "app" }),
     });
-    if (error) {
-      setError(error.message);
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    if (!res.ok) {
+      setError(data.error ?? "Impossible d'envoyer le lien");
       setStatus("idle");
       return;
     }

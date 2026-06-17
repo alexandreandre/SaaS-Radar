@@ -22,7 +22,8 @@ function getBearerToken(credential: StripeCredential): string {
 }
 
 function getStripeAccountHeader(credential: StripeCredential): string | undefined {
-  if (credential.mode === "oauth") return credential.stripeAccountId;
+  // Stripe Apps OAuth : le Bearer access_token est déjà scoping au compte connecté.
+  if (credential.mode === "oauth") return undefined;
   return credential.accountId;
 }
 

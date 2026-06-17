@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { getSupabaseAnonKey, getSupabaseUrl } from './env'
 
 const PROTECTED_PREFIXES = ['/mes-saas', '/cockpit', '/account']
 
@@ -22,8 +23,8 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
 
   let response = NextResponse.next({ request })
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const url = getSupabaseUrl()
+  const key = getSupabaseAnonKey()
   // Tolerance build/preview sans secrets : on ne casse pas la requete.
   if (!url || !key) return response
 
