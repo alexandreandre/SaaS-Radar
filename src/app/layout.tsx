@@ -57,7 +57,7 @@ export default async function RootLayout({
   const isAuthenticated = !!user;
 
   return (
-    <html lang="fr" suppressHydrationWarning>
+    <html lang="fr" className="dark" suppressHydrationWarning>
       <body
         className={`${sourceSans.variable} ${newsreader.variable} ${plexMono.variable} font-sans`}
       >
