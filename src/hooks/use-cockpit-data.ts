@@ -5,10 +5,10 @@ import type { Opportunity } from "@/types/opportunity";
 import { buildCockpitAlerts } from "@/lib/cockpit-alerts";
 import { buildCockpitMetrics } from "@/lib/cockpit-metrics";
 import {
-  buildPromiseCurve,
+  buildScenarioCurve,
   getMetricsHistory,
   getMilestoneProgress,
-  getPromiseGapPercent,
+  getTargetGapPercent,
   getTargetMrr,
   mergeRealityCurve,
   type UserProject,
@@ -23,9 +23,9 @@ export function useCockpitData(project: UserProject, opportunity: Opportunity) {
     const stackHealth = buildStackHealth(opportunity, project.integrations);
     const radarActions = buildRadarActions(project, opportunity, metrics, stackHealth);
     const history = getMetricsHistory(project);
-    const promise = buildPromiseCurve(opportunity, project.targetScenario);
-    const chartData = mergeRealityCurve(promise, project.mrrHistory, project.startedAt);
-    const gap = getPromiseGapPercent(project, opportunity);
+    const scenarioCurve = buildScenarioCurve(opportunity, project.targetScenario);
+    const chartData = mergeRealityCurve(scenarioCurve, project.mrrHistory, project.startedAt);
+    const gap = getTargetGapPercent(project, opportunity);
     const target = getTargetMrr(project, opportunity);
     const milestoneProgress = getMilestoneProgress(project);
 
@@ -37,7 +37,7 @@ export function useCockpitData(project: UserProject, opportunity: Opportunity) {
       stackHealth,
       radarActions,
       history,
-      promise,
+      scenarioCurve,
       chartData,
       gap,
       target,

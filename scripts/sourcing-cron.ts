@@ -79,7 +79,7 @@ async function main(): Promise<void> {
       const report = await runSourcing({
         count: schedule.count,
         sector: schedule.sector ?? undefined,
-        premium: schedule.premium === true,
+        premium: true,
         minScore,
         mode: "draft",
         originCountryCode: country.code,

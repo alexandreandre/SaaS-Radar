@@ -32,29 +32,40 @@ type FavoritesContextValue = {
 
 const FavoritesContext = createContext<FavoritesContextValue | null>(null);
 
-async function fetchServerFavorites(): Promise<string[]> {
-  const res = await fetch("/api/favorites");
-  if (res.status === 401) return [];
-  if (!res.ok) {
-    const json = await res.json().catch(() => ({}));
-    throw new Error((json as { error?: string }).error ?? "Erreur favoris");
-  }
-  const json = (await res.json()) as { slugs?: string[] };
-  return json.slugs ?? [];
+type FavoritesApiError = { error?: string; code?: string };
+
+function isFavoritesTableMissingResponse(status: number, json: FavoritesApiError): boolean {
+  return status === 503 && json.code === "FAVORITES_TABLE_MISSING";
 }
 
-async function mergeGuestFavorites(localSlugs: string[]): Promise<string[]> {
+async function parseFavoritesResponse(res: Response): Promise<{ slugs: string[]; tableMissing: boolean }> {
+  const json = (await res.json().catch(() => ({}))) as FavoritesApiError & { slugs?: string[] };
+  if (res.status === 401) return { slugs: [], tableMissing: false };
+  if (isFavoritesTableMissingResponse(res.status, json)) {
+    return { slugs: readGuestFavoriteSlugs(), tableMissing: true };
+  }
+  if (!res.ok) {
+    throw new Error(json.error ?? "Erreur favoris");
+  }
+  return { slugs: json.slugs ?? [], tableMissing: false };
+}
+
+async function fetchServerFavorites(): Promise<{ slugs: string[]; tableMissing: boolean }> {
+  const res = await fetch("/api/favorites");
+  return parseFavoritesResponse(res);
+}
+
+async function mergeGuestFavorites(localSlugs: string[]): Promise<{ slugs: string[]; tableMissing: boolean }> {
   const res = await fetch("/api/favorites/merge", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ slugs: localSlugs }),
   });
-  if (!res.ok) {
-    const json = await res.json().catch(() => ({}));
-    throw new Error((json as { error?: string }).error ?? "Erreur fusion favoris");
+  const parsed = await parseFavoritesResponse(res);
+  if (parsed.tableMissing) {
+    return { slugs: mergeFavoriteSlugs(localSlugs, readGuestFavoriteSlugs()), tableMissing: true };
   }
-  const json = (await res.json()) as { slugs?: string[] };
-  return json.slugs ?? [];
+  return parsed;
 }
 
 export function FavoritesProvider({ children }: { children: ReactNode }) {
@@ -64,6 +75,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   const [togglingSlug, setTogglingSlug] = useState<string | null>(null);
   const [guestHint, setGuestHint] = useState<string | null>(null);
   const mergeDoneRef = useRef(false);
+  const serverUnavailableRef = useRef(false);
 
   const favoriteSet = useMemo(() => new Set(favoriteSlugs), [favoriteSlugs]);
 
@@ -73,12 +85,22 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       localSlugs = readGuestFavoriteSlugs();
     }
     if (localSlugs.length > 0) {
-      const merged = await mergeGuestFavorites(localSlugs);
-      clearGuestFavoriteSlugs();
-      setFavoriteSlugs(merged);
-    } else {
-      const slugs = await fetchServerFavorites();
+      const { slugs, tableMissing } = await mergeGuestFavorites(localSlugs);
+      if (tableMissing) {
+        serverUnavailableRef.current = true;
+        writeGuestFavoriteSlugs(slugs);
+      } else {
+        clearGuestFavoriteSlugs();
+      }
       setFavoriteSlugs(slugs);
+    } else {
+      const { slugs, tableMissing } = await fetchServerFavorites();
+      if (tableMissing) {
+        serverUnavailableRef.current = true;
+        setFavoriteSlugs(readGuestFavoriteSlugs());
+      } else {
+        setFavoriteSlugs(slugs);
+      }
     }
   }, []);
 
@@ -127,8 +149,13 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
           }
         } else if (event === "SIGNED_IN") {
           try {
-            const slugs = await fetchServerFavorites();
-            setFavoriteSlugs(slugs);
+            const { slugs, tableMissing } = await fetchServerFavorites();
+            if (tableMissing) {
+              serverUnavailableRef.current = true;
+              setFavoriteSlugs(readGuestFavoriteSlugs());
+            } else {
+              setFavoriteSlugs(slugs);
+            }
           } catch {
             /* keep current */
           }
@@ -162,7 +189,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       });
 
       try {
-        if (signedIn) {
+        if (signedIn && !serverUnavailableRef.current) {
           const res = await fetch(
             wasFavorite
               ? `/api/favorites?slug=${encodeURIComponent(normalized)}`
@@ -175,9 +202,24 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
                   body: JSON.stringify({ slug: normalized }),
                 }
           );
+          const { slugs, tableMissing } = await parseFavoritesResponse(res);
+          if (tableMissing) {
+            serverUnavailableRef.current = true;
+            const next = wasFavorite
+              ? readGuestFavoriteSlugs().filter((s) => s !== normalized)
+              : mergeFavoriteSlugs(readGuestFavoriteSlugs(), [normalized]);
+            writeGuestFavoriteSlugs(next);
+            setFavoriteSlugs(next);
+            return;
+          }
           if (!res.ok) throw new Error("Échec favori");
-          const json = (await res.json()) as { slugs?: string[] };
-          setFavoriteSlugs(json.slugs ?? []);
+          setFavoriteSlugs(slugs);
+        } else if (signedIn && serverUnavailableRef.current) {
+          const next = wasFavorite
+            ? readGuestFavoriteSlugs().filter((s) => s !== normalized)
+            : mergeFavoriteSlugs(readGuestFavoriteSlugs(), [normalized]);
+          writeGuestFavoriteSlugs(next);
+          setFavoriteSlugs(next);
         } else {
           const next = wasFavorite
             ? readGuestFavoriteSlugs().filter((s) => s !== normalized)

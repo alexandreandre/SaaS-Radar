@@ -22,7 +22,7 @@ export function GapCallout({
     >
       {gap !== null && gap >= 0 ? (
         <p>
-          Vous dépassez la promesse Radar ({scenario.toLowerCase()}) de <strong>+{gap} %</strong>.
+          Vous dépassez l'objectif du scénario {scenario.toLowerCase()} de <strong>+{gap} %</strong>.
         </p>
       ) : gap !== null ? (
         <p>

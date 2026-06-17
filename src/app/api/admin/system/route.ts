@@ -66,7 +66,7 @@ export async function POST(request: Request) {
         cron_expr: body.cron_expr,
         count: body.count,
         sector: body.sector ?? null,
-        premium: body.premium ?? false,
+        premium: true,
         min_score: body.min_score ?? null,
         ...(countryCodes ? { country_codes: countryCodes } : {}),
         ...(body.config != null ? { config: body.config } : {}),

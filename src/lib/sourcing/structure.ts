@@ -11,7 +11,7 @@ const GEMINI_SYSTEM = [
 function buildPremiumBlock(): string {
   return [
     "",
-    "MODE PREMIUM ACTIVÉ — ajoute EN PLUS ces 3 champs optionnels (sinon ne les inclus pas) :",
+    "MODE ENRICHI — ajoute EN PLUS ces 3 champs optionnels (sinon ne les inclus pas) :",
     JSON.stringify(
       {
         frenchCompetitors: [
@@ -47,7 +47,7 @@ function buildStructurePrompt(
   lead: FactualLead,
   opts: { zodFeedback?: string; premium?: boolean } = {}
 ): string {
-  const { zodFeedback, premium } = opts;
+  const { zodFeedback } = opts;
   const correction = zodFeedback
     ? [
         "",
@@ -56,7 +56,7 @@ function buildStructurePrompt(
         "",
       ].join("\n")
     : "";
-  const premiumBlock = premium ? buildPremiumBlock() : "";
+  const premiumBlock = buildPremiumBlock();
 
   return [
     "Voici un SaaS étranger (faits vérifiés) :",
@@ -99,13 +99,68 @@ function buildStructurePrompt(
           notYet: ["Hors scope V1"],
           stackExtras: ["Twilio", "OpenAI"],
           roadmap: [
-            { day: "J1-3", tasks: ["Setup repo, auth, schéma DB"] },
-            { day: "J4-10", tasks: ["Workflow core MVP"] },
-            { day: "J11-20", tasks: ["Dashboard, Stripe, onboarding"] },
-            { day: "J21-30", tasks: ["Landing, 5 bêtas, polish"] },
+            {
+              day: "J1-3",
+              week: 1,
+              objective: "Repo prêt + auth fonctionnelle",
+              tasks: ["Setup repo Next.js 14 App Router", "Auth Supabase email/password", "Schéma DB initial"],
+              buildPrompt: "Prompt IA concret pour cette étape (copier-coller dans Claude Code)",
+              checkpoint: "Un utilisateur peut s'inscrire et voir un dashboard vide",
+              estimateHours: 8,
+            },
+            {
+              day: "J4-10",
+              week: 2,
+              objective: "Workflow core MVP livré",
+              tasks: ["Workflow principal end-to-end", "CRUD entités métier", "Tests manuels happy path"],
+              buildPrompt: "Prompt IA pour le workflow core",
+              checkpoint: "Le parcours principal fonctionne sans erreur bloquante",
+              estimateHours: 16,
+            },
+            {
+              day: "J11-20",
+              week: 3,
+              objective: "Monétisation + onboarding",
+              tasks: ["Stripe checkout + webhooks", "Onboarding 3 étapes", "Emails transactionnels Resend"],
+              buildPrompt: "Prompt IA pour Stripe et onboarding",
+              checkpoint: "Un paiement test passe et l'utilisateur est guidé au premier usage",
+              estimateHours: 14,
+            },
+            {
+              day: "J21-30",
+              week: 4,
+              objective: "Landing + 5 bêtas",
+              tasks: ["Landing page FR", "5 utilisateurs bêta onboardés", "Polish UX + fix bugs critiques"],
+              buildPrompt: "Prompt IA pour landing et polish",
+              checkpoint: "5 bêtas actifs + landing publique avec CTA waitlist ou signup",
+              estimateHours: 12,
+            },
+          ],
+          stackGuide: [
+            {
+              tool: "Next.js 14",
+              role: "Frontend + API routes",
+              why: "App Router, déploiement Vercel, écosystème React",
+              setup: "npx create-next-app@latest --typescript --tailwind --app",
+              freeTier: "Vercel Hobby gratuit",
+              alternative: "Remix ou Nuxt si préférence",
+            },
+          ],
+          pitfalls: ["Ne pas sur-dimensionner le MVP", "Valider le paiement tôt (J11 max)"],
+          launchChecklist: [
+            "Landing publique avec proposition de valeur claire",
+            "Stripe en mode live ou test avec parcours complet",
+            "5 bêtas ayant complété le workflow principal",
           ],
         },
-        acquisition: [{ id: "cold-email", title: "Cold Email", tactics: ["Tactique 1"] }],
+        buildPrompts: {
+          scaffold: "Prompt complet pour initialiser le repo (Next.js + Supabase + Stripe + shadcn)",
+          features: [
+            { feature: "Auth + dashboard", prompt: "Prompt pour auth Supabase et shell dashboard" },
+            { feature: "Workflow core", prompt: "Prompt pour la feature métier principale" },
+          ],
+        },
+        acquisition: [{ id: "cold-email", title: "Cold email", tactics: ["Tactique 1"] }],
         claudePrompt:
           "Prompt de build complet pour un MVP livrable en 30 jours par un solo dev (Next.js + Supabase + Stripe).",
         foreignMarketProfile: {
@@ -138,15 +193,26 @@ function buildStructurePrompt(
     "  Plafonds indicatifs : Prudent 5-15 clients, Réaliste 25-50 clients, Optimiste MAX 80-120 clients (pas 500).",
     "  Prix FR réalistes : 29-99€/mois selon niche B2B.",
     "- COHÉRENCE 30 JOURS (si buildableUnder30Days = true) :",
-    "  • mvpPlan.roadmap : étapes sur J1 à J30 max (pas 90 jours, pas 2 mois).",
-    "  • claudePrompt : doit explicitement cadrer un MVP livrable en 30 jours par un solo dev.",
+    "  • mvpPlan.roadmap : 4 à 6 étapes sur J1 à J30 max (pas 90 jours, pas 2 mois).",
+    "    Chaque étape DOIT inclure : day, week (1-4), objective (livrable concret), tasks (2-4 sous-tâches actionnables),",
+    "    buildPrompt (prompt IA copier-coller pour CETTE étape uniquement, en français ou anglais technique),",
+    "    checkpoint (critère de fin vérifiable), estimateHours (nombre réaliste pour solo dev).",
+    "  • mvpPlan.stackGuide : une entrée par outil de la stack (tool, role, why, setup avec commande ou lien, freeTier, alternative).",
+    "    Aligner avec Next.js, Supabase, Stripe, Tailwind, Resend quand pertinent.",
+    "  • mvpPlan.pitfalls : 3-5 pièges classiques pour CE niche (éviter scope creep, etc.).",
+    "  • mvpPlan.launchChecklist : 4-6 critères « definition of done » avant de considérer le lancement.",
+    "  • buildPrompts : kit séquencé avec scaffold (prompt initialisation repo) + features (1 prompt par feature MVP, aligné sur mvpPlan.features).",
+    "  • claudePrompt : prompt monolithique de secours (rétrocompat) — doit explicitement cadrer un MVP livrable en 30 jours par un solo dev.",
     "    Interdit de mentionner « 2 mois », « 90 jours », « quarter » pour le build.",
     "  • mvpPlan.features : périmètre MVP minimal (3-5 features max), pas une reproduction de la suite US.",
     "- clientType / techComplexity / franceCompetition : une des valeurs autorisées uniquement.",
     "- claudePrompt : un vrai prompt de build complet et exploitable, pas un résumé.",
+    "- buildPrompts.buildPrompt par étape : prompts EXÉCUTABLES (fichiers à créer, stack, contraintes), pas des descriptions vagues.",
     "- ANCRAGE FAITS : ne contredis JAMAIS les faits du JSON lead fourni.",
     "  Si tu doutes, baisse les subScores et mets buildableUnder30Days=false.",
     "- foreignMarketProfile.tractionHighlights : reprends UNIQUEMENT les tractionSignals du lead (pas de nouveaux chiffres inventés).",
+    "- foreignMarketProfile.keyFeatures : fonctionnalités du produit SUR LE MARCHÉ D'ORIGINE (3-5 items),",
+    "  DISTINCTES de mvpPlan.features (périmètre MVP France). Ne recopie pas le roadmap FR.",
     "- Aucune prose hors de l'objet JSON.",
     premiumBlock,
   ]

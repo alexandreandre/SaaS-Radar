@@ -5,8 +5,6 @@ import type { Opportunity } from "@/types/opportunity";
 import { OpportunitySection } from "@/components/opportunities/detail/opportunity-section";
 import { ChiffresSection } from "@/components/opportunities/detail/chiffres-section";
 import { WhySection } from "@/components/opportunities/detail/why-section";
-import { SaasOrigineSection } from "@/components/opportunities/detail/saas-origine-section";
-import { GuideSection } from "@/components/opportunities/detail/guide-section";
 import { DetailChecklist } from "@/components/opportunities/detail/detail-checklist";
 
 const FinancialSection = dynamic(
@@ -34,6 +32,19 @@ const ClaudePromptSection = dynamic(
   () =>
     import("@/components/opportunities/detail/claude-prompt-section").then(
       (m) => m.ClaudePromptSection
+    ),
+  { loading: () => <SectionSkeleton /> }
+);
+
+const GuideSection = dynamic(
+  () => import("@/components/opportunities/detail/guide-section").then((m) => m.GuideSection),
+  { loading: () => <SectionSkeleton /> }
+);
+
+const SaasOrigineSection = dynamic(
+  () =>
+    import("@/components/opportunities/detail/saas-origine-section").then(
+      (m) => m.SaasOrigineSection
     ),
   { loading: () => <SectionSkeleton /> }
 );
@@ -72,14 +83,12 @@ export function DetailContent({
   }
 
   return (
-    <>
-      <div className="flex gap-10">
-        <DetailChecklist opportunityName={opportunity.name} />
-        <div className="min-w-0 flex-1">
-          <OpportunitySection opportunity={opportunity} animationIndex={0} />
-        </div>
+    <div className="flex gap-10">
+      <DetailChecklist opportunityName={opportunity.name} />
+      <div className="min-w-0 flex-1">
+        <OpportunitySection opportunity={opportunity} animationIndex={0} />
+        {sectionsFrom2}
       </div>
-      <div className="w-full">{sectionsFrom2}</div>
-    </>
+    </div>
   );
 }

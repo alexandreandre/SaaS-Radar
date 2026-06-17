@@ -16,7 +16,7 @@
 - **Le produit en 2 phrases.** SaaS Radar détecte chaque semaine des micro-SaaS
   qui marchent à l'étranger, évalue leur potentiel en France et fournit le plan
   exact pour les construire avec l'IA. Une fois l'idée choisie, un **cockpit de
-  pilotage** (« Command Center ») suit l'écart entre la *promesse éditoriale* de
+  pilotage** (« Command Center ») suit l'écart entre le *scénario éditorial* de
   la fiche et la *réalité* du fondateur, via 30 connecteurs (Stripe, Qonto,
   Google Ads…).
 - **Business model recommandé.** Abonnement SaaS **freemium** (Free / Builder /
@@ -60,7 +60,7 @@ Le fondateur français qui veut lancer un micro-SaaS fait face à 3 douleurs :
 | Auth + DB Supabase (RLS, profils, plans, waitlist) | Schéma prêt |
 
 ### Différenciation / moat potentiel
-- **Unique angle « promesse vs réalité »** : le cockpit connaît la promesse
+- **Angle projection fiche vs réel** : le cockpit connaît le scénario
   éditoriale de la fiche (`financialScenarios`, `mvpPlan.stack`, `cacChannels`)
   et mesure l'écart avec les vraies métriques. Aucun outil générique (Baremetrics,
   ChartMogul) ne fait ce lien idée→exécution.
@@ -92,7 +92,7 @@ Le fondateur français qui veut lancer un micro-SaaS fait face à 3 douleurs :
 |------------|------|---------------------------|
 | IdeaBrowser, Trends.vc, Starter Story | Bases d'idées (US, EN, ~150–300 $/an) | SaaS Radar = **FR + adaptation locale + build + pilotage**, pas juste une liste |
 | Indie Hackers, X/LinkedIn, Reddit | Contenu gratuit communautaire | SaaS Radar = **structuré, validé, actionnable** (prompt + cockpit) |
-| Baremetrics, ChartMogul, Outseta | Analytics SaaS établis | SaaS Radar = **early-stage + promesse vs réalité + 30 connecteurs FR** |
+| Baremetrics, ChartMogul, Outseta | Analytics SaaS établis | SaaS Radar = **early-stage + projection fiche vs réel + 30 connecteurs FR** |
 | LiveMentor, écoles / formations FR | Formation entrepreneuriale | SaaS Radar = **outil + données**, pas un cours |
 
 ---

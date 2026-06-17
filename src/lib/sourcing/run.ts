@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { toOpportunityRow } from "@/lib/supabase/mappers";
 import type { Opportunity } from "@/types/opportunity";
 import {
+  MAX_DISCOVERY_REQUEST,
   MAX_DISCOVERY_ROUNDS,
   MODELS,
   OVERFETCH_FACTOR,
@@ -16,6 +17,7 @@ import {
   computeHybridOpportunityScore,
   getMinScore,
   meetsScoreGate,
+  normalizeLead,
   slugify,
 } from "./assemble";
 import {
@@ -54,6 +56,12 @@ import {
   type SourcingCountry,
 } from "./countries";
 import { isCatalogueProfile, type PipelineProfile } from "./pipeline-profile.shared";
+import { enrichTractionSignals } from "./enrich-traction";
+import {
+  assessTractionQuality,
+  countCoveredCategories,
+  needsTractionEnrichment,
+} from "./traction-quality";
 
 export type { PipelineProfile } from "./pipeline-profile.shared";
 export { isCatalogueProfile } from "./pipeline-profile.shared";
@@ -86,6 +94,8 @@ export interface RunOptions {
   config?: Record<string, unknown>;
   /** Plafond coût USD pour ce run (stop mid-batch si dépassé). */
   maxCostUsd?: number;
+  /** Si false, le statut error est laissé au worker async (retries job queue). */
+  markRunError?: boolean;
 }
 
 function createAdminClient() {
@@ -207,13 +217,27 @@ async function promoteWeeklyPick(
 async function failRunRecord(
   supabase: Supabase,
   id: string | null,
-  message: string
+  message: string,
+  extras?: {
+    events?: unknown[];
+    costUsd?: number;
+    tokensInput?: number;
+    tokensOutput?: number;
+  }
 ): Promise<void> {
   if (!id) return;
   try {
     await supabase
       .from("sourcing_runs")
-      .update({ finished_at: new Date().toISOString(), status: "error", error: message })
+      .update({
+        finished_at: new Date().toISOString(),
+        status: "error",
+        error: message,
+        events: extras?.events ?? [],
+        cost_usd: extras?.costUsd ?? null,
+        tokens_input: extras?.tokensInput ?? 0,
+        tokens_output: extras?.tokensOutput ?? 0,
+      })
       .eq("id", id);
   } catch {
     // silencieux
@@ -270,7 +294,10 @@ async function collectLeads(opts: {
     overfetchFactor = OVERFETCH_FACTOR,
   } = opts;
   const targetCode = originCountry.code;
-  const requested = Math.max(count * overfetchFactor, OVERFETCH_MIN);
+  const requested = Math.min(
+    Math.max(count * overfetchFactor, OVERFETCH_MIN),
+    MAX_DISCOVERY_REQUEST
+  );
   const seenNames = new Set<string>();
   const selected: FactualLead[] = [];
 
@@ -378,6 +405,7 @@ async function buildForLead(
     sourceVerified: ctx.sourceCheck.verified,
     factConfidence: ctx.factVerification.confidence,
     tractionCount: lead.tractionSignals.length,
+    tractionCategoriesCovered: countCoveredCategories(assessTractionQuality(lead)),
   };
 
   for (let attempt = 1; attempt <= 2; attempt++) {
@@ -455,7 +483,7 @@ async function buildForLead(
  */
 export async function runSourcing(options: RunOptions): Promise<RunReport> {
   const log = options.onLog ?? consoleLogger();
-  const premium = options.premium ?? false;
+  const premium = true;
   const catalogue = isCatalogueProfile(options);
   const minScore = catalogue ? 0 : (options.minScore ?? getMinScore());
   const settings = await loadPublishSettings();
@@ -485,6 +513,8 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
     structureModel,
   });
   const maxCostUsd = options.maxCostUsd;
+  const markRunError = options.markRunError !== false;
+  const tracker = new CostTracker();
   const runId =
     options.runId !== undefined
       ? options.runId
@@ -503,7 +533,21 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
   try {
     return await execute();
   } catch (err) {
-    await failRunRecord(supabase, runId, err instanceof Error ? err.message : String(err));
+    if (markRunError) {
+      const costUsd = tracker.totalCostUsd();
+      const tokens = tracker.totalTokens();
+      await failRunRecord(
+        supabase,
+        runId,
+        err instanceof Error ? err.message : String(err),
+        {
+          events,
+          costUsd: costUsd > 0 ? costUsd : undefined,
+          tokensInput: tokens.input,
+          tokensOutput: tokens.output,
+        }
+      );
+    }
     throw err;
   }
 
@@ -515,8 +559,6 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
   const { slugs: existingSlugs, names: existingNames, urls: existingUrls, domainToSlug } =
     dedupIndex;
   onLog({ type: "existing-loaded", count: existingSlugs.size });
-
-  const tracker = new CostTracker();
 
   const nicheHints =
     (options.config?.nicheHints as string[] | undefined) ??
@@ -550,9 +592,31 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
     premiumVerified: boolean | null;
   };
 
-  const processed = await mapWithConcurrency(selected, 2, async (lead) => {
+  const processed = await mapWithConcurrency(selected, 2, async (rawLead) => {
     if (maxCostUsd != null && tracker.totalCostUsd() >= maxCostUsd) {
       return null;
+    }
+
+    let lead = rawLead;
+    let tractionReport = assessTractionQuality(lead);
+    let tractionStillMissing = tractionReport.missing;
+
+    if (needsTractionEnrichment(tractionReport)) {
+      const enriched = await enrichTractionSignals(lead, tractionReport, tracker, discoveryModel);
+      lead = enriched.lead;
+      tractionReport = assessTractionQuality(lead);
+      tractionStillMissing = enriched.stillMissing;
+      onLog({
+        type: "traction-enriched",
+        name: lead.name,
+        addedSignals: enriched.addedSignals,
+        stillMissing: enriched.stillMissing,
+        countryMismatch: enriched.countryMismatch,
+      });
+    } else {
+      lead = normalizeLead(lead);
+      tractionReport = assessTractionQuality(lead);
+      tractionStillMissing = tractionReport.missing;
     }
 
     const sourceCheck: SourceVerification = catalogue
@@ -588,7 +652,8 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
       !catalogue &&
       (factVerification.confidence === "low" ||
         !factVerification.confirmed ||
-        !factVerification.tractionVerified);
+        !factVerification.tractionVerified ||
+        tractionStillMissing.length > 0);
 
     if (
       !catalogue &&

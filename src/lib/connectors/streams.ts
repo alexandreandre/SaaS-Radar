@@ -91,3 +91,21 @@ export function removeConnectorStream(
   delete next[connectorId];
   return next;
 }
+
+const PRODUCT_ANALYTICS_IDS: ConnectorId[] = ["posthog", "mixpanel", "fathom", "plausible"];
+
+export function getProductStream(streams: ConnectorStreams = {}): ProductStream | undefined {
+  for (const id of PRODUCT_ANALYTICS_IDS) {
+    const payload = streams[id];
+    if (payload?.type === "product") return payload;
+  }
+  return undefined;
+}
+
+export function hasProductAnalyticsConnected(integrations: { connectorId: ConnectorId; status: string }[] = []) {
+  return integrations.some(
+    (i) =>
+      PRODUCT_ANALYTICS_IDS.includes(i.connectorId) &&
+      (i.status === "demo" || i.status === "connected")
+  );
+}

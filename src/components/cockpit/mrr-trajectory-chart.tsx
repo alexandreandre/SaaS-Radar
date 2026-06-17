@@ -14,11 +14,11 @@ import { formatCurrency } from "@/lib/utils";
 
 export type DualChartPoint = {
   month: number;
-  promise: number;
+  projected: number;
   reality: number | null;
 };
 
-export function PromiseVsRealityChart({ data }: { data: DualChartPoint[] }) {
+export function MrrTrajectoryChart({ data }: { data: DualChartPoint[] }) {
   return (
     <ResponsiveContainer width="100%" height={320}>
       <LineChart data={data}>
@@ -28,21 +28,21 @@ export function PromiseVsRealityChart({ data }: { data: DualChartPoint[] }) {
         <Tooltip
           formatter={(value, name) => [
             value == null ? "—" : formatCurrency(Number(value)),
-            name === "promise" ? "Promesse Radar" : "Votre réalité",
+            name === "projected" ? "Projection fiche" : "Votre MRR",
           ]}
           labelFormatter={(l) => `Mois ${l}`}
         />
         <Legend
-          formatter={(value) => (value === "promise" ? "Promesse Radar" : "Votre réalité")}
+          formatter={(value) => (value === "projected" ? "Projection fiche" : "Votre MRR")}
         />
         <Line
           type="monotone"
-          dataKey="promise"
+          dataKey="projected"
           stroke="#94a3b8"
           strokeWidth={2}
           strokeDasharray="6 4"
           dot={false}
-          name="promise"
+          name="projected"
         />
         <Line
           type="monotone"

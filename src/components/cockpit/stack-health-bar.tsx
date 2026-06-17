@@ -1,10 +1,17 @@
 "use client";
 
-import { Plug } from "lucide-react";
 import { getConnector } from "@/lib/connectors/registry";
+import type { ConnectorId } from "@/lib/connectors/types";
 import type { StackHealth } from "@/lib/stack-health";
 import type { CockpitModuleId } from "@/lib/cockpit-modules";
+import { ConnectorLogo } from "@/components/cockpit/integrations/connector-logo";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 type StackHealthBarProps = {
@@ -42,31 +49,52 @@ export function StackHealthBar({
         </div>
         {nextRecommended && onModuleChange ? (
           <Button size="sm" variant="outline" onClick={() => onModuleChange("integrations")}>
-            <Plug className="h-4 w-4" />
+            <ConnectorLogo connectorId={nextRecommended} size="sm" showTile={false} />
             Connecter {getConnector(nextRecommended)?.name ?? nextRecommended}
           </Button>
         ) : null}
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        {recommended.map((id) => {
-          const isConnected = connected.includes(id);
-          const name = getConnector(id)?.name ?? id;
-          return (
-            <span
-              key={id}
-              className={cn(
-                "rounded-full border px-2.5 py-1 text-xs",
-                isConnected
-                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-800"
-                  : "border-border bg-muted/50 text-muted-foreground"
-              )}
-            >
-              {name} {isConnected ? "✓" : "○"}
-            </span>
-          );
-        })}
-      </div>
+      <TooltipProvider delayDuration={200}>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {recommended.map((id) => {
+            const isConnected = connected.includes(id);
+            const name = getConnector(id)?.name ?? id;
+            return (
+              <Tooltip key={id}>
+                <TooltipTrigger asChild>
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1.5 rounded-full border px-2 py-1",
+                      isConnected
+                        ? "border-emerald-500/40 bg-emerald-500/10"
+                        : "border-border bg-muted/50 opacity-70"
+                    )}
+                  >
+                    <ConnectorLogo
+                      connectorId={id as ConnectorId}
+                      size="sm"
+                      showTile={false}
+                      showRing={isConnected}
+                    />
+                    <span
+                      className={cn(
+                        "text-xs",
+                        isConnected ? "text-emerald-800" : "text-muted-foreground"
+                      )}
+                    >
+                      {isConnected ? "✓" : "○"}
+                    </span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {name} — {isConnected ? "connecté" : "manquant"}
+                </TooltipContent>
+              </Tooltip>
+            );
+          })}
+        </div>
+      </TooltipProvider>
 
       {missing.length > 0 && !compact ? (
         <p className="mt-3 text-xs text-muted-foreground">

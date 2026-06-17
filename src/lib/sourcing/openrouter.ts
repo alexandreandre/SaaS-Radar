@@ -183,13 +183,78 @@ export async function callOpenRouter(params: CallParams): Promise<OpenRouterResu
   };
 }
 
+/** Extrait les objets JSON complets d'un tableau tronqué (réponse Sonar coupée). */
+function salvageJsonArrayItems(text: string): unknown[] {
+  const items: unknown[] = [];
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let start = -1;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]!;
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (ch === "{") {
+      if (depth === 0) start = i;
+      depth++;
+      continue;
+    }
+
+    if (ch === "}") {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        const slice = text.slice(start, i + 1);
+        try {
+          items.push(JSON.parse(slice));
+        } catch {
+          /* objet incomplet — on ignore */
+        }
+        start = -1;
+      }
+    }
+  }
+
+  return items;
+}
+
+function salvageTruncatedLeads(trimmed: string): unknown | null {
+  const leadsMatch = trimmed.match(/"leads"\s*:\s*\[/);
+  if (!leadsMatch || leadsMatch.index == null) return null;
+
+  const arrayStart = trimmed.indexOf("[", leadsMatch.index);
+  if (arrayStart === -1) return null;
+
+  const items = salvageJsonArrayItems(trimmed.slice(arrayStart));
+  if (items.length === 0) return null;
+  return { leads: items };
+}
+
 /**
  * Extrait un objet JSON d'une réponse potentiellement verbeuse (Sonar surtout).
- * Tente : parse direct → bloc ```json → premier {...} équilibré.
+ * Tente : parse direct → bloc ```json → premier {...} équilibré → tableau tronqué.
  */
 export function extractJsonObject(raw: string): unknown {
   const debug = process.env.SOURCING_DEBUG === "1";
   const trimmed = raw.trim();
+  if (!trimmed) {
+    throw new Error("Réponse OpenRouter vide — JSON attendu");
+  }
 
   const tryParse = (label: string, text: string): unknown | null => {
     try {
@@ -215,6 +280,16 @@ export function extractJsonObject(raw: string): unknown {
     if (fenced !== null) return fenced;
   }
 
+  const arrayStart = trimmed.indexOf("[");
+  const arrayEnd = trimmed.lastIndexOf("]");
+  if (arrayStart !== -1 && arrayEnd > arrayStart) {
+    const arrayParsed = tryParse(
+      `array slice [${arrayStart}..${arrayEnd}]`,
+      trimmed.slice(arrayStart, arrayEnd + 1)
+    );
+    if (arrayParsed !== null) return arrayParsed;
+  }
+
   const first = trimmed.indexOf("{");
   const last = trimmed.lastIndexOf("}");
   if (first !== -1 && last > first) {
@@ -222,7 +297,16 @@ export function extractJsonObject(raw: string): unknown {
     if (sliced !== null) return sliced;
   }
 
-  throw new Error("Réponse OpenRouter non parsable en JSON");
+  const salvaged = salvageTruncatedLeads(trimmed);
+  if (salvaged !== null) {
+    if (debug) console.log("[DEBUG extractJsonObject] OK via truncated leads salvage");
+    return salvaged;
+  }
+
+  const preview = trimmed.slice(0, 120).replace(/\s+/g, " ");
+  throw new Error(
+    `Réponse OpenRouter non parsable en JSON (${trimmed.length} car., début: « ${preview}… »)`
+  );
 }
 
 /**

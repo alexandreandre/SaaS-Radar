@@ -1,41 +1,20 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect } from "react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
-import { LayoutDashboard, LogOut, Radar, Rocket } from "lucide-react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { LogOut, Radar, Rocket, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { usePortfolio } from "@/contexts/portfolio-context";
-import { createClient } from "@/lib/supabase/client";
+import { useSession } from "@/contexts/session-context";
 import {
   MAP_EXPLORE_HREF,
   MAP_EXPLORE_QUERY,
   isMapExploreActive,
 } from "@/lib/map-routes";
-
-/** Etat d'authentification cote client (pour l'affichage navbar uniquement). */
-function useAuthState() {
-  const [signedIn, setSignedIn] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const supabase = createClient();
-    let active = true;
-    supabase.auth.getUser().then(({ data }) => {
-      if (active) setSignedIn(!!data.user);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSignedIn(!!session?.user);
-    });
-    return () => {
-      active = false;
-      sub.subscription.unsubscribe();
-    };
-  }, []);
-
-  return signedIn;
-}
+import { prefetchAllAdminRoutes } from "@/lib/admin/route-prefetch";
 
 const links = [
   { href: MAP_EXPLORE_HREF, label: "Carte du monde", mapExplore: true },
@@ -53,8 +32,16 @@ function NavbarContent({
   explore?: string | null;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { hydrated, overdueCheckIns } = usePortfolio();
-  const signedIn = useAuthState();
+  const { isAuthenticated, isAdmin } = useSession();
+
+  useEffect(() => {
+    if (isAdmin) {
+      router.prefetch("/admin");
+      prefetchAllAdminRoutes();
+    }
+  }, [isAdmin, router]);
 
   return (
     <header
@@ -102,8 +89,25 @@ function NavbarContent({
         </nav>
         <div className="flex items-center gap-2">
           <ThemeToggle dark={dark} />
-          {signedIn ? (
+          {isAuthenticated ? (
             <>
+              {isAdmin ? (
+                <Button
+                  variant={dark ? "outline" : "ghost"}
+                  size="sm"
+                  className={cn(
+                    dark
+                      ? "border-hero-foreground/15 bg-transparent text-hero-foreground hover:bg-hero-foreground/10"
+                      : ""
+                  )}
+                  asChild
+                >
+                  <Link href="/admin" prefetch>
+                    <Shield className="h-4 w-4" />
+                    <span className="hidden sm:inline">Admin</span>
+                  </Link>
+                </Button>
+              ) : null}
               <Button
                 variant={dark ? "outline" : "ghost"}
                 size="sm"
@@ -139,7 +143,7 @@ function NavbarContent({
                 </Button>
               </form>
             </>
-          ) : signedIn === false ? (
+          ) : (
             <Button
               variant={dark ? "outline" : "ghost"}
               size="sm"
@@ -153,22 +157,7 @@ function NavbarContent({
             >
               <Link href="/login">Connexion</Link>
             </Button>
-          ) : null}
-          <Button
-            variant={dark ? "outline" : "ghost"}
-            size="sm"
-            className={
-              dark
-                ? "border-hero-foreground/15 bg-transparent text-hero-foreground hover:bg-hero-foreground/10"
-                : ""
-            }
-            asChild
-          >
-            <Link href="/dashboard">
-              <LayoutDashboard className="h-4 w-4 sm:mr-0" />
-              <span className="hidden sm:inline">Dashboard</span>
-            </Link>
-          </Button>
+          )}
           <Button size="sm" asChild>
             <Link href={MAP_EXPLORE_HREF}>Explorer</Link>
           </Button>

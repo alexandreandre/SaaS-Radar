@@ -39,7 +39,7 @@ export function StickyCta() {
         <Lock className="h-5 w-5 shrink-0 text-muted-foreground" strokeWidth={2} aria-hidden />
         <p className="min-w-0 flex-1 text-sm font-medium text-foreground/90">Suite réservée aux abonnés</p>
         <Button size="sm" className="shrink-0 font-semibold" asChild>
-          <Link href="/dashboard">Débloquer — {tierPrices.builder}</Link>
+          <Link href="/mes-saas">Débloquer — {tierPrices.builder}</Link>
         </Button>
       </div>
     </div>

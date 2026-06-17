@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AdminPageHeader, AdminTable } from "@/components/admin/admin-ui";
+import { AdminPageSkeleton } from "@/components/admin/admin-page-skeleton";
+import { adminFetchJson } from "@/lib/admin/client-fetch";
 
 type Market = {
   code: string;
@@ -15,11 +17,14 @@ type Market = {
 
 export function AdminMarketsClient() {
   const [markets, setMarkets] = useState<Market[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/admin/markets");
-    const json = await res.json();
-    if (res.ok) setMarkets(json.markets ?? []);
+    const { ok, data: json } = await adminFetchJson<{ markets?: Market[] }>(
+      "/api/admin/markets"
+    );
+    if (ok) setMarkets(json.markets ?? []);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -27,13 +32,18 @@ export function AdminMarketsClient() {
   }, [load]);
 
   const updateHeat = async (code: string, heat_score: number) => {
-    await fetch("/api/admin/markets", {
+    await adminFetchJson("/api/admin/markets", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ code, heat_score }),
     });
+    setLoading(true);
     void load();
   };
+
+  if (loading) {
+    return <AdminPageSkeleton kpiCount={0} />;
+  }
 
   return (
     <div>

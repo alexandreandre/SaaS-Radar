@@ -12,6 +12,8 @@ export const factVerificationSchema = z.object({
   confirmed: z.boolean(),
   confidence: z.enum(["low", "medium", "high"]),
   tractionVerified: z.boolean(),
+  tractionGaps: z.array(z.enum(["mrr", "authority", "community"])).optional(),
+  countryConsistent: z.boolean().optional(),
   notes: z.string().optional(),
 });
 
@@ -28,6 +30,8 @@ function buildVerifyPrompt(lead: FactualLead): string {
         confirmed: true,
         confidence: "medium",
         tractionVerified: true,
+        tractionGaps: ["mrr"],
+        countryConsistent: true,
         notes: "Résumé court",
       },
       null,
@@ -36,6 +40,8 @@ function buildVerifyPrompt(lead: FactualLead): string {
     "",
     "- confirmed : le produit existe et correspond au profil micro-SaaS décrit.",
     "- tractionVerified : les signaux de traction sont plausibles et sourçables.",
+    "- tractionGaps : catégories absentes ou douteuses parmi mrr, authority, community.",
+    "- countryConsistent : foreignInspiration et originCountry décrivent le même marché.",
     "- confidence : low si doute, medium si partiel, high si bien sourcé.",
   ].join("\n");
 }

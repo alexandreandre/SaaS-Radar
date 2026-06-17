@@ -18,7 +18,7 @@ function callbackUrl(next: string): string {
 
 function sanitizeNext(raw: string | null): string {
   // N'autorise qu'un chemin interne (evite open-redirect).
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/dashboard";
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/mes-saas";
   return raw;
 }
 

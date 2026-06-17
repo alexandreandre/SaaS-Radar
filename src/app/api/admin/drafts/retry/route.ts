@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   if (auth instanceof NextResponse) return auth;
 
   const body = await request.json();
-  const { id, premium } = body as { id?: string; premium?: boolean };
+  const { id } = body as { id?: string };
 
   if (!id) {
     return NextResponse.json({ error: "id requis" }, { status: 400 });
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
   try {
     const dedupIndex = await loadExistingForDedup(admin);
     const tracker = new CostTracker();
-    const raw = await structureLead(lead, tracker, { premium: premium === true });
+    const raw = await structureLead(lead, tracker);
 
     const analytical = analyticalSchema.safeParse(raw);
     if (!analytical.success) {

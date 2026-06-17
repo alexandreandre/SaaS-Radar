@@ -6,6 +6,8 @@ import { AdminPageHeader } from "@/components/admin/admin-ui";
 import { SECTORS } from "@/lib/sourcing/constants";
 import { sectorLabels } from "@/data/opportunities";
 import { CountryMultiSelect, type CountryOption } from "@/components/admin/country-multi-select";
+import { AdminPageSkeleton } from "@/components/admin/admin-page-skeleton";
+import { adminFetchJson } from "@/lib/admin/client-fetch";
 
 type Schedule = {
   id: string;
@@ -31,24 +33,26 @@ export function AdminSystemClient() {
   const [scheduleForm, setScheduleForm] = useState<Schedule | null>(null);
   const [cronMarkets, setCronMarkets] = useState<CountryOption[]>([]);
   const [message, setMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     const [sysRes, policyRes, marketsRes] = await Promise.all([
-      fetch("/api/admin/system"),
-      fetch("/api/admin/sourcing/policy"),
-      fetch("/api/admin/markets"),
+      adminFetchJson("/api/admin/system"),
+      adminFetchJson("/api/admin/sourcing/policy"),
+      adminFetchJson("/api/admin/markets"),
     ]);
-    const sysJson = await sysRes.json();
-    const policyJson = await policyRes.json();
-    const marketsJson = await marketsRes.json();
+    const sysJson = sysRes.data as Record<string, unknown>;
+    const policyJson = policyRes.data as { monthCostUsd?: number; costAlert?: boolean };
+    const marketsJson = marketsRes.data as { markets?: CountryOption[] };
     if (sysRes.ok) {
       setData({
         ...sysJson,
         monthCostUsd: policyJson.monthCostUsd,
         costAlert: policyJson.costAlert,
       });
-      if (sysJson.schedules?.[0]) {
-        const s = sysJson.schedules[0] as Schedule;
+      const schedules = sysJson.schedules as Schedule[] | undefined;
+      if (schedules?.[0]) {
+        const s = schedules[0];
         setScheduleForm({
           ...s,
           country_codes: s.country_codes ?? [],
@@ -57,13 +61,14 @@ export function AdminSystemClient() {
     }
     if (marketsRes.ok) {
       setCronMarkets(
-        (marketsJson.markets ?? []).map((m: CountryOption) => ({
+        (marketsJson.markets ?? []).map((m) => ({
           code: m.code,
           name: m.name,
           flag: m.flag,
         }))
       );
     }
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -71,7 +76,7 @@ export function AdminSystemClient() {
   }, [load]);
 
   const revalidate = async () => {
-    await fetch("/api/admin/system", {
+    await adminFetchJson("/api/admin/system", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "revalidate" }),
@@ -81,7 +86,7 @@ export function AdminSystemClient() {
 
   const saveSchedule = async () => {
     if (!scheduleForm) return;
-    const res = await fetch("/api/admin/system", {
+    const { ok, data: json } = await adminFetchJson<{ error?: string }>("/api/admin/system", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -89,14 +94,17 @@ export function AdminSystemClient() {
         ...scheduleForm,
       }),
     });
-    const json = await res.json();
-    if (res.ok) {
+    if (ok) {
       setMessage("Planification enregistrée");
       void load();
     } else {
       setMessage(json.error ?? "Erreur");
     }
   };
+
+  if (loading) {
+    return <AdminPageSkeleton kpiCount={2} />;
+  }
 
   return (
     <div>
@@ -239,16 +247,6 @@ export function AdminSystemClient() {
                 }
               />
               Weekly pick après cron
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={scheduleForm.premium}
-                onChange={(e) =>
-                  setScheduleForm({ ...scheduleForm, premium: e.target.checked })
-                }
-              />
-              Premium
             </label>
             <Button size="sm" onClick={() => void saveSchedule()}>
               Enregistrer

@@ -27,11 +27,14 @@ export interface FranceFitCriteria {
   cultureFit: string;
 }
 
+export type TractionSignalKind = "metric" | "narrative";
+
 export interface TractionSignal {
   label: string;
   value: string;
   source: string;
   sourceUrl?: string;
+  kind?: TractionSignalKind;
 }
 
 export interface TractionHighlight {
@@ -39,6 +42,7 @@ export interface TractionHighlight {
   value: string;
   source: string;
   sourceUrl?: string;
+  kind?: TractionSignalKind;
 }
 
 export type WhyItWorksItem =
@@ -50,8 +54,32 @@ export type WhyItWorksItem =
       sourceUrl?: string;
     };
 
+export type WhyItWorksStructured = {
+  fact: string;
+  detail?: string;
+  source?: string;
+  sourceUrl?: string;
+};
+
 export function getWhyItWorksFact(item: WhyItWorksItem): string {
   return typeof item === "string" ? item : item.fact;
+}
+
+/** Convertit les items legacy (string) en objets structurés exploitables par le front. */
+export function normalizeWhyItWorksItem(item: WhyItWorksItem): WhyItWorksStructured {
+  if (typeof item === "string") {
+    return { fact: item.trim() };
+  }
+
+  const normalized: WhyItWorksStructured = { fact: item.fact.trim() };
+  if (item.detail?.trim()) normalized.detail = item.detail.trim();
+  if (item.source?.trim()) normalized.source = item.source.trim();
+  if (item.sourceUrl?.trim()) normalized.sourceUrl = item.sourceUrl.trim();
+  return normalized;
+}
+
+export function normalizeWhyItWorks(items: WhyItWorksItem[]): WhyItWorksStructured[] {
+  return items.map(normalizeWhyItWorksItem);
 }
 
 export interface FinancialScenario {
@@ -68,11 +96,43 @@ export interface CacChannel {
   note: string;
 }
 
+export interface RoadmapStep {
+  day: string;
+  tasks: string[];
+  week?: 1 | 2 | 3 | 4;
+  objective?: string;
+  buildPrompt?: string;
+  checkpoint?: string;
+  estimateHours?: number;
+}
+
+export interface StackGuideEntry {
+  tool: string;
+  role: string;
+  why: string;
+  setup: string;
+  freeTier?: string;
+  alternative?: string;
+}
+
+export interface BuildFeaturePrompt {
+  feature: string;
+  prompt: string;
+}
+
+export interface BuildPrompts {
+  scaffold: string;
+  features: BuildFeaturePrompt[];
+}
+
 export interface MvpPlan {
   features: string[];
   notYet: string[];
   stack: string[];
-  roadmap: { day: string; tasks: string[] }[];
+  roadmap: RoadmapStep[];
+  stackGuide?: StackGuideEntry[];
+  pitfalls?: string[];
+  launchChecklist?: string[];
 }
 
 export interface AcquisitionTab {
@@ -182,6 +242,7 @@ export interface Opportunity {
   cacChannels: CacChannel[];
   mvpPlan: MvpPlan;
   claudePrompt: string;
+  buildPrompts?: BuildPrompts;
   acquisition: AcquisitionTab[];
   entrepreneursBuilding: number;
   foreignInspiration: string;

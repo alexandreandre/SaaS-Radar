@@ -83,5 +83,7 @@ export const DEFAULT_COUNT = 3;
 /** Facteur d'over-fetch Sonar pour absorber exclusion + filtre + Zod. */
 export const OVERFETCH_FACTOR = 4;
 export const OVERFETCH_MIN = 12;
+/** Plafond de leads demandés à Sonar par appel (évite JSON tronqué). */
+export const MAX_DISCOVERY_REQUEST = 24;
 /** Nombre maximum de rounds Sonar avant d'écrire ce qu'on a. */
 export const MAX_DISCOVERY_ROUNDS = 2;

@@ -1,13 +1,16 @@
 export function ChartSection({
   title,
+  subtitle,
   children,
 }: {
   title: string;
+  subtitle?: string;
   children: React.ReactNode;
 }) {
   return (
     <section className="rounded-xl border border-border bg-card p-6 shadow-card">
       <h3 className="font-semibold">{title}</h3>
+      {subtitle ? <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p> : null}
       <div className="mt-4">{children}</div>
     </section>
   );

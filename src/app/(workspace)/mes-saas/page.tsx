@@ -1,7 +1,12 @@
+import { Suspense } from "react";
 import { MesSaasClient } from "./mes-saas-client";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export default function MesSaasPage() {
-  return <MesSaasClient />;
+  return (
+    <Suspense fallback={<div className="min-h-screen animate-pulse bg-muted/30" />}>
+      <MesSaasClient />
+    </Suspense>
+  );
 }

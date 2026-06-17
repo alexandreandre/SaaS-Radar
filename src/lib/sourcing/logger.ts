@@ -11,6 +11,13 @@ export type SourcingEvent =
   | { type: "round"; round: number; leads: number }
   | { type: "leads-selected"; count: number }
   | { type: "lead-skip"; name: string; reason: string }
+  | {
+      type: "traction-enriched";
+      name: string;
+      addedSignals: number;
+      stillMissing: string[];
+      countryMismatch: boolean;
+    }
   | { type: "lead-ok"; name: string; slug: string; score: number }
   | { type: "score-gate-skip"; name: string; slug: string; score: number; min: number }
   | { type: "upsert-ok"; count: number }
@@ -61,6 +68,11 @@ export function consoleLogger(): LogFn {
         break;
       case "lead-skip":
         console.warn(`⏭️  skip "${event.name}" — ${event.reason}`);
+        break;
+      case "traction-enriched":
+        console.log(
+          `🔁 traction enrichie "${event.name}" — +${event.addedSignals} signal(s), manque: ${event.stillMissing.join(", ") || "aucun"}${event.countryMismatch ? ", pays encore incohérent" : ""}`
+        );
         break;
       case "lead-ok":
         console.log(

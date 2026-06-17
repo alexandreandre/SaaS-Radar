@@ -134,7 +134,7 @@ export function HomeStaticSections() {
                   ))}
                 </ul>
                 <Button className="mt-8 w-full" variant={plan.highlight ? "default" : "outline"} asChild>
-                  <Link href="/dashboard">{plan.cta}</Link>
+                  <Link href="/mes-saas">{plan.cta}</Link>
                 </Button>
               </div>
             ))}

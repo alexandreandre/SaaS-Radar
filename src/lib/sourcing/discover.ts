@@ -84,6 +84,10 @@ function buildDiscoveryPrompt(params: DiscoverParams): string {
     "- Si tu n'es pas sûr d'un chiffre, ne l'invente pas — OMETS-LE.",
     "- Préfère MOINS de signaux réels à PLUS de signaux incertains.",
     "- Chaque tractionSignal DOIT avoir une sourceUrl réelle et vérifiable (URL complète).",
+    "- Chaque tractionSignal DOIT inclure kind : \"metric\" pour un chiffre (MRR, backlinks, avis) ou \"narrative\" pour une preuve textuelle (recommandation blog, témoignage cabinet).",
+    "- Fournis au minimum 3 signaux dans cet ordre : 1) MRR/revenu, 2) autorité/SEO/recommandation, 3) communauté/avis/mentions.",
+    `- foreignInspiration : le pays entre parenthèses DOIT être exactement "${originCountryName}" (même marché que originCountry).`,
+    "- Si le MRR n'est pas sourçable publiquement : ajoute un signal narrative « MRR non public » plutôt que de laisser la catégorie vide.",
     "",
     "Réponds avec un UNIQUE objet JSON de cette forme exacte :",
     JSON.stringify(
@@ -98,13 +102,28 @@ function buildDiscoveryPrompt(params: DiscoverParams): string {
             originFlag: originFlag,
             sector: "healthcare",
             targetClient: "Description du client cible",
-            foreignInspiration: "Nom (pays) — résumé d'une ligne",
+            foreignInspiration: `Nom (${originCountryName}) — résumé d'une ligne`,
             tractionSignals: [
               {
                 label: "MRR estimé",
                 value: "$42k",
                 source: "GetLatka",
                 sourceUrl: "https://getlatka.com/...",
+                kind: "metric",
+              },
+              {
+                label: "Recommandation secteur",
+                value: "Un cabinet comptable recommande l'outil pour les TPE.",
+                source: "Blog cabinet comptable",
+                sourceUrl: "https://exemple.com/article",
+                kind: "narrative",
+              },
+              {
+                label: "Mentions Reddit/IH",
+                value: "47",
+                source: "Reddit + Indie Hackers",
+                sourceUrl: "https://www.indiehackers.com/...",
+                kind: "metric",
               },
             ],
           },
@@ -161,12 +180,16 @@ export async function discoverLeads(params: DiscoverParams): Promise<FactualLead
     try {
       json = extractJsonObject(content);
     } catch (err) {
+      lastZodErrors = [
+        err instanceof Error ? err.message : String(err),
+        `contenu reçu: ${content.length} car.`,
+      ];
       if (debug) {
         console.error(
           `[DEBUG discover] extractJsonObject THROW: ${err instanceof Error ? err.message : err}`
         );
       }
-      if (attempt === 2) throw err;
+      if (attempt === 2) return [];
       continue;
     }
 

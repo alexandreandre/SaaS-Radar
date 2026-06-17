@@ -45,6 +45,16 @@ export type ConnectorCategory =
 
 export type ConnectorPriority = "p0" | "p1" | "p2";
 
+export type ConnectorBrandSource = "simple-icons" | "local";
+
+export type ConnectorBrand = {
+  /** Slug Simple Icons (ex. SiStripe) ou clé asset local (ex. crisp) */
+  icon: string;
+  source: ConnectorBrandSource;
+  /** Couleur hex officielle de la marque */
+  color: string;
+};
+
 export type MetricKey =
   | "mrr"
   | "newMrr"
@@ -130,9 +140,10 @@ export type ConnectorDefinition = {
   description: string;
   provides: MetricKey[];
   jobLabel: string;
-  impactOnPromise?: string;
+  cockpitImpact?: string;
   recommendedFor?: string[];
   priority: ConnectorPriority;
+  brand: ConnectorBrand;
   demo: (seed: string, months: number, targetMrr: number) => MetricsSnapshot[];
 };
 

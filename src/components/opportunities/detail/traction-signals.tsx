@@ -1,66 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { motion, useInView } from "framer-motion";
+import { motion } from "framer-motion";
 import { Lock } from "lucide-react";
 import type { Opportunity } from "@/types/opportunity";
+import { AnimatedMetricValue } from "@/components/opportunities/detail/animated-metric-value";
 import { SectionShell } from "@/components/opportunities/detail/section-shell";
 import { getTractionSignalDescription } from "@/components/opportunities/detail/detail-sections";
-
-function parseNumericValue(value: string): number {
-  const match = value.replace(/,/g, "").match(/[\d.]+/);
-  if (!match) return 0;
-  let num = parseFloat(match[0]);
-  if (/k/i.test(value)) num *= 1000;
-  if (/m/i.test(value) && !/mo|month/i.test(value)) num *= 1_000_000;
-  return Math.round(num);
-}
-
-function formatAnimatedValue(value: string, n: number): string {
-  const prefix = value.match(/^([^\d]*)/)?.[1] ?? "";
-  const rounded = Math.round(n);
-  if (/\bk\b/i.test(value) && rounded >= 1_000) {
-    return `${prefix}${Math.round(rounded / 1_000)}k`;
-  }
-  if (/\bm\b/i.test(value) && !/mo|month/i.test(value) && rounded >= 1_000_000) {
-    return `${prefix}${Math.round(rounded / 1_000_000)}M`;
-  }
-  return `${prefix}${rounded.toLocaleString("fr-FR")}`;
-}
-
-function AnimatedMetricValue({ value }: { value: string }) {
-  const ref = useRef<HTMLParagraphElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-40px" });
-  const target = parseNumericValue(value);
-  const canAnimate = target > 0;
-  const [display, setDisplay] = useState(value);
-
-  useEffect(() => {
-    if (!inView || !canAnimate) {
-      setDisplay(value);
-      return;
-    }
-
-    setDisplay(formatAnimatedValue(value, 0));
-    const duration = 1500;
-    const start = performance.now();
-
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setDisplay(formatAnimatedValue(value, target * eased));
-      if (t < 1) requestAnimationFrame(tick);
-    };
-
-    requestAnimationFrame(tick);
-  }, [inView, canAnimate, target, value]);
-
-  return (
-    <p ref={ref} className="mt-2 font-display text-3xl font-medium tabular-nums text-primary sm:text-4xl">
-      {display}
-    </p>
-  );
-}
 
 function SignalCard({
   label,
@@ -82,7 +27,7 @@ function SignalCard({
       className="flex h-full flex-col rounded-xl border border-border bg-card p-6 shadow-card"
     >
       <p className="text-sm font-medium text-muted-foreground">{label}</p>
-      <AnimatedMetricValue value={value} />
+      <AnimatedMetricValue value={value} className="mt-2 text-primary" />
       <p className="mt-2 text-xs text-muted-foreground">Source : {source}</p>
       <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{description}</p>
     </motion.div>

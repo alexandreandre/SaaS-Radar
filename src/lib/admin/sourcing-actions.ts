@@ -64,7 +64,7 @@ export async function launchSourcingAction(input: {
   }
 
   const countries = await assertValidCountryCodes(input.countries);
-  const premium = input.premium === true;
+  const premium = true;
   const config = {
     count: input.count,
     countries: countries.map((c) => c.code),
@@ -133,7 +133,7 @@ export async function relaunchSourcingRunAction(
     count: Number(run.count_requested) || 3,
     countries: [country],
     sector: (run.sector as string | null) ?? undefined,
-    premium: run.premium === true,
+    premium: true,
   });
 
   await writeAuditLog({

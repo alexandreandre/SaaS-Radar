@@ -24,7 +24,7 @@ const baseCac: Opportunity["cacChannels"] = [
 const baseAcquisition = (niche: string): Opportunity["acquisition"] => [
   {
     id: "cold-email",
-    title: "Cold Email",
+    title: "Cold email",
     tactics: [
       `Scraper les ${niche} sur Pages Jaunes + vérifier emails via Hunter`,
       "Séquence 4 emails : problème → preuve sociale US → démo 15 min → break-up",
@@ -51,7 +51,7 @@ const baseAcquisition = (niche: string): Opportunity["acquisition"] => [
   },
   {
     id: "partnerships",
-    title: "Partenariats locaux",
+    title: "Referral",
     tactics: [
       "Webinaires co-brandés avec un expert-comptable ou consultant métier",
       "Offre 3 mois gratuits pour les 10 premiers partenaires référents",

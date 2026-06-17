@@ -55,7 +55,7 @@ export function CheckInBanner({ overdueCount }: { overdueCount: number }) {
         </div>
       </div>
       <Button variant="outline" size="sm" asChild className="shrink-0 border-amber-500/40">
-        <Link href="/mes-saas">Mettre à jour</Link>
+        <Link href="#projets">Mettre à jour</Link>
       </Button>
     </div>
   );

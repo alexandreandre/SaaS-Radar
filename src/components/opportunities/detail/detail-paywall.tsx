@@ -35,7 +35,7 @@ export function DetailPaywall() {
       </div>
 
       <Link
-        href="/dashboard"
+        href="/mes-saas"
         className="mx-auto mb-3 block w-full max-w-sm rounded-xl bg-blue-600 py-3 font-semibold text-primary-foreground transition-colors hover:bg-blue-500"
       >
         Débloquer ce guide — 29€/mois →
@@ -48,7 +48,7 @@ export function DetailPaywall() {
       </div>
 
       <Link
-        href="/dashboard"
+        href="/mes-saas"
         className="inline-block rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-border"
       >
         Abonnement Pro — 79€/mois (inclut Prompt Claude Code)

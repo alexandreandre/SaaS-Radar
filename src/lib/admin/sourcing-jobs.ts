@@ -60,7 +60,7 @@ async function insertQueuedRun(
       status: "queued",
       count_requested: opts.count,
       sector: opts.sector ?? null,
-      premium: opts.premium ?? false,
+      premium: true,
       origin_country_code: country.code,
       triggered_by: opts.triggeredBy ?? null,
       config,

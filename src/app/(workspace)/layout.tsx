@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 
 /** Routes du groupe (workspace) exigeant une session. */
-const PROTECTED_PREFIXES = ["/dashboard", "/mes-saas", "/cockpit", "/account"];
+const PROTECTED_PREFIXES = ["/mes-saas", "/cockpit", "/account"];
 
 function matches(pathname: string, prefixes: string[]): boolean {
   return prefixes.some(
@@ -23,7 +23,7 @@ export default async function WorkspaceLayout({
   if (needsAuth) {
     const user = await getCurrentUser();
     if (!user) {
-      const next = pathname || "/dashboard";
+      const next = pathname || "/mes-saas";
       redirect(`/login?next=${encodeURIComponent(next)}`);
     }
   }

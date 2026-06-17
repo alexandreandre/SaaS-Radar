@@ -1,3 +1,6 @@
+"use client";
+
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import type { Opportunity } from "@/types/opportunity";
 import type { UserProject } from "@/lib/portfolio";
@@ -19,9 +22,19 @@ export function NextActionCard({
   radarAction,
   onModuleChange,
 }: NextActionCardProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const message = radarAction?.rationale ?? getNextActionMessage(project, opportunity);
   const title = radarAction?.title ?? "Prochaine action";
   const channel = opportunity.acquisition[0];
+
+  const openPlaybookClients = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("module", "playbook");
+    params.set("tab", "clients");
+    router.replace(`?${params.toString()}`, { scroll: false });
+    onModuleChange?.("playbook");
+  };
 
   return (
     <section className="rounded-xl border border-primary/30 bg-accent/40 p-6">
@@ -38,7 +51,7 @@ export function NextActionCard({
           <ArrowRight className="h-4 w-4" />
         </Button>
       ) : channel ? (
-        <Button className="mt-4 gap-2" size="sm" variant="outline">
+        <Button className="mt-4 gap-2" size="sm" variant="outline" onClick={openPlaybookClients}>
           Voir le canal {channel.title}
           <ArrowRight className="h-4 w-4" />
         </Button>

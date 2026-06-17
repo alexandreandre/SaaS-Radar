@@ -59,6 +59,21 @@ Le schéma déployé est défini par les migrations versionnées dans `supabase/
 - `008_billing_analytics.sql` — `billing_snapshots`, `stripe_price_id` sur profiles.
 - `009_world_markets.sql` — table `world_markets`, `user_projects`, `connector_snapshots`,
   `admin_sessions`.
+- `010_sourcing_publish_policy.sql` — politique de publication auto des brouillons sourcing.
+- `011_sourcing_country.sql` — colonne pays sur les runs sourcing.
+- `012_sourcing_foundations.sql` — file d’jobs sourcing (`sourcing_job_queue`).
+- `013_sourcing_agent_v2.sql` — observabilité agent v2 (prompt version, profil pipeline).
+- `014_sourcing_catalogue_direct.sql` — upsert catalogue direct depuis le sourcing.
+- `015_opportunity_favorites.sql` — favoris utilisateur (`opportunity_favorites`).
+
+Pour appliquer la migration 015 en local :
+
+```bash
+# URI depuis Supabase Dashboard → Database → Connection string
+DATABASE_URL='postgresql://postgres.[ref]:[password]@...' npm run db:migrate:015
+```
+
+Ou coller le contenu de `015_opportunity_favorites.sql` dans l’éditeur SQL Supabase.
 
 `supabase/schema.future.sql` décrit une **vision** long terme (ENUM typés, `world_markets`,
 etc.) **non appliquée** : ne pas l'exécuter tel quel.
@@ -73,8 +88,8 @@ Auth Supabase (`@supabase/ssr`) : **magic link** (email OTP) + **Google OAuth**.
 - `/auth/signout` (POST) détruit la session.
 - `src/lib/auth.ts` — helpers serveur `getCurrentUser()`, `getProfile()`, `getTier()`
   (fallback `free` si profil absent), `isAdmin()`.
-- Routes protégées (redirect `/login?next=...` si non connecté) : `/dashboard`,
-  `/mes-saas`, `/cockpit/[id]`, `/account`. `/admin/*` exige `profiles.admin_role` (viewer+)
+- Routes protégées (redirect `/login?next=...` si non connecté) : `/mes-saas`,
+  `/cockpit/[id]`, `/account`. `/admin/*` exige `profiles.admin_role` (viewer+)
   et MFA TOTP (AAL2). Les pages catalogue/carte restent publiques.
 - **Tier autoritatif serveur** : `profiles.plan` est injecté dans `TierProvider` ; pour un
   compte authentifié, la clé `localStorage` `saas-radar:preview-tier` est purgée (anti-flash)
@@ -157,7 +172,8 @@ npx tsc --noEmit
 | `/simulator` | Simulateur MRR 24 mois |
 | `/compare` | Comparateur 3 idées |
 | `/login` | Connexion (magic link + Google OAuth) |
-| `/dashboard` | Tableau de bord (protégé) |
+| `/mes-saas` | Espace builder : briefing, portfolio, favoris (protégé) |
+| `/dashboard` | Redirige vers `/mes-saas` (alias permanent) |
 | `/account` | Compte : email, plan, déconnexion (protégé) |
 | `/admin` | Back-office modulaire (RBAC + MFA TOTP) : overview, sourcing v2, catalogue, users, billing, newsletter, markets, audit, sécurité |
 

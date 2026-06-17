@@ -3,7 +3,9 @@ import type { CockpitModuleId } from "@/lib/cockpit-modules";
 import type { CockpitMetrics } from "@/lib/cockpit-metrics";
 import type { StackHealth } from "@/lib/stack-health";
 import type { UserProject } from "@/lib/portfolio";
+import { getFirstLaunchAction } from "@/lib/build-launch";
 import { daysSince, getTargetMrr } from "@/lib/portfolio";
+import { getProductStream, hasProductAnalyticsConnected } from "@/lib/connectors/streams";
 import type { Opportunity } from "@/types/opportunity";
 
 export type RadarAction = {
@@ -27,27 +29,60 @@ export function buildRadarActions(
   const progressPct = target > 0 ? (project.currentMrr / target) * 100 : 0;
   const campaigns = project.campaigns ?? [];
   const activeCampaigns = campaigns.filter((c) => c.status === "active");
+  const inFocusMode = project.onboardingCompleted !== true;
 
-  if (stackHealth.nextRecommended && project.phase === "revenue") {
+  if (inFocusMode) {
+    const doneCount = project.milestones.filter((m) => m.done).length;
+    if (doneCount === 0) {
+      const firstAction = getFirstLaunchAction(opportunity);
+      actions.push({
+        id: "first-milestone",
+        priority: "high",
+        title: "Cochez votre première étape",
+        rationale: `Commencez par : ${firstAction}`,
+        actionModule: "build",
+        actionLabel: "Voir l'action",
+      });
+    }
+  }
+
+  if (stackHealth.nextRecommended && project.phase === "revenue" && !inFocusMode) {
     const connector = stackHealth.nextRecommended;
     actions.push({
       id: "connect-stack",
       priority: "high",
       title: "Compléter votre stack",
-      rationale: `Connectez ${connector} pour suivre votre promesse Radar (${project.targetScenario}).`,
+      rationale: `Connectez ${connector} pour suivre vos revenus en temps réel.`,
       actionModule: "integrations",
       actionLabel: "Ouvrir intégrations",
       connectorHint: connector,
     });
   }
 
-  if (progressPct < 30 && activeCampaigns.length === 0 && target > 0) {
+  if (
+    project.phase === "revenue" &&
+    !inFocusMode &&
+    !getProductStream(project.connectorStreams) &&
+    !hasProductAnalyticsConnected(project.integrations)
+  ) {
+    actions.push({
+      id: "connect-product-analytics",
+      priority: "medium",
+      title: "Suivre l'engagement produit",
+      rationale: "Connectez PostHog ou Plausible pour mesurer activation et rétention in-app.",
+      actionModule: "produit",
+      actionLabel: "Voir Produit",
+      connectorHint: "posthog",
+    });
+  }
+
+  if (progressPct < 30 && activeCampaigns.length === 0 && target > 0 && !inFocusMode) {
     const channel = opportunity.cacChannels[0]?.channel ?? "acquisition";
     actions.push({
       id: "launch-campaign",
       priority: "high",
       title: "Lancer une campagne",
-      rationale: `MRR à ${Math.round(progressPct)} % de l'objectif ${project.targetScenario.toLowerCase()} — activez ${channel}.`,
+      rationale: `MRR encore faible — activez ${channel} pour accélérer.`,
       actionModule: "acquisition",
       actionLabel: "Configurer une campagne",
       connectorHint: "google-ads",
@@ -89,7 +124,7 @@ export function buildRadarActions(
       title: "Corriger les bugs critiques",
       rationale: `Taux d'erreur Sentry élevé (${sentryStream.errorRate} %) corrélé au churn (${metrics.churnRate} %).`,
       actionModule: "build",
-      actionLabel: "Voir Build & Ship",
+      actionLabel: "Voir Build",
       connectorHint: "sentry",
     });
   }
@@ -118,7 +153,7 @@ export function buildRadarActions(
     });
   }
 
-  if (actions.length === 0 && project.currentMrr === 0) {
+  if (actions.length === 0 && project.currentMrr === 0 && !inFocusMode) {
     actions.push({
       id: "first-milestone",
       priority: "medium",

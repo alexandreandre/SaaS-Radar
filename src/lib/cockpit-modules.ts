@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
+  BookOpen,
   CreditCard,
   FileText,
   Hammer,
@@ -13,14 +14,15 @@ import {
 
 export type CockpitModuleId =
   | "overview"
+  | "produit"
   | "revenus"
   | "acquisition"
-  | "produit"
   | "finance"
   | "clients"
+  | "rapports"
+  | "playbook"
   | "build"
-  | "integrations"
-  | "rapports";
+  | "integrations";
 
 export type CockpitModuleDef = {
   id: CockpitModuleId;
@@ -30,70 +32,105 @@ export type CockpitModuleDef = {
   description: string;
 };
 
+export type CockpitNavGroup = {
+  label: string;
+  modules: CockpitModuleDef[];
+};
+
+export const COCKPIT_OVERVIEW: CockpitModuleDef = {
+  id: "overview",
+  label: "Vue d'ensemble",
+  shortLabel: "Overview",
+  icon: LayoutDashboard,
+  description: "KPIs, trajectoire MRR, alertes",
+};
+
+export const COCKPIT_PILOTAGE: CockpitNavGroup = {
+  label: "Pilotage",
+  modules: [
+    {
+      id: "produit",
+      label: "Produit",
+      shortLabel: "Produit",
+      icon: BarChart3,
+      description: "Signups, MAU, activation",
+    },
+    {
+      id: "revenus",
+      label: "Revenus",
+      shortLabel: "Revenus",
+      icon: CreditCard,
+      description: "MRR, ARR, rétention, historique",
+    },
+    {
+      id: "acquisition",
+      label: "Acquisition",
+      shortLabel: "Acquisition",
+      icon: Megaphone,
+      description: "Campagnes, ROAS, funnel",
+    },
+    {
+      id: "finance",
+      label: "Finance",
+      shortLabel: "Finance",
+      icon: Wallet,
+      description: "Trésorerie, burn, compta FR",
+    },
+    {
+      id: "clients",
+      label: "Clients",
+      shortLabel: "Clients",
+      icon: Users,
+      description: "Support, CRM, health score",
+    },
+    {
+      id: "rapports",
+      label: "Rapports",
+      shortLabel: "Rapports",
+      icon: FileText,
+      description: "Rapport mensuel, export PDF",
+    },
+  ],
+};
+
+export const COCKPIT_RESSOURCES: CockpitNavGroup = {
+  label: "Ressources",
+  modules: [
+    {
+      id: "playbook",
+      label: "Playbook",
+      shortLabel: "Playbook",
+      icon: BookOpen,
+      description: "Recherche, guide MVP, finances, acquisition",
+    },
+    {
+      id: "build",
+      label: "Build",
+      shortLabel: "Build",
+      icon: Hammer,
+      description: "Roadmap, prompts IA, stack et suivi build",
+    },
+    {
+      id: "integrations",
+      label: "Connecteurs",
+      shortLabel: "Connecteurs",
+      icon: Plug,
+      description: "Marketplace connecteurs",
+    },
+  ],
+};
+
+export const COCKPIT_NAV = {
+  overview: COCKPIT_OVERVIEW,
+  pilotage: COCKPIT_PILOTAGE,
+  ressources: COCKPIT_RESSOURCES,
+} as const;
+
+/** Flat list for alerts, lookups, and legacy consumers. */
 export const COCKPIT_MODULES: CockpitModuleDef[] = [
-  {
-    id: "overview",
-    label: "Vue d'ensemble",
-    shortLabel: "Overview",
-    icon: LayoutDashboard,
-    description: "KPIs, promesse vs réalité, alertes",
-  },
-  {
-    id: "revenus",
-    label: "Revenus",
-    shortLabel: "Revenus",
-    icon: CreditCard,
-    description: "MRR, ARR, rétention, historique",
-  },
-  {
-    id: "acquisition",
-    label: "Acquisition",
-    shortLabel: "Acquisition",
-    icon: Megaphone,
-    description: "Campagnes, ROAS, funnel",
-  },
-  {
-    id: "produit",
-    label: "Produit",
-    shortLabel: "Produit",
-    icon: BarChart3,
-    description: "Signups, MAU, activation",
-  },
-  {
-    id: "finance",
-    label: "Finance",
-    shortLabel: "Finance",
-    icon: Wallet,
-    description: "Trésorerie, burn, compta FR",
-  },
-  {
-    id: "clients",
-    label: "Clients",
-    shortLabel: "Clients",
-    icon: Users,
-    description: "Support, CRM, health score",
-  },
-  {
-    id: "build",
-    label: "Build & Ship",
-    shortLabel: "Build",
-    icon: Hammer,
-    description: "Journal, GitHub, Sentry",
-  },
-  {
-    id: "integrations",
-    label: "Intégrations",
-    shortLabel: "Intégrations",
-    icon: Plug,
-    description: "Marketplace connecteurs",
-  },
-  {
-    id: "rapports",
-    label: "Rapports",
-    shortLabel: "Rapports",
-    icon: FileText,
-    description: "Rapport mensuel, export PDF",
-  },
+  COCKPIT_OVERVIEW,
+  ...COCKPIT_PILOTAGE.modules,
+  ...COCKPIT_RESSOURCES.modules,
 ];
 
 export const DEFAULT_COCKPIT_MODULE: CockpitModuleId = "overview";
@@ -103,7 +140,7 @@ export function isCockpitModuleId(value: string | null): value is CockpitModuleI
 }
 
 export function getCockpitModule(id: CockpitModuleId): CockpitModuleDef {
-  return COCKPIT_MODULES.find((m) => m.id === id) ?? COCKPIT_MODULES[0];
+  return COCKPIT_MODULES.find((m) => m.id === id) ?? COCKPIT_OVERVIEW;
 }
 
 /** Map legacy tab IDs to new module IDs. */
@@ -114,4 +151,21 @@ export function normalizeModuleId(tab: string): CockpitModuleId {
   };
   const mapped = legacy[tab] ?? tab;
   return isCockpitModuleId(mapped) ? mapped : DEFAULT_COCKPIT_MODULE;
+}
+
+export function filterNavGroups(allowedModules?: CockpitModuleId[]) {
+  if (!allowedModules) {
+    return COCKPIT_NAV;
+  }
+
+  const filterGroup = (group: CockpitNavGroup) => ({
+    ...group,
+    modules: group.modules.filter((m) => allowedModules.includes(m.id)),
+  });
+
+  return {
+    overview: allowedModules.includes("overview") ? COCKPIT_OVERVIEW : null,
+    pilotage: filterGroup(COCKPIT_PILOTAGE),
+    ressources: filterGroup(COCKPIT_RESSOURCES),
+  };
 }

@@ -78,6 +78,7 @@ export async function getMapCatalog(): Promise<MapCatalogOpportunity[]> {
   return all.map((o) => ({
     slug: o.slug,
     name: o.name,
+    pitch: o.pitch,
     originCountryCode: o.originCountryCode,
     scores: { opportunity: o.scores.opportunity },
     revenueMin: o.revenueMin,

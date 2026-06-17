@@ -41,14 +41,13 @@ export function WorldMapHero({
   const { target } = useTargetMarket();
   const { slugsForCountry } = useMapCatalog();
   const [hovered, setHovered] = useState<string | null>(null);
-  const [cardHovered, setCardHovered] = useState(false);
   const [mouse, setMouse] = useState({ x: 0, y: 0 });
   const [filter, setFilter] = useState<MapHeroFilter>("all");
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countryClickRef = useRef(false);
 
   const hoveredMarket = hovered ? getMarketByCode(hovered) : null;
-  const showHoverCard = unlocked && !!hoveredMarket && (hovered || cardHovered);
+  const showHoverCard = unlocked && !!hoveredMarket && !!hovered;
 
   useEffect(() => {
     setFilter("all");
@@ -57,7 +56,6 @@ export function WorldMapHero({
   useEffect(() => {
     if (!unlocked) {
       setHovered(null);
-      setCardHovered(false);
     }
   }, [unlocked]);
 
@@ -96,10 +94,8 @@ export function WorldMapHero({
 
   const scheduleHide = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
-    hideTimer.current = setTimeout(() => {
-      if (!cardHovered) setHovered(null);
-    }, 150);
-  }, [cardHovered]);
+    hideTimer.current = setTimeout(() => setHovered(null), 150);
+  }, []);
 
   const handleEnter = useCallback(
     (code: string | null, hasMarket: boolean) => {
@@ -117,7 +113,6 @@ export function WorldMapHero({
   const goToCountryOpportunities = useCallback(
     (countryCode: string) => {
       setHovered(null);
-      setCardHovered(false);
       router.push(`/opportunities?country=${countryCode}`);
     },
     [router]
@@ -134,7 +129,6 @@ export function WorldMapHero({
 
   const handleBack = useCallback(() => {
     setHovered(null);
-    setCardHovered(false);
     onLock();
   }, [onLock]);
 
@@ -269,14 +263,6 @@ export function WorldMapHero({
               market={hoveredMarket}
               x={mouse.x}
               y={mouse.y}
-              onEnter={() => {
-                if (hideTimer.current) clearTimeout(hideTimer.current);
-                setCardHovered(true);
-              }}
-              onLeave={() => {
-                setCardHovered(false);
-                scheduleHide();
-              }}
             />
           )}
         </AnimatePresence>

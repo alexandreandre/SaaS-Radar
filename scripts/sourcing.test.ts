@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { z } from "zod";
 
-import { slugify, safeBaseSlug, getMinScore, meetsScoreGate, computeFactsScore, computeHybridOpportunityScore } from "../src/lib/sourcing/assemble";
+import { slugify, safeBaseSlug, getMinScore, meetsScoreGate, computeFactsScore, computeHybridOpportunityScore, normalizeLead } from "../src/lib/sourcing/assemble";
 import { passesUrlGate } from "../src/lib/sourcing/verify-sources";
 import { hasBlockingDedup } from "../src/lib/admin/sourcing-dedup.shared";
 import { matchesCountryQuery, enrichCountry, buildSearchableCountries } from "../src/lib/sourcing/country-search";
@@ -14,7 +14,16 @@ import { getSourcingCountryCatalog } from "../src/data/sourcing-country-catalog"
 import { hasGeminiFixableError } from "../src/lib/sourcing/schema";
 import { isCatalogueProfile } from "../src/lib/sourcing/pipeline-profile.shared";
 import { mergeFavoriteSlugs } from "../src/lib/favorites.shared";
+import {
+  assessTractionQuality,
+  classifySignal,
+  detectCountryMismatch,
+  slotSignalsByCategory,
+} from "../src/lib/sourcing/traction-quality";
+import { mergeTractionSignals } from "../src/lib/sourcing/enrich-traction";
+import { extractJsonObject } from "../src/lib/sourcing/openrouter";
 import type { Opportunity } from "../src/types/opportunity";
+import type { FactualLead } from "../src/lib/sourcing/schema";
 
 test("slugify normalise accents et caractères spéciaux", () => {
   assert.equal(slugify("Réservation Médecins !"), "reservation-medecins");
@@ -163,4 +172,124 @@ test("isCatalogueProfile détecte le profil catalogue via option ou config", () 
 test("mergeFavoriteSlugs déduplique et préserve l'ordre", () => {
   assert.deepEqual(mergeFavoriteSlugs(["a", "b"], ["b", "c"]), ["a", "b", "c"]);
   assert.deepEqual(mergeFavoriteSlugs([], ["x", "", "x"]), ["x"]);
+});
+
+const sampleLead = (overrides: Partial<FactualLead> = {}): FactualLead => ({
+  name: "Deadline Reminder",
+  pitch: "Rappels fiscaux pour freelancers",
+  originCountry: "Royaume-Uni",
+  originCountryCode: "GB",
+  originFlag: "🇬🇧",
+  sector: "finance",
+  targetClient: "Freelancers",
+  foreignInspiration: "Deadline Reminder (États-Unis) — rappels fiscaux",
+  tractionSignals: [
+    {
+      label: "Mention dans un blog de comptable UK",
+      value: "Un cabinet comptable UK recommande l'outil pour les TPE.",
+      source: "Blog cabinet comptable UK",
+      sourceUrl: "https://example.com/blog",
+      kind: "narrative",
+    },
+  ],
+  ...overrides,
+});
+
+test("classifySignal place un blog en autorité", () => {
+  const signal = sampleLead().tractionSignals[0];
+  assert.equal(classifySignal(signal), "authority");
+});
+
+test("slotSignalsByCategory évite de mettre l'autorité sous MRR", () => {
+  const slotted = slotSignalsByCategory(sampleLead().tractionSignals);
+  assert.equal(slotted.mrr, null);
+  assert.equal(slotted.authority?.label, "Mention dans un blog de comptable UK");
+  assert.equal(slotted.community, null);
+});
+
+test("assessTractionQuality détecte pays incohérent et catégories manquantes", () => {
+  const report = assessTractionQuality(sampleLead());
+  assert.equal(report.countryMismatch, true);
+  assert.deepEqual(report.missing, ["mrr", "community"]);
+  assert.equal(report.score < 60, true);
+});
+
+test("normalizeLead réécrit foreignInspiration avec originCountry", () => {
+  const normalized = normalizeLead(sampleLead());
+  assert.match(normalized.foreignInspiration, /Royaume-Uni/);
+  assert.equal(normalized.foreignInspiration.includes("États-Unis"), false);
+});
+
+test("detectCountryMismatch compare les alias US/États-Unis", () => {
+  assert.equal(
+    detectCountryMismatch({
+      foreignInspiration: "Tool (US) — test",
+      originCountry: "États-Unis",
+    }),
+    false
+  );
+});
+
+test("mergeTractionSignals déduplique et borne à 6 signaux", () => {
+  const existing = sampleLead().tractionSignals;
+  const found = [
+    {
+      label: "MRR estimé",
+      value: "$18k",
+      source: "GetLatka",
+      sourceUrl: "https://getlatka.com/acme",
+      kind: "metric" as const,
+    },
+    ...existing,
+  ];
+  const merged = mergeTractionSignals(existing, found);
+  assert.equal(merged.length, 2);
+  assert.equal(merged.some((s) => s.label === "MRR estimé"), true);
+});
+
+import {
+  getCacForChannel,
+  normalizeAcquisitionTitle,
+  normalizeAcquisitionTabs,
+} from "../src/lib/acquisition-channels";
+import { CANONICAL_CAC } from "../src/lib/sourcing/constants";
+
+test("normalizeAcquisitionTitle aligne les titres sur les canaux CAC canoniques", () => {
+  assert.equal(normalizeAcquisitionTitle("Cold Email"), "Cold email");
+  assert.equal(normalizeAcquisitionTitle("Partenariats locaux"), "Referral");
+  assert.equal(normalizeAcquisitionTitle("LinkedIn"), "LinkedIn");
+});
+
+test("getCacForChannel résout le CAC après normalisation des titres", () => {
+  const cac = getCacForChannel(CANONICAL_CAC, "Cold Email");
+  assert.equal(cac?.estimate, 80);
+  const referral = getCacForChannel(CANONICAL_CAC, "Partenariats locaux");
+  assert.equal(referral?.estimate, 30);
+});
+
+test("normalizeAcquisitionTabs normalise tous les titres de canaux", () => {
+  const tabs = normalizeAcquisitionTabs([
+    { id: "a", title: "Cold Email", tactics: ["t1"] },
+    { id: "b", title: "Partenariats locaux", tactics: ["t2"] },
+  ]);
+  assert.equal(tabs[0]?.title, "Cold email");
+  assert.equal(tabs[1]?.title, "Referral");
+});
+
+test("extractJsonObject: tableau JSON racine", () => {
+  const parsed = extractJsonObject('[{"name":"A"},{"name":"B"}]');
+  assert.ok(Array.isArray(parsed));
+  assert.equal((parsed as { name: string }[]).length, 2);
+});
+
+test("extractJsonObject: récupère des leads complets dans un JSON tronqué", () => {
+  const truncated =
+    '{"leads":[{"name":"Alpha","pitch":"p","url":"https://a.com","originCountry":"France","originCountryCode":"FR","originFlag":"🇫🇷","sector":"healthcare","targetClient":"t","foreignInspiration":"x","tractionSignals":[]},{"name":"Beta","pitch":"p2","url":"https://b.com","originCountry":"France","originCountryCode":"FR","originFlag":"🇫🇷","sector":"hr","targetClient":"t2","foreignInspiration":"y","tractionSignals":[{"label":"MRR","value":"$1k","source":"IH","sourceUrl":"https://ih.com","kind":"metric"}';
+  const parsed = extractJsonObject(truncated) as { leads?: { name: string }[] };
+  assert.equal(parsed.leads?.length, 1);
+  assert.equal(parsed.leads?.[0]?.name, "Alpha");
+});
+
+test("extractJsonObject: message d'erreur explicite si vide", () => {
+  assert.throws(() => extractJsonObject("   "), /vide/);
 });

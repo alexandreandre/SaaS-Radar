@@ -32,7 +32,7 @@ Pour que tout soit clair même sans expérience de la vente :
 
 **Ce qui est vendu, en une phrase.** Un abonnement à une plateforme qui (a) détecte chaque
 semaine des micro-SaaS qui marchent à l'étranger et fournit le plan exact pour les construire
-en France, et (b) offre un **cockpit de pilotage** qui compare la promesse de la fiche aux
+en France, et (b) offre un **cockpit de pilotage** qui compare la projection de la fiche aux
 vraies métriques du fondateur (via 30 connecteurs Stripe, Qonto, Google Ads…).
 
 **À qui.** Cible cœur = **indie hackers / makers francophones** (savent coder ou "vibe-coder"),
@@ -58,7 +58,7 @@ aux apporteurs) sans détruire l'économie.
 l'à-la-carte ou Builder). Plus long pour le cockpit/Pro, car la valeur (piloter son SaaS) ne se
 révèle qu'après le lancement du projet de l'utilisateur.
 
-**Différenciation.** Angle unique "**promesse vs réalité**" (le cockpit connaît la promesse
+**Différenciation.** Angle unique **projection fiche vs réel** (le cockpit connaît le scénario
 éditoriale de la fiche et mesure l'écart) + **localisation FR** (connecteurs compta Qonto,
 Pennylane, Abby ; contenu adapté marché FR/RGPD). Aucun concurrent US ne fait ce lien
 idée → exécution → pilotage.
@@ -166,7 +166,7 @@ On garde la structure du business plan **mais on ajoute 2 leviers de cash rapide
 | **Free** | 0 € | Aimant (top of funnel) : 3 idées/mois, scores, carte, newsletter | Indispensable : les makers FR attendent du gratuit (cf. communautés 100% gratuites). C'est le réservoir à convertir. |
 | **À la carte** | **29 €/fiche** | **Tripwire cash** : 1 fiche complète (guide J1→J14 + business plan + prompt) | Achat impulsif, sans engagement. Neutralise l'objection "encore un abonnement". Marge ~100 %. Premier euro le plus facile à encaisser. |
 | **Builder** | **19 €/mois** ou **180 €/an** (-21 %) | Cœur de gamme : exécution complète + cockpit (saisie manuelle) | Sous le seuil psychologique des 20 €, très en-dessous des 499 $/an d'IdeaBrowser → "oui" facile. L'annuel encaisse 180 € d'un coup (cash). |
-| **Pro** | **39 €/mois** ou **372 €/an** | Premium : prompt Claude hebdo, connecteurs API réels, multi-projets | Reste 3× moins cher que Pro IdeaBrowser (1 499 $/an). À pousser **quand Stripe réel est branché** (sinon promesse creuse). |
+| **Pro** | **39 €/mois** ou **372 €/an** | Premium : prompt Claude hebdo, connecteurs API réels, multi-projets | Reste 3× moins cher que Pro IdeaBrowser (1 499 $/an). À pousser **quand Stripe réel est branché** (sinon argumentaire creux). |
 | **Founding Member** (lancement, limité) | **149 € la 1ʳᵉ année** (ou lifetime 299 € plafonné à 50 places) | **Coup de cash immédiat** + base de fans + preuve sociale | Crée l'urgence (places limitées), finance le build, donne des témoignages. Classique des lancements indie. |
 | **Essai Pro 7 jours, carte requise** | 0 € puis 39 €/mois | Booster de conversion | Un essai **avec CB convertit à 25-35 %** vs 2-5 % en freemium ([source](https://www.artisangrowthstrategies.com/blog/saas-conversion-rate-benchmarks-2026-data-1200-companies)). 7 jours > 30 jours (urgence). |
 
@@ -214,8 +214,8 @@ en français, avec le cockpit pour piloter — pas juste une liste d'idées."*
 
 2. **"Le fondateur qui a déjà un SaaS et pilote mal" (meilleur LTV).**
    - Qui : a un produit live, jongle entre Stripe/analytics/compta, veut une vue unique.
-   - Douleur : ne sait pas s'il tient sa promesse de croissance ; dashboards éparpillés.
-   - Déclencheur : la démo du cockpit "promesse vs réalité" + connecteurs FR (Qonto).
+   - Douleur : ne sait pas s'il tient son objectif de croissance ; dashboards éparpillés.
+   - Déclencheur : la démo du cockpit projection fiche vs réel + connecteurs FR (Qonto).
    - Où : SoloTryb, threads MRR sur X, comments "j'ai atteint X€ MRR".
    - Offre : **Pro** (essai 7 j avec CB) + affiliation Qonto/Pennylane.
 
@@ -230,12 +230,12 @@ en français, avec le cockpit pour piloter — pas juste une liste d'idées."*
 
 **Proposition de valeur (1 phrase, orientée bénéfice) :**
 > *"SaaS Radar te dit chaque semaine quel micro-SaaS lancer en France, te donne le plan exact pour
-> le construire en 14 jours, et te montre noir sur blanc si tu tiens ta promesse de croissance —
+> le construire en 14 jours, et te montre noir sur blanc si tu tiens ton objectif de croissance —
 > au lieu de deviner."*
 
 **Preuves qui rassurent (à réunir/afficher) :**
 - Captures réelles de fiches (scores, scénarios financiers, prompt Claude).
-- Démo vidéo de 60 s du cockpit "promesse vs réalité".
+- Démo vidéo de 60 s du cockpit projection fiche vs réel.
 - **Vrais témoignages** des premiers Founding Members (⚠️ remplacer les témoignages fictifs actuels — ils
   détruisent la confiance s'ils sont découverts).
 - Garantie **"satisfait ou remboursé 14 jours"** (coût quasi nul vu la marge, lève le risque pour l'acheteur).
@@ -272,7 +272,7 @@ en français, avec le cockpit pour piloter — pas juste une liste d'idées."*
    tu offres une commission aux animateurs de communautés qui te recommandent. La marge 97 % finance les deux.
 4. **"Build challenge" payant** : un cohort-light (cohorte) à prix réduit où 10-20 makers lancent la
    même fiche en 14 jours, partagent leur cockpit. Crée de la preuve sociale + des témoignages + du bouche-à-oreille.
-5. **Garantie "promesse tenue"** : "si en suivant le plan tu n'as pas ta landing + 1ᵉʳ prospect en 14 jours,
+5. **Garantie "objectif atteint"** : "si en suivant le plan tu n'as pas ta landing + 1ᵉʳ prospect en 14 jours,
    on te rembourse." Audacieux, mémorable, et la marge le permet.
 
 ### 2.7 Priorisation (effort/revenu & rapidité d'encaissement)
@@ -358,7 +358,7 @@ Mois 3+     ──► VOLUME : optimiser conversion, tester un peu de paid, ouvr
 > **Modèle — post Founding Member :**
 > "🚀 SaaS Radar ouvre ses 50 places de Founding Members. Chaque semaine je te livre un micro-SaaS validé
 > à lancer en France + le plan exact pour le construire en 14 jours, et un cockpit qui te dit si tu tiens
-> ta promesse de croissance. Les 50 premiers ont **1 an complet à 149 €** (au lieu de 228 €) + accès direct
+> ton objectif de croissance. Les 50 premiers ont **1 an complet à 149 €** (au lieu de 228 €) + accès direct
 > à moi pour orienter le produit. Quand c'est plein, c'est plein 👉 [lien]"
 
 - **Pourquoi** : encaisse du cash groupé immédiat + crée une base de fans qui parlent de toi.
@@ -397,7 +397,7 @@ Mois 3+     ──► VOLUME : optimiser conversion, tester un peu de paid, ouvr
 
 > **Modèle — relance fin d'essai Pro (J+6) :**
 > "Salut [prénom], ton essai Pro se termine demain. Tu as pu connecter Stripe/voir le cockpit ? Si tu veux,
-> je te montre en 5 min comment lire ton écart promesse vs réalité avant que ça bascule. Sinon tu peux
+> je te montre en 5 min comment lire ton écart projection vs réel avant que ça bascule. Sinon tu peux
 > annuler en 1 clic, zéro souci."
 
 - **Pourquoi** : 1 relance polie récupère une part importante des ventes "perdues".

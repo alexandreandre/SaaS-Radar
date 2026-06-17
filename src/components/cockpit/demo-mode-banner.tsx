@@ -8,7 +8,7 @@ export function DemoModeBanner() {
         <p className="font-medium">Mode démo — données simulées</p>
         <p className="mt-0.5 text-violet-800/80">
           Les métriques proviennent de connecteurs en mode démo. Branchez vos vrais comptes dans
-          l&apos;onglet Intégrations pour un pilotage réel.
+          l&apos;onglet Connecteurs pour un pilotage réel.
         </p>
       </div>
     </div>

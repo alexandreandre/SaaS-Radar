@@ -124,7 +124,7 @@ export function DetailConversionPaywall({ opportunity }: { opportunity: Opportun
 
               <div className="mt-8">
                 <Button size="lg" className="h-12 w-full text-lg font-semibold" asChild>
-                  <Link href="/dashboard">
+                  <Link href="/mes-saas">
                     Débloquer ce guide — {tierPrices.builder}
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
@@ -149,7 +149,7 @@ export function DetailConversionPaywall({ opportunity }: { opportunity: Opportun
                     className="border-border bg-transparent text-foreground/80 hover:bg-muted/50 hover:text-foreground"
                     asChild
                   >
-                    <Link href="/dashboard">Abonnement Pro — {tierPrices.pro}</Link>
+                    <Link href="/mes-saas">Abonnement Pro — {tierPrices.pro}</Link>
                   </Button>
                   <p className="max-w-xs text-center text-xs text-muted-foreground">
                     (inclut le Prompt Claude Code pour générer le MVP en 1 session)

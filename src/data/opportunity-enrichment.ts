@@ -1,16 +1,141 @@
 import type {
+  BuildPrompts,
   CompetitionAlert,
   EmailTemplate,
   ForeignMarketProfile,
   FrenchCompetitor,
   InfraCost,
   LaunchWeek,
+  MvpPlan,
   Opportunity,
   PartnerLead,
+  RoadmapStep,
   RoiInput,
+  StackGuideEntry,
   TamBreakdown,
 } from "@/types/opportunity";
-import { getWhyItWorksFact } from "@/types/opportunity";
+import { getWhyItWorksFact, normalizeWhyItWorks } from "@/types/opportunity";
+
+export function defaultStackGuide(stack: string[]): StackGuideEntry[] {
+  const templates: Record<string, Omit<StackGuideEntry, "tool">> = {
+    "next.js": {
+      role: "Frontend + API routes",
+      why: "App Router, déploiement Vercel, écosystème React mature",
+      setup: "npx create-next-app@latest --typescript --tailwind --app",
+      freeTier: "Vercel Hobby gratuit",
+      alternative: "Remix",
+    },
+    supabase: {
+      role: "Base de données + Auth",
+      why: "PostgreSQL managé, auth email/OAuth, RLS natif",
+      setup: "Créer un projet sur supabase.com → copier URL + anon key",
+      freeTier: "500 Mo DB, 50k MAU auth",
+      alternative: "Neon + Clerk",
+    },
+    stripe: {
+      role: "Paiements récurrents",
+      why: "Checkout, abonnements, webhooks fiables en France",
+      setup: "Dashboard Stripe → Products → activer le mode test",
+      freeTier: "Pas de frais fixes — 1,5 % + 0,25 € en EU",
+      alternative: "Lemon Squeezy (B2C)",
+    },
+    tailwind: {
+      role: "Styles UI",
+      why: "Utility-first, cohérence rapide, dark mode simple",
+      setup: "Inclus avec create-next-app --tailwind",
+      freeTier: "Open source",
+      alternative: "CSS modules",
+    },
+    resend: {
+      role: "Emails transactionnels",
+      why: "API simple, bon deliverability, domaine custom",
+      setup: "resend.com → API key → vérifier domaine",
+      freeTier: "3 000 emails/mois",
+      alternative: "Postmark",
+    },
+  };
+
+  return stack.map((tool) => {
+    const key = Object.keys(templates).find((k) => tool.toLowerCase().includes(k));
+    const base = key ? templates[key] : null;
+    return {
+      tool,
+      role: base?.role ?? "Composant stack",
+      why: base?.why ?? "Recommandé pour un MVP solo rapide",
+      setup: base?.setup ?? `Configurer ${tool} selon la doc officielle`,
+      freeTier: base?.freeTier,
+      alternative: base?.alternative,
+    };
+  });
+}
+
+export function defaultPitfalls(sector: string): string[] {
+  const common = [
+    "Ne pas valider le paiement avant J15 — risque de construire sans monétisation",
+    "Scope creep : chaque feature hors MVP repousse le premier client de 1 semaine",
+    "Ignorer l'onboarding : 80 % des bêtas abandonnent sans guide au premier usage",
+  ];
+  if (sector === "healthcare") {
+    return [
+      ...common,
+      "Sous-estimer la conformité RGPD santé — prévoir mentions légales et hébergement EU",
+    ];
+  }
+  return common;
+}
+
+export function defaultLaunchChecklist(name: string): string[] {
+  return [
+    `Landing ${name} publique avec proposition de valeur en une phrase`,
+    "Parcours signup → onboarding → action principale sans friction",
+    "Stripe test ou live : un paiement complet validé de bout en bout",
+    "5 utilisateurs bêta ayant complété le workflow principal",
+    "Page légale (CGU, politique de confidentialité) en place",
+    "Monitoring basique (Sentry ou logs Vercel) activé",
+  ];
+}
+
+function enrichRoadmapStep(step: RoadmapStep, index: number, opportunity: Opportunity): RoadmapStep {
+  const headline = step.tasks[0] ?? `Étape ${index + 1}`;
+  return {
+    ...step,
+    week: step.week ?? (Math.min(4, Math.floor((index / 4) * 4) + 1) as 1 | 2 | 3 | 4),
+    objective: step.objective ?? headline,
+    checkpoint:
+      step.checkpoint ??
+      (index === opportunity.mvpPlan.roadmap.length - 1
+        ? "MVP prêt pour 5 bêtas et landing publique"
+        : `Livrable « ${headline} » fonctionnel et testé manuellement`),
+    estimateHours: step.estimateHours ?? (index === 0 ? 8 : 12),
+    buildPrompt:
+      step.buildPrompt ??
+      `Build step for ${opportunity.name} (${step.day}):\n\nObjective: ${step.objective ?? headline}\n\nTasks:\n${step.tasks.map((t) => `- ${t}`).join("\n")}\n\nStack: ${opportunity.mvpPlan.stack.join(", ")}\n\nDeliver a working increment. Use Next.js 14 App Router, Supabase, Stripe, shadcn/ui.`,
+  };
+}
+
+export function enrichMvpPlan(opportunity: Opportunity): MvpPlan {
+  const { mvpPlan } = opportunity;
+  const roadmap = mvpPlan.roadmap.map((step, i) => enrichRoadmapStep(step, i, opportunity));
+
+  return {
+    ...mvpPlan,
+    roadmap,
+    stackGuide: mvpPlan.stackGuide ?? defaultStackGuide(mvpPlan.stack),
+    pitfalls: mvpPlan.pitfalls ?? defaultPitfalls(opportunity.sector),
+    launchChecklist: mvpPlan.launchChecklist ?? defaultLaunchChecklist(opportunity.name),
+  };
+}
+
+export function defaultBuildPrompts(opportunity: Opportunity): BuildPrompts {
+  const stack = opportunity.mvpPlan.stack.join(", ");
+  return {
+    scaffold: opportunity.claudePrompt,
+    features: opportunity.mvpPlan.features.map((feature) => ({
+      feature,
+      prompt: `Implement "${feature}" for ${opportunity.name} (French market).\n\nStack: ${stack}\n\nRequirements:\n- Next.js 14 App Router + TypeScript\n- Supabase for auth and data\n- Stripe for billing if applicable\n- shadcn/ui + Tailwind\n- French UI copy\n\nFeature scope: ${feature} only — do not expand beyond MVP.`,
+    })),
+  };
+}
 
 export function defaultForeignMarketProfile(opportunity: Opportunity): ForeignMarketProfile {
   const inspiration = opportunity.foreignInspiration;
@@ -28,7 +153,7 @@ export function defaultForeignMarketProfile(opportunity: Opportunity): ForeignMa
     pricing:
       opportunity.tractionSignals.find((s) => /MRR|pricing|prix/i.test(s.label))?.value ??
       "Tarif mensuel éprouvé sur le marché d'origine (voir signaux ci-dessous)",
-    keyFeatures: opportunity.mvpPlan.features,
+    keyFeatures: [],
     howItWorks:
       `Le produit cible ${opportunity.targetClient.toLowerCase()} : prise en charge du workflow critique, tableaux de bord simples, intégrations natives au marché local. Le positionnement reste vertical et « une douleur = une feature star ».`,
     whyItWorksThere: opportunity.whyItWorks.map(getWhyItWorksFact),
@@ -184,9 +309,13 @@ export function defaultCompetitionAlerts(): CompetitionAlert[] {
 
 export function enrichOpportunity(opportunity: Opportunity): Opportunity {
   const voice = opportunity.aiPowered && opportunity.sector === "healthcare";
+  const mvpPlan = enrichMvpPlan(opportunity);
 
   return {
     ...opportunity,
+    mvpPlan,
+    buildPrompts: opportunity.buildPrompts ?? defaultBuildPrompts({ ...opportunity, mvpPlan }),
+    whyItWorks: normalizeWhyItWorks(opportunity.whyItWorks),
     foreignMarketProfile:
       opportunity.foreignMarketProfile ?? defaultForeignMarketProfile(opportunity),
     infraCosts: opportunity.infraCosts ?? defaultInfraCosts(voice),

@@ -15,6 +15,7 @@ import type {
   BillingSnapshot,
   SourcingRunSummary,
 } from "@/lib/admin/metrics";
+import { adminFetchJson } from "@/lib/admin/client-fetch";
 import { cn } from "@/lib/utils";
 
 function formatEuro(cents: number) {
@@ -356,13 +357,15 @@ export function OverviewClient({ initialMetrics, initialError }: OverviewClientP
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const res = await fetch("/api/admin/overview");
-      const json = await res.json();
-      if (!res.ok || json.ok === false) {
+      const { ok, data: json } = await adminFetchJson<AdminOverviewMetrics & { ok: boolean; error?: string }>(
+        "/api/admin/overview",
+        { skipCache: true }
+      );
+      if (!ok || json.ok === false) {
         setError(json.error ?? "Impossible de charger les métriques");
         return;
       }
-      const { ok: _ok, ...data } = json as AdminOverviewMetrics & { ok: boolean };
+      const { ok: _ok, ...data } = json;
       setMetrics(data as AdminOverviewMetrics);
       setError(null);
     } catch (err) {

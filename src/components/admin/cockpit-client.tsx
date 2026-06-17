@@ -2,22 +2,32 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AdminPageHeader, KpiCard } from "@/components/admin/admin-ui";
+import { AdminPageSkeleton } from "@/components/admin/admin-page-skeleton";
+import { adminFetchJson } from "@/lib/admin/client-fetch";
 
 export function AdminCockpitClient() {
   const [data, setData] = useState<{
     note?: string;
     stats?: { projectCount: number; connectorSnapshots: number; demoConnectors: number };
   }>({});
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/admin/cockpit");
-    const json = await res.json();
-    if (res.ok) setData(json);
+    const { ok, data: json } = await adminFetchJson<{
+      note?: string;
+      stats?: { projectCount: number; connectorSnapshots: number; demoConnectors: number };
+    }>("/api/admin/cockpit");
+    if (ok) setData(json);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  if (loading) {
+    return <AdminPageSkeleton kpiCount={3} />;
+  }
 
   return (
     <div>

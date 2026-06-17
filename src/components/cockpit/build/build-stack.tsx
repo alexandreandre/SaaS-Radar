@@ -1,0 +1,67 @@
+"use client";
+
+import { Wrench } from "lucide-react";
+import type { Opportunity } from "@/types/opportunity";
+
+type BuildStackProps = {
+  opportunity: Opportunity;
+};
+
+export function BuildStack({ opportunity }: BuildStackProps) {
+  const guide = opportunity.mvpPlan.stackGuide ?? [];
+  if (guide.length === 0) return null;
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-6 shadow-card">
+      <div className="mb-4">
+        <p className="font-data text-[10px] uppercase tracking-data text-primary">Stack</p>
+        <h3 className="mt-1 text-lg font-semibold">Recette de setup</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Chaque outil, son rôle et comment le configurer — dans l&apos;ordre.
+        </p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {guide.map((entry) => (
+          <article
+            key={entry.tool}
+            className="rounded-xl border border-border bg-muted/20 p-4 transition-colors hover:border-border/80"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="font-semibold">{entry.tool}</p>
+                <p className="text-xs text-primary">{entry.role}</p>
+              </div>
+              <Wrench className="h-4 w-4 shrink-0 text-muted-foreground" />
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">{entry.why}</p>
+            <div className="mt-3 rounded-lg bg-background/80 p-2.5">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                Setup
+              </p>
+              <p className="mt-1 font-mono text-xs leading-relaxed">{entry.setup}</p>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              {entry.freeTier ? (
+                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-700">
+                  {entry.freeTier}
+                </span>
+              ) : null}
+              {entry.alternative ? (
+                <span className="rounded-full bg-muted px-2 py-0.5 text-muted-foreground">
+                  Alt. {entry.alternative}
+                </span>
+              ) : null}
+            </div>
+          </article>
+        ))}
+      </div>
+
+      {opportunity.mvpPlan.stack.length > 0 ? (
+        <p className="mt-4 text-xs text-muted-foreground">
+          Stack complète : {opportunity.mvpPlan.stack.join(" · ")}
+        </p>
+      ) : null}
+    </section>
+  );
+}

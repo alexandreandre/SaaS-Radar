@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { mergeFavorites } from "@/lib/favorites";
+import { isFavoritesTableMissingError } from "@/lib/favorites.errors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,8 +29,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ slugs: merged });
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : String(err) },
-      { status: 500 }
+      {
+        error: err instanceof Error ? err.message : String(err),
+        ...(isFavoritesTableMissingError(err) ? { code: "FAVORITES_TABLE_MISSING" } : {}),
+      },
+      { status: isFavoritesTableMissingError(err) ? 503 : 500 }
     );
   }
 }

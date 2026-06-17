@@ -1,23 +1,26 @@
 import type { ConnectorDefinition } from "@/lib/connectors/types";
+import { CONNECTOR_BRANDS } from "@/lib/connectors/brands";
 import { generatePartialSnapshots } from "@/lib/connectors/demo/generators";
 
 function makeConnector(
-  def: Omit<ConnectorDefinition, "demo"> & {
+  def: Omit<ConnectorDefinition, "demo" | "brand"> & {
     demoFields: (keyof import("@/lib/connectors/types").MetricsSnapshot)[];
   }
 ): ConnectorDefinition {
   return {
     ...def,
+    brand: CONNECTOR_BRANDS[def.id],
     demo: (seed, months, targetMrr) =>
       generatePartialSnapshots(seed, months, targetMrr, def.id, def.demoFields),
   };
 }
 
 function makeStreamOnlyConnector(
-  def: Omit<ConnectorDefinition, "demo" | "provides">
+  def: Omit<ConnectorDefinition, "demo" | "provides" | "brand">
 ): ConnectorDefinition {
   return {
     ...def,
+    brand: CONNECTOR_BRANDS[def.id],
     provides: [],
     demo: () => [],
   };
@@ -30,7 +33,7 @@ export const CONNECTORS: ConnectorDefinition[] = [
     category: "payments",
     jobLabel: "Encaisser",
     priority: "p0",
-    impactOnPromise: "Source de vérité MRR vs promesse Radar",
+    cockpitImpact: "MRR réel vs projection fiche",
     recommendedFor: ["stripe"],
     description: "MRR, nouveaux clients, churn et expansion depuis vos abonnements.",
     provides: ["mrr", "newMrr", "expansionMrr", "churnedMrr", "customers"],
@@ -73,7 +76,7 @@ export const CONNECTORS: ConnectorDefinition[] = [
     category: "ads",
     jobLabel: "Acquérir",
     priority: "p0",
-    impactOnPromise: "ROAS vs budget acquisition Radar",
+    cockpitImpact: "ROAS vs budget acquisition fiche",
     recommendedFor: ["google", "seo"],
     description: "Budget, impressions, clics et conversions par campagne.",
     provides: ["adSpend", "impressions", "clicks", "conversions"],
@@ -240,7 +243,7 @@ export const CONNECTORS: ConnectorDefinition[] = [
     category: "finance",
     jobLabel: "Comptabiliser (FR)",
     priority: "p1",
-    impactOnPromise: "Runway réel vs estimé",
+    cockpitImpact: "Runway réel vs estimé",
     recommendedFor: ["qonto", "france"],
     description: "Trésorerie, flux bancaires et runway réel.",
   }),
@@ -250,7 +253,7 @@ export const CONNECTORS: ConnectorDefinition[] = [
     category: "accounting",
     jobLabel: "Comptabiliser (FR)",
     priority: "p1",
-    impactOnPromise: "CA comptable vs MRR Stripe",
+    cockpitImpact: "CA comptable vs MRR Stripe",
     recommendedFor: ["pennylane", "france"],
     description: "Comptabilité startup FR, TVA et charges.",
   }),
@@ -327,6 +330,8 @@ export const CONNECTORS: ConnectorDefinition[] = [
 export function getConnector(id: string): ConnectorDefinition | undefined {
   return CONNECTORS.find((c) => c.id === id);
 }
+
+export { getConnectorBrand } from "@/lib/connectors/brands";
 
 export function getConnectorsByCategory(category: ConnectorDefinition["category"]) {
   return CONNECTORS.filter((c) => c.category === category);

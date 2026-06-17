@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeWhyItWorksItem } from "@/types/opportunity";
 import {
   SECTORS,
   CLIENT_TYPES,
@@ -22,6 +23,7 @@ export const tractionSignalSchema = z.object({
   source: z.string().min(1),
   // Conservatisme : chaque signal DOIT avoir une sourceUrl réelle (forme validée ici).
   sourceUrl: z.string().url(),
+  kind: z.enum(["metric", "narrative"]).optional(),
 });
 
 export const factualLeadSchema = z.object({
@@ -40,15 +42,22 @@ export const factualLeadSchema = z.object({
 export type FactualLead = z.infer<typeof factualLeadSchema>;
 
 // ── Briques partagées ────────────────────────────────────────────────────────
+export const whyItWorksStructuredItemSchema = z.object({
+  fact: z.string().min(1),
+  detail: z.string().optional(),
+  source: z.string().optional(),
+  sourceUrl: z.string().url().optional(),
+});
+
 export const whyItWorksItemSchema = z.union([
   z.string().min(1),
-  z.object({
-    fact: z.string().min(1),
-    detail: z.string().optional(),
-    source: z.string().optional(),
-    sourceUrl: z.string().url().optional(),
-  }),
+  whyItWorksStructuredItemSchema,
 ]);
+
+export const whyItWorksNormalizedSchema = z
+  .array(whyItWorksItemSchema)
+  .min(1)
+  .transform((items) => items.map(normalizeWhyItWorksItem));
 
 const tractionHighlightSchema = z.object({
   label: z.string().min(1),
@@ -76,6 +85,40 @@ export const foreignMarketProfileSchema = z.object({
 const roadmapStepSchema = z.object({
   day: z.string().min(1),
   tasks: z.array(z.string().min(1)).min(1),
+  week: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional(),
+  objective: z.string().min(1).optional(),
+  buildPrompt: z.string().min(1).optional(),
+  checkpoint: z.string().min(1).optional(),
+  estimateHours: z.number().positive().optional(),
+});
+
+const stackGuideEntrySchema = z.object({
+  tool: z.string().min(1),
+  role: z.string().min(1),
+  why: z.string().min(1),
+  setup: z.string().min(1),
+  freeTier: z.string().min(1).optional(),
+  alternative: z.string().min(1).optional(),
+});
+
+const buildFeaturePromptSchema = z.object({
+  feature: z.string().min(1),
+  prompt: z.string().min(1),
+});
+
+const buildPromptsSchema = z.object({
+  scaffold: z.string().min(1),
+  features: z.array(buildFeaturePromptSchema).min(1),
+});
+
+const mvpPlanAnalyticalSchema = z.object({
+  features: z.array(z.string().min(1)).min(1),
+  notYet: z.array(z.string().min(1)),
+  stackExtras: z.array(z.string().min(1)).optional().default([]),
+  roadmap: z.array(roadmapStepSchema).min(1),
+  stackGuide: z.array(stackGuideEntrySchema).min(1).optional(),
+  pitfalls: z.array(z.string().min(1)).min(1).optional(),
+  launchChecklist: z.array(z.string().min(1)).min(1).optional(),
 });
 
 const acquisitionTabSchema = z.object({
@@ -84,9 +127,9 @@ const acquisitionTabSchema = z.object({
   tactics: z.array(z.string().min(1)).min(1),
 });
 
-// ── Champs PREMIUM (optionnels) — générés uniquement sous --premium ───────────
-// Doivent rester optionnels : un run par défaut ne les produit pas, et un échec
-// premium ne doit jamais invalider une fiche (enrichOpportunity reste le fallback).
+// ── Champs enrichis (optionnels) — demandés à chaque génération ───────────────
+// Doivent rester optionnels : si Gemini ne les produit pas, enrichOpportunity()
+// fournit le fallback au runtime sans invalider la fiche.
 const frenchCompetitorSchema = z.object({
   name: z.string().min(1),
   positioning: z.string().min(1),
@@ -142,18 +185,14 @@ export const analyticalSchema = z.object({
   }),
   franceFitCriteria: franceFitCriteriaSchema,
   franceAnalysis: z.array(z.string().min(1)).min(1),
-  whyItWorks: z.array(whyItWorksItemSchema).min(1),
+  whyItWorks: whyItWorksNormalizedSchema,
   financialScenarios: z.array(scenarioInputSchema).length(3),
-  mvpPlan: z.object({
-    features: z.array(z.string().min(1)).min(1),
-    notYet: z.array(z.string().min(1)),
-    stackExtras: z.array(z.string().min(1)).optional().default([]),
-    roadmap: z.array(roadmapStepSchema).min(1),
-  }),
+  mvpPlan: mvpPlanAnalyticalSchema,
   acquisition: z.array(acquisitionTabSchema).min(1),
   claudePrompt: z.string().min(1),
+  buildPrompts: buildPromptsSchema.optional(),
   foreignMarketProfile: foreignMarketProfileSchema,
-  // Premium (optionnels) — présents seulement si --premium et si Gemini les a produits valides.
+  // Champs enrichis (optionnels) — présents seulement si Gemini les a produits valides.
   frenchCompetitors: z.array(frenchCompetitorSchema).min(1).optional(),
   launchTimeline: z.array(launchWeekSchema).length(4).optional(),
   emailTemplates: z.array(emailTemplateSchema).min(1).optional(),
@@ -188,6 +227,9 @@ const mvpPlanSchema = z.object({
   notYet: z.array(z.string()),
   stack: z.array(z.string().min(1)).min(1),
   roadmap: z.array(roadmapStepSchema).min(1),
+  stackGuide: z.array(stackGuideEntrySchema).min(1).optional(),
+  pitfalls: z.array(z.string().min(1)).min(1).optional(),
+  launchChecklist: z.array(z.string().min(1)).min(1).optional(),
 });
 
 function hasMappableStack(stack: string[]): boolean {
@@ -225,12 +267,13 @@ export const opportunityRawSchema = z
     scores: scoresSchema,
     franceFitCriteria: franceFitCriteriaSchema,
     tractionSignals: z.array(tractionSignalSchema).min(1),
-    whyItWorks: z.array(whyItWorksItemSchema).min(1),
+    whyItWorks: whyItWorksNormalizedSchema,
     franceAnalysis: z.array(z.string().min(1)).min(1),
     financialScenarios: z.array(financialScenarioSchema).length(3),
     cacChannels: z.array(cacChannelSchema).min(1),
     mvpPlan: mvpPlanSchema,
     claudePrompt: z.string().min(1),
+    buildPrompts: buildPromptsSchema.optional(),
     acquisition: z.array(acquisitionTabSchema).min(1),
     entrepreneursBuilding: z.number().int().min(0),
     foreignInspiration: z.string().min(1),

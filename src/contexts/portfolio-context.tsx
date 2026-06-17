@@ -18,13 +18,14 @@ import {
 } from "@/lib/connectors";
 import type { AdCampaign, Expense, MetricsSnapshot } from "@/lib/connectors/types";
 import type { Opportunity } from "@/types/opportunity";
+import { useTier } from "@/contexts/tier-context";
 import { enrichOpportunity } from "@/data/opportunity-enrichment";
+import { gateOpportunityForTier } from "@/lib/opportunity-access";
+import { isOnboardingComplete } from "@/lib/build-launch";
 import {
   PORTFOLIO_STORAGE_KEY,
   computeNextStreak,
   createProjectFromOpportunity,
-  generateDefaultCampaigns,
-  generateDefaultExpenses,
   getMostUrgentProject,
   getPortfolioStats,
   countOverdueCheckIns,
@@ -35,6 +36,7 @@ import {
   type TargetScenario,
   type UserProject,
 } from "@/lib/portfolio";
+import { queueProjectMetricsSync } from "@/lib/portfolio-sync-client";
 
 type PortfolioContextValue = {
   projects: UserProject[];
@@ -62,6 +64,8 @@ type PortfolioContextValue = {
   removeExpense: (projectId: string, expenseId: string) => void;
   logMetricsSnapshot: (projectId: string, partial: Partial<MetricsSnapshot>) => void;
   setCashOnHand: (projectId: string, amount: number) => void;
+  completeOnboarding: (projectId: string) => void;
+  markLaunchRoomSeen: (projectId: string) => void;
 };
 
 const PortfolioContext = createContext<PortfolioContextValue | null>(null);
@@ -89,6 +93,7 @@ export function PortfolioProvider({
   children: ReactNode;
   opportunityCatalog: Opportunity[];
 }) {
+  const { tier } = useTier();
   const [projects, setProjects] = useState<UserProject[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
@@ -100,10 +105,12 @@ export function PortfolioProvider({
   const getCatalogOpportunity = useCallback(
     (slug: string) => {
       const found = opportunityCatalog.find((o) => o.slug === slug);
-      // Enrichissement premium à la demande (le catalogue fourni est brut).
-      return found ? enrichOpportunity(found) : undefined;
+      if (!found) return undefined;
+      // Enrichissement premium à la demande, puis retrait des champs hors tier.
+      const enriched = enrichOpportunity(found);
+      return gateOpportunityForTier(enriched, tier);
     },
-    [opportunityCatalog]
+    [opportunityCatalog, tier]
   );
 
   const commit = useCallback((updater: (prev: UserProject[]) => UserProject[]) => {
@@ -126,11 +133,7 @@ export function PortfolioProvider({
           return prev;
         }
         const base = createProjectFromOpportunity(opportunity, input);
-        const project = migrateProject({
-          ...base,
-          campaigns: generateDefaultCampaigns(base.id),
-          expenses: generateDefaultExpenses(opportunity),
-        });
+        const project = migrateProject(base);
         created = project;
         return [project, ...prev];
       });
@@ -213,7 +216,7 @@ export function PortfolioProvider({
               ? history.map((s, i) => (i === snapIndex ? { ...s, ...newSnap } : s))
               : [...history, newSnap];
 
-          return {
+          const updated = {
             ...project,
             currentMrr: amount,
             mrrHistory: nextHistory,
@@ -221,6 +224,8 @@ export function PortfolioProvider({
             lastCheckInAt: isoNow,
             checkInStreak: nextStreak,
           };
+          queueProjectMetricsSync(updated);
+          return updated;
         })
       );
     },
@@ -232,22 +237,65 @@ export function PortfolioProvider({
       commit((prev) =>
         prev.map((project) => {
           if (project.id !== id) return project;
-          return {
+
+          const now = new Date().toISOString();
+          let firstMilestoneAt = project.firstMilestoneAt;
+          const target = project.milestones.find((m) => m.id === milestoneId);
+          const markingDone = target && !target.done;
+
+          const milestones = project.milestones.map((m) =>
+            m.id === milestoneId
+              ? {
+                  ...m,
+                  done: !m.done,
+                  doneAt: !m.done ? now : undefined,
+                }
+              : m
+          );
+
+          if (markingDone && !firstMilestoneAt) {
+            firstMilestoneAt = now;
+          }
+
+          const updated: UserProject = {
             ...project,
-            milestones: project.milestones.map((m) =>
-              m.id === milestoneId
-                ? {
-                    ...m,
-                    done: !m.done,
-                    doneAt: !m.done ? new Date().toISOString() : undefined,
-                  }
-                : m
-            ),
+            milestones,
+            firstMilestoneAt,
           };
+
+          if (isOnboardingComplete(updated) && !updated.onboardingCompleted) {
+            return {
+              ...updated,
+              onboardingCompleted: true,
+              onboardingCompletedAt: now,
+            };
+          }
+
+          return updated;
         })
       );
     },
     [commit]
+  );
+
+  const completeOnboarding = useCallback(
+    (projectId: string) => {
+      const now = new Date().toISOString();
+      updateProject(projectId, {
+        onboardingCompleted: true,
+        onboardingCompletedAt: now,
+      });
+    },
+    [updateProject]
+  );
+
+  const markLaunchRoomSeen = useCallback(
+    (projectId: string) => {
+      updateProject(projectId, {
+        launchRoomSeenAt: new Date().toISOString(),
+      });
+    },
+    [updateProject]
   );
 
   const connectIntegration = useCallback(
@@ -411,6 +459,7 @@ export function PortfolioProvider({
         prev.map((project) => {
           if (project.id !== projectId) return project;
           const month = partial.date ?? new Date().toISOString().slice(0, 7);
+          const date = new Date().toISOString().slice(0, 10);
           const history = project.metricsHistory ?? [];
           const idx = history.findIndex((s) => s.date === month);
           const base: MetricsSnapshot =
@@ -436,11 +485,25 @@ export function PortfolioProvider({
           const merged = { ...base, ...partial, date: month, source: "manual" as const };
           const nextMetrics =
             idx >= 0 ? history.map((s, i) => (i === idx ? merged : s)) : [...history, merged];
-          return {
+
+          let nextMrrHistory = project.mrrHistory;
+          if (partial.mrr !== undefined) {
+            const existingIndex = project.mrrHistory.findIndex((e) => e.date === date);
+            const entry = { date, amount: merged.mrr, note: "Saisie manuelle" };
+            nextMrrHistory =
+              existingIndex >= 0
+                ? project.mrrHistory.map((e, i) => (i === existingIndex ? entry : e))
+                : [...project.mrrHistory, entry];
+          }
+
+          const updated = {
             ...project,
             metricsHistory: nextMetrics,
             currentMrr: merged.mrr,
+            mrrHistory: nextMrrHistory,
           };
+          queueProjectMetricsSync(updated);
+          return updated;
         })
       );
     },
@@ -509,6 +572,8 @@ export function PortfolioProvider({
       removeExpense,
       logMetricsSnapshot,
       setCashOnHand,
+      completeOnboarding,
+      markLaunchRoomSeen,
     }),
     [
       projects,
@@ -536,6 +601,8 @@ export function PortfolioProvider({
       removeExpense,
       logMetricsSnapshot,
       setCashOnHand,
+      completeOnboarding,
+      markLaunchRoomSeen,
     ]
   );
 

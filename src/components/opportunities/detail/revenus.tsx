@@ -11,7 +11,7 @@ export function Revenus({ opportunity }: { opportunity: Opportunity }) {
       id="revenus"
       step={3}
       title="Combien vous pouvez gagner"
-      subtitle="Estimation réaliste — pas une promesse"
+      subtitle="Estimation réaliste"
     >
       <div className="rounded-xl border-2 border-primary/20 bg-accent/20 p-8 text-center">
         <p className="text-sm font-medium text-muted-foreground">Scénario réaliste</p>

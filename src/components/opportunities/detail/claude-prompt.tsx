@@ -69,11 +69,11 @@ export function ClaudePromptSection({ opportunity }: { opportunity: Opportunity 
       step={5}
       title="Prompt Claude Code"
       subtitle="Collez ce texte dans Claude Code, Cursor ou v0 pour générer le MVP"
-      requiredTier="pro"
+      requiredTier="builder"
       variant="pro"
     >
       <PaywallGate
-        requiredTier="pro"
+        requiredTier="builder"
         preview={
           <p className="text-base">
             Prompt complet + variantes Cursor, v0 et Replit — prêt à copier-coller

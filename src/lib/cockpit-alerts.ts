@@ -6,9 +6,12 @@ import {
   computeCac,
   computeLtv,
   computeRunwayMonths,
+  computeStickiness,
   daysSince,
   getChurnRate,
+  getDeltaPercent,
 } from "@/lib/portfolio";
+import { getProductStream, hasProductAnalyticsConnected } from "@/lib/connectors/streams";
 import { buildStackHealth } from "@/lib/stack-health";
 import type { Opportunity } from "@/types/opportunity";
 
@@ -26,6 +29,8 @@ export function buildCockpitAlerts(
   metrics: CockpitMetrics,
   opportunity?: Opportunity
 ): CockpitAlert[] {
+  if (project.onboardingCompleted !== true) return [];
+
   const alerts: CockpitAlert[] = [];
   const latest = metrics.latest;
   const previous = metrics.previous;
@@ -71,6 +76,52 @@ export function buildCockpitAlerts(
         actionModule: "revenus",
       });
     }
+
+    if (previous.mau > 0) {
+      const mauDelta = getDeltaPercent(latest.mau, previous.mau);
+      if (mauDelta !== null && mauDelta <= -20) {
+        alerts.push({
+          id: "mau-drop",
+          severity: "warning",
+          message: `Baisse de MAU : ${mauDelta} % ce mois (${latest.mau} vs ${previous.mau}).`,
+          actionModule: "produit",
+        });
+      }
+    }
+  }
+
+  if (latest) {
+    const stickiness = computeStickiness(latest.dau, latest.mau);
+    if (stickiness !== null && stickiness < 10 && latest.mau >= 10) {
+      alerts.push({
+        id: "stickiness-low",
+        severity: "warning",
+        message: `Stickiness faible (${stickiness} %) — peu d'utilisateurs reviennent chaque jour.`,
+        actionModule: "produit",
+      });
+    }
+  }
+
+  const productStream = getProductStream(project.connectorStreams);
+  if (productStream && productStream.activationRate < 20) {
+    alerts.push({
+      id: "activation-low",
+      severity: "warning",
+      message: `Taux d'activation in-app bas (${productStream.activationRate} %) — revoyez l'onboarding.`,
+      actionModule: "produit",
+    });
+  }
+
+  if (
+    project.phase === "revenue" &&
+    !hasProductAnalyticsConnected(project.integrations)
+  ) {
+    alerts.push({
+      id: "missing-product-analytics",
+      severity: "info",
+      message: "Aucun analytics produit connecté — branchez Plausible ou PostHog pour l'engagement.",
+      actionModule: "produit",
+    });
   }
 
   const runway = computeRunwayMonths(project);

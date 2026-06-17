@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 /** N'autorise qu'un chemin interne (evite open-redirect). */
 function safeNext(raw: string | null): string {
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/dashboard";
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/mes-saas";
   return raw;
 }
 

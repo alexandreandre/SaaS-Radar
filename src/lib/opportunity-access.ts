@@ -8,18 +8,18 @@ import { hasTier, type Tier } from "@/lib/tier";
  * cosmetique (blur CSS) mais reellement applique cote serveur.
  */
 export const PREMIUM_FIELDS: { field: keyof Opportunity; tier: Tier }[] = [
-  // Pro
-  { field: "claudePrompt", tier: "pro" },
-  { field: "emailTemplates", tier: "pro" },
-  { field: "competitionAlerts", tier: "pro" },
-  { field: "partnersFR", tier: "pro" },
   // Builder
+  { field: "claudePrompt", tier: "builder" },
   { field: "infraCosts", tier: "builder" },
   { field: "frenchCompetitors", tier: "builder" },
   { field: "launchTimeline", tier: "builder" },
   { field: "roiInputs", tier: "builder" },
   { field: "tamBreakdown", tier: "builder" },
   { field: "foreignMarketProfile", tier: "builder" },
+  // Pro
+  { field: "emailTemplates", tier: "pro" },
+  { field: "competitionAlerts", tier: "pro" },
+  { field: "partnersFR", tier: "pro" },
 ];
 
 /** Valeur de remplacement pour un champ premier non autorise (preserve le typage). */

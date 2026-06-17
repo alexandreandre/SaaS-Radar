@@ -11,6 +11,7 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 export type MapCatalogOpportunity = {
   slug: string;
   name: string;
+  pitch: string;
   originCountryCode: string;
   scores: { opportunity: number };
   revenueMin: number;

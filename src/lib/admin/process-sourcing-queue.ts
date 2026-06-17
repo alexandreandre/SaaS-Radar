@@ -34,6 +34,7 @@ async function executeJob(job: QueuedJob): Promise<void> {
     mode: payload.mode ?? "direct",
     revalidate: payload.revalidate ?? true,
     manageWeeklyPick: payload.manageWeeklyPick ?? false,
+    markRunError: false,
     pipelineProfile:
       payload.pipelineProfile ??
       (payload.config?.pipelineProfile === "catalogue" ? "catalogue" : undefined),
@@ -47,13 +48,22 @@ async function executeJob(job: QueuedJob): Promise<void> {
 }
 
 async function failJob(job: QueuedJob, msg: string): Promise<void> {
+  const admin = createAdminClient();
+
   if (job.attempts < job.max_attempts) {
     await rescheduleJob(job, 30_000 * job.attempts);
+    await admin
+      .from("sourcing_runs")
+      .update({
+        status: "queued",
+        error: null,
+        finished_at: null,
+      })
+      .eq("id", job.run_id);
     return;
   }
 
   await completeJob(job.id, "failed", msg);
-  const admin = createAdminClient();
   await admin
     .from("sourcing_runs")
     .update({
@@ -99,6 +109,26 @@ export async function recoverStuckQueueJobs(maxAgeMinutes = 15): Promise<number>
       .update({ status: "pending", started_at: null })
       .eq("id", row.id);
     recovered++;
+  }
+
+  const { data: pendingJobs } = await admin
+    .from("sourcing_job_queue")
+    .select("run_id")
+    .eq("status", "pending");
+
+  for (const job of pendingJobs ?? []) {
+    const { data: run } = await admin
+      .from("sourcing_runs")
+      .select("status")
+      .eq("id", job.run_id)
+      .maybeSingle();
+    if (run?.status === "error") {
+      await admin
+        .from("sourcing_runs")
+        .update({ status: "queued", error: null, finished_at: null })
+        .eq("id", job.run_id);
+      recovered++;
+    }
   }
 
   return recovered;

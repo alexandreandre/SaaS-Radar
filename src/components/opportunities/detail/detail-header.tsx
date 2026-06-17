@@ -8,13 +8,10 @@ import { getFranceCompetitionLabel } from "@/components/opportunities/detail/det
 import { ScoreCircle } from "@/components/opportunities/detail/score-circle";
 import { BuildOpportunityCta } from "@/components/cockpit/build-opportunity-cta";
 import { FavoriteButton } from "@/components/opportunities/favorite-button";
-import { SCORE_WEIGHTS } from "@/lib/sourcing/constants";
-
 export type DetailHeaderMeta = {
   publishedAt?: string;
   sourceVerified?: boolean;
   showOriginalLink?: boolean;
-  showScoreBreakdown?: boolean;
   hideCta?: boolean;
 };
 
@@ -124,43 +121,9 @@ export function DetailHeader({
         </div>
       </div>
 
-      {meta?.showScoreBreakdown && (
-        <div className="mt-6 rounded-xl border border-border bg-card/50 p-4">
-          <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">
-            Pondération du score
-          </p>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {(
-              [
-                ["franceFit", "Adapté France", SCORE_WEIGHTS.franceFit],
-                ["competitionGap", "Concurrence", SCORE_WEIGHTS.competitionGap],
-                ["margin", "Rentabilité", SCORE_WEIGHTS.margin],
-                ["buildability", "Buildabilité", SCORE_WEIGHTS.buildability],
-              ] as const
-            ).map(([key, label, weight]) => (
-              <div key={key} className="flex items-center gap-2 text-xs">
-                <span className="w-24 text-muted-foreground">{label}</span>
-                <div className="h-1.5 flex-1 rounded-full bg-border">
-                  <div
-                    className="h-full rounded-full bg-primary"
-                    style={{ width: `${(opportunity.scores[key] / 10) * 100}%` }}
-                  />
-                </div>
-                <span className="tabular-nums">{opportunity.scores[key]}/10</span>
-                <span className="text-muted-foreground">×{weight}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <FavoriteButton slug={opportunity.slug} size="md" variant="pill" />
-        {!meta?.hideCta && (
-          <div className="hidden sm:block">
-            <BuildOpportunityCta opportunity={opportunity} />
-          </div>
-        )}
+        {!meta?.hideCta && <BuildOpportunityCta opportunity={opportunity} />}
       </div>
     </motion.div>
   );

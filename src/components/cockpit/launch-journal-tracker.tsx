@@ -1,8 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import type { Opportunity } from "@/types/opportunity";
 import type { UserProject } from "@/lib/portfolio";
+import { getOnboardingProgress } from "@/lib/build-launch";
 import { Checkbox } from "@/components/ui/checkbox";
+import { CelebrationOverlay } from "@/components/cockpit/celebration-overlay";
 
 type LaunchJournalTrackerProps = {
   opportunity: Opportunity;
@@ -18,8 +21,32 @@ export function LaunchJournalTracker({
   const weeks = opportunity.launchTimeline ?? [];
   const launchMilestones = project.milestones.filter((m) => m.source === "launch");
   const revenueMilestones = project.milestones.filter((m) => m.source === "revenue");
+  const [celebration, setCelebration] = useState<string | null>(null);
+
+  const handleToggle = (milestoneId: string) => {
+    const milestone = project.milestones.find((m) => m.id === milestoneId);
+    const markingDone = milestone && !milestone.done;
+    onToggle(milestoneId);
+
+    if (markingDone) {
+      const progress = getOnboardingProgress({
+        ...project,
+        milestones: project.milestones.map((m) =>
+          m.id === milestoneId ? { ...m, done: true } : m
+        ),
+      });
+      if (progress.done >= progress.target) {
+        setCelebration("Cockpit complet débloqué — excellent rythme !");
+      } else if (progress.done === 1) {
+        setCelebration("Première étape validée — continuez !");
+      } else {
+        setCelebration(`Étape ${progress.done}/${progress.target} — vous avancez bien`);
+      }
+    }
+  };
 
   return (
+    <>
     <div className="space-y-8">
       {weeks.length > 0 ? (
         <div className="space-y-4">
@@ -46,7 +73,7 @@ export function LaunchJournalTracker({
                     >
                       <Checkbox
                         checked={milestone.done}
-                        onCheckedChange={() => onToggle(milestone.id)}
+                        onCheckedChange={() => handleToggle(milestone.id)}
                         className="mt-0.5"
                       />
                       <span className={milestone.done ? "text-muted-foreground line-through" : ""}>
@@ -74,7 +101,7 @@ export function LaunchJournalTracker({
             >
               <Checkbox
                 checked={milestone.done}
-                onCheckedChange={() => onToggle(milestone.id)}
+                onCheckedChange={() => handleToggle(milestone.id)}
               />
               <span className={milestone.done ? "text-muted-foreground line-through" : ""}>
                 {milestone.label}
@@ -91,5 +118,13 @@ export function LaunchJournalTracker({
         </div>
       ) : null}
     </div>
+
+    <CelebrationOverlay
+      show={celebration !== null}
+      message={celebration ?? ""}
+      variant={celebration?.includes("débloqué") ? "complete" : "milestone"}
+      onDone={() => setCelebration(null)}
+    />
+    </>
   );
 }

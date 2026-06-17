@@ -1,5 +1,5 @@
 /**
- * Usage : npm run sourcing -- --count=3 --country=US [--sector=healthcare] [--premium] [--direct]
+ * Usage : npm run sourcing -- --count=3 --country=US [--sector=healthcare] [--direct]
  */
 import { DEFAULT_COUNT, SECTORS } from "../src/lib/sourcing/constants";
 import { runSourcing } from "../src/lib/sourcing/run";
@@ -12,7 +12,6 @@ interface Args {
   count: number;
   country: string;
   sector?: string;
-  premium: boolean;
   mode: "draft" | "direct";
 }
 
@@ -21,7 +20,6 @@ function parseArgs(): Args {
   let count = DEFAULT_COUNT;
   let country = DEFAULT_SOURCING_COUNTRY;
   let sector: string | undefined;
-  let premium = false;
   let mode: "draft" | "direct" = "draft";
 
   for (let i = 0; i < argv.length; i++) {
@@ -38,8 +36,6 @@ function parseArgs(): Args {
       sector = arg.slice("--sector=".length);
     } else if (arg === "--sector") {
       sector = argv[++i];
-    } else if (arg === "--premium") {
-      premium = true;
     } else if (arg === "--direct") {
       mode = "direct";
     } else if (arg.startsWith("--mode=")) {
@@ -54,11 +50,11 @@ function parseArgs(): Args {
     );
   }
 
-  return { count, country, sector, premium, mode };
+  return { count, country, sector, mode };
 }
 
 async function main(): Promise<void> {
-  const { count, country, sector, premium, mode } = parseArgs();
+  const { count, country, sector, mode } = parseArgs();
   const resolved = await assertValidCountryCode(country);
 
   if (mode === "direct") {
@@ -72,7 +68,7 @@ async function main(): Promise<void> {
   await runSourcing({
     count,
     sector,
-    premium,
+    premium: true,
     mode,
     originCountryCode: resolved.code,
     manageWeeklyPick: false,

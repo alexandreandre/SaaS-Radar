@@ -14,7 +14,7 @@
 **En une phrase.** SaaS Radar détecte chaque semaine des micro-SaaS qui marchent
 à l'étranger, juge s'ils peuvent marcher en France, donne le plan exact pour les
 construire avec l'IA — puis un **cockpit de pilotage** ("Command Center") suit
-l'écart entre la *promesse* de la fiche et la *réalité* du fondateur via 30
+l'écart entre la *projection* de la fiche et vos *chiffres réels* via 30
 connecteurs (Stripe, Qonto, Google Ads…).
 
 **Le problème résolu** (3 douleurs enchaînées du fondateur FR) :
@@ -34,8 +34,8 @@ connecteurs en **mode démo** (données simulées, pas d'API réelle). Le moteur
 contenu (sourcing IA Perplexity → Gemini → Supabase) tourne déjà.
 
 **Différenciateur réel (le seul vraiment défendable).** Le cockpit connaît la
-*promesse éditoriale* de chaque fiche (scénarios financiers, stack, canaux
-d'acquisition) et mesure l'**écart promesse vs réalité**. Personne ne relie
+*scénario éditorial* de chaque fiche (scénarios financiers, stack, canaux
+d'acquisition) et mesure l'**écart projection fiche vs réel**. Personne ne relie
 idée → build → pilotage de cette façon. C'est le coeur du message marketing.
 
 **Modèle économique visé.** Freemium SaaS (Free / Builder 19€ / Pro 39€) +
@@ -59,8 +59,8 @@ SaaS Radar, et le produit fournit déjà des prompts Claude Code / Cursor.*
 **Un risque de cette vague = une opportunité pour SaaS Radar.** ~45 % du code
 généré par IA contient des vulnérabilités, et les juniors introduisent 2,3× plus
 de bugs en prod. (ia42.fr, formation-en-ia.fr) → *Le marché se remplit de gens
-qui savent "faire sortir" un produit mais pas le piloter. Le cockpit "promesse
-vs réalité" répond pile à ce manque.*
+qui savent "faire sortir" un produit mais pas le piloter. Le cockpit de pilotage
+MRR répond pile à ce manque.*
 
 **Le marché FR des makers est réel mais éclaté, sans leader outil.** Pas de
 recensement officiel, mais des communautés structurées : **Make Time** (2 000+
@@ -101,7 +101,7 @@ fromscratch.dev, miner.ethanbase.com) → *SaaS Radar vend exactement ça :
    (foundertrace.substack, swanbase.co)
 2. **Le vrai produit n'est pas l'annuaire d'idées — c'est le cockpit.** L'annuaire
    est saturé (IdeaBrowser, Make Time, BigIdeasDB…) et churne par nature. Le
-   cockpit "promesse vs réalité" est l'angle vacant que personne n'occupe. Le
+   cockpit "projection fiche vs réel" est l'angle vacant que personne n'occupe. Le
    marketing doit vendre le *pilotage*, pas la *liste d'idées*.
 3. **Le marché FR est orphelin d'un outil.** Make Time est une newsletter/média,
    Indiemakers un Discord, Micro Saas Buildr une formation no-code. Aucun n'est
@@ -133,8 +133,8 @@ saturé (IdeaBrowser, Make Time, BigIdeasDB), perçu comme commodité, et ça ch
 (on cherche une idée une seule fois).
 
 **Le positionnement choisi.** SaaS Radar = **le copilote qui t'accompagne de
-l'idée jusqu'au MRR**, et surtout **le seul à te dire si la réalité tient la
-promesse**. On ne vend pas une liste, on vend un *parcours piloté* et une
+l'idée jusqu'au MRR**, et surtout **le seul à te dire si tes chiffres collent au
+plan de la fiche**. On ne vend pas une liste, on vend un *parcours piloté* et une
 *vérité chiffrée*.
 
 > **Phrase de positionnement interne :** *"Les autres te donnent une idée. SaaS
@@ -143,7 +143,7 @@ promesse**. On ne vend pas une liste, on vend un *parcours piloté* et une
 
 **Pourquoi cet angle ICI.** L'analyse montre (a) un afflux massif de "vibe
 coders" capables de produire mais incapables de piloter, (b) une concurrence qui
-s'arrête à l'idée, (c) un cockpit "promesse vs réalité" techniquement unique.
+s'arrête à l'idée, (c) un cockpit "projection fiche vs réel" techniquement unique.
 L'angle découle directement du marché, il n'est pas plaqué.
 
 ### 2.2 Proposition de valeur (orientée bénéfice)
@@ -151,7 +151,7 @@ L'angle découle directement du marché, il n'est pas plaqué.
 - **Accroche principale :** *"Arrête de coder dans le vide. Trouve un SaaS qui
   marche déjà, construis-le avec l'IA en 14 jours, et pilote-le jusqu'au premier
   client — au même endroit."*
-- **Sous-accroche preuve :** *"Le seul cockpit qui compare ta promesse de départ
+- **Sous-accroche preuve :** *"Le seul cockpit qui compare ton scénario de départ
   à tes vrais chiffres (Stripe, Qonto, Google Ads)."*
 
 ### 2.3 Personas prioritaires
@@ -179,7 +179,7 @@ petits SaaS, traîne sur Indiemakers et X. Douleur : *"Mes dashboards sont
 éparpillés, je ne sais pas si je tiens mes objectifs."* Déclencheur : le cockpit
 multi-projets + connecteurs. C'est le persona qui justifie le plan **Pro** et la
 **rétention** (donc la valeur long terme). Objection : *"J'ai déjà Baremetrics."*
-→ Réponse : promesse vs réalité + connecteurs FR (Qonto/Pennylane) qu'ils n'ont
+→ Réponse : projection fiche vs réel + connecteurs FR (Qonto/Pennylane) qu'ils n'ont
 pas.
 
 ### 2.4 Canaux retenus (justifiés) & canaux écartés (pourquoi)
@@ -217,7 +217,7 @@ même temps. Pas de pub payante tant que le tunnel ne convertit pas.
 - **Pour Camille (LinkedIn, no-code) :** *"Lancer un SaaS rentable sans être
   ingénieure : l'idée validée + le plan FR + le tableau de bord, en français."*
 - **Pour Thomas (Indiemakers/Pro) :** *"Tes chiffres sont éparpillés ? Branche
-  Stripe + Qonto et vois en 1 écran si tu tiens ta promesse de MRR."*
+  Stripe + Qonto et vois en 1 écran si tu atteins ton objectif MRR."*
 - **Message transverse (anti-douleur) :** *"90 % des side-projects meurent parce
   qu'on code avant de valider. Inverse l'ordre."*
 
@@ -228,8 +228,8 @@ même temps. Pas de pub payante tant que le tunnel ne convertit pas.
    le cockpit : "ce mois-ci, les 40 SaaS suivis ont fait X€ de MRR, voici les 3
    idées qui décollent". Personne n'a cette donnée → contenu unique + preuve
    vivante du cockpit + machine à backlinks.
-2. **Le "Promesse vs Réalité" en format viral.** Carte de partage (déjà dans le
-   produit, module Rapports) où un fondateur poste "Radar promettait 2 400€,
+2. **La trajectoire MRR en format viral.** Carte de partage (déjà dans le
+   produit, module Rapports) où un fondateur poste "La fiche visait 2 400€,
    j'en suis à 1 850€ au mois 4". Honnêteté = aimant à indie hackers (cf. Pierre
    de Marketing Flow, 17 000 abonnés bâtis sur la transparence).
 3. **Challenge "0 → premier client en public" avec un cohorte.** Un batch de
@@ -347,7 +347,7 @@ même temps. Pas de pub payante tant que le tunnel ne convertit pas.
   3. *Coulisses build in public* : "Cette semaine j'ai branché Stripe, voici les
      chiffres."
   4. *Mini-étude* : "3 idées de SaaS qui montent en FR ce mois-ci."
-  5. *Promesse vs réalité* : screenshot du cockpit.
+  5. *Trajectoire MRR* : screenshot du cockpit.
   6. *Question à la communauté* : "Tu coderais quoi avec Cursor ce week-end ?"
   7. *Win d'un utilisateur* : relayer un premier client d'un membre.
 - *Temps :* ~3-4h/semaine (batch le dimanche).
@@ -476,7 +476,7 @@ Fiche complète (plan 14 jours + prompt Claude) : [lien]
 À mardi prochain,
 [Prénom]
 
-PS : tu pilotes déjà un SaaS ? Branche Stripe au cockpit et vois si tu tiens ta promesse de MRR : [lien]
+PS : tu pilotes déjà un SaaS ? Branche Stripe au cockpit et vois si tu atteins ton objectif MRR : [lien]
 ```
 
 **Message communauté (réponse à "je cherche une idée") :**

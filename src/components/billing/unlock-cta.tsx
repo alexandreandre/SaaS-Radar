@@ -17,7 +17,7 @@ export function UnlockCta({
 
   return (
     <Button size={size} asChild>
-      <Link href="/dashboard">{text}</Link>
+      <Link href="/mes-saas">{text}</Link>
     </Button>
   );
 }

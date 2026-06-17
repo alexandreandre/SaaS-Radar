@@ -2,15 +2,26 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, ExternalLink, MoreVertical, Pause, Play, Trash2 } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowRight,
+  ExternalLink,
+  MoreVertical,
+  Pause,
+  Play,
+  Trash2,
+} from "lucide-react";
 import { usePortfolio } from "@/contexts/portfolio-context";
 import type { UserProject } from "@/lib/portfolio";
 import {
-  getMilestoneProgress,
-  getTargetMrr,
+  daysSince,
+  getCurrentStepTitle,
+  getMilestoneCounts,
+  getProjectCardActionSummary,
   isCheckInOverdue,
 } from "@/lib/portfolio";
-import { formatCurrency, cn } from "@/lib/utils";
+import { sectorLabels } from "@/data/opportunities";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -19,7 +30,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ProjectPhaseBadge } from "@/components/cockpit/project-phase-badge";
+import { PHASE_LABELS, ProjectPhaseBadge } from "@/components/cockpit/project-phase-badge";
 
 type ProjectCardProps = {
   project: UserProject;
@@ -33,11 +44,14 @@ export function ProjectCard({ project, onPause, onResume, onRemove }: ProjectCar
   const opportunity = getCatalogOpportunity(project.opportunitySlug);
   if (!opportunity) return null;
 
-  const target = getTargetMrr(project, opportunity);
-  const progress = target > 0 ? Math.min(100, Math.round((project.currentMrr / target) * 100)) : 0;
-  const milestoneProgress = getMilestoneProgress(project);
+  const { done: milestonesDone, total: milestonesTotal } = getMilestoneCounts(project);
+  const stepTitle = getCurrentStepTitle(project);
+  const nextAction = getProjectCardActionSummary(project, opportunity);
+  const phaseLabel = PHASE_LABELS[project.phase];
   const overdue = isCheckInOverdue(project);
   const paused = project.phase === "paused";
+  const daysSinceCheckIn = daysSince(project.lastCheckInAt ?? project.createdAt);
+  const sectorLabel = sectorLabels[opportunity.sector] ?? opportunity.sector;
 
   return (
     <motion.article
@@ -45,106 +59,98 @@ export function ProjectCard({ project, onPause, onResume, onRemove }: ProjectCar
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       className={cn(
-        "rounded-xl border border-border bg-card p-6 shadow-card transition-shadow hover:shadow-card-hover",
+        "flex h-full flex-col rounded-xl border border-border bg-card p-6 shadow-card transition-shadow hover:shadow-card-hover",
         paused && "opacity-70"
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-lg">{opportunity.originFlag}</span>
-            <ProjectPhaseBadge phase={project.phase} />
-            {overdue && !paused ? (
-              <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700">
-                Check-in en retard
-              </span>
-            ) : null}
-          </div>
-          <h2 className="mt-2 text-lg font-semibold leading-tight">{opportunity.name}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{opportunity.targetClient}</p>
+        <h2 className="min-w-0 text-lg font-semibold leading-tight">{opportunity.name}</h2>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <ProjectPhaseBadge phase={project.phase} />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                <MoreVertical className="h-4 w-4" />
+                <span className="sr-only">Actions</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href={`/opportunities/${project.opportunitySlug}`}>
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Voir la fiche
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {paused ? (
+                <DropdownMenuItem onClick={() => onResume(project.id)}>
+                  <Play className="mr-2 h-4 w-4" />
+                  Reprendre
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem onClick={() => onPause(project.id)}>
+                  <Pause className="mr-2 h-4 w-4" />
+                  Mettre en pause
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:text-destructive"
+                onClick={() => onRemove(project.id)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Retirer du portfolio
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-              <MoreVertical className="h-4 w-4" />
-              <span className="sr-only">Actions</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            {paused ? (
-              <DropdownMenuItem onClick={() => onResume(project.id)}>
-                <Play className="mr-2 h-4 w-4" />
-                Reprendre
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem onClick={() => onPause(project.id)}>
-                <Pause className="mr-2 h-4 w-4" />
-                Mettre en pause
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={() => onRemove(project.id)}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Retirer du portfolio
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-4 text-sm">
-        <div>
-          <p className="text-muted-foreground">MRR actuel</p>
-          <p className="font-data text-lg font-semibold text-primary">
-            {formatCurrency(project.currentMrr)}
+      <p className="mt-1 font-data text-[10px] font-medium uppercase tracking-data text-muted-foreground">
+        <span className="mr-1">{opportunity.originFlag}</span>
+        {opportunity.originCountry}
+        <span className="mx-1.5">·</span>
+        {sectorLabel}
+      </p>
+
+      <div
+        className={cn(
+          "mt-5 rounded-lg border border-border/80 bg-muted/30 px-4 py-3",
+          paused && "opacity-60"
+        )}
+      >
+        <p className="font-data text-[10px] uppercase tracking-data text-muted-foreground">
+          Étape · {phaseLabel}
+        </p>
+        <p className="mt-1 text-sm font-semibold leading-snug">{stepTitle}</p>
+        {milestonesTotal > 0 ? (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {milestonesDone} / {milestonesTotal} étapes
           </p>
-        </div>
-        <div>
-          <p className="text-muted-foreground">Objectif ({project.targetScenario})</p>
-          <p className="font-data text-lg font-semibold">{formatCurrency(target)}</p>
-        </div>
+        ) : null}
       </div>
 
-      <div className="mt-4">
-        <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-          <span>Progression MRR</span>
-          <span>{progress} %</span>
+      {!paused ? (
+        <div className="mt-4">
+          <p className="font-data text-[10px] uppercase tracking-data text-muted-foreground">
+            Prochaine action
+          </p>
+          <p className="mt-1 line-clamp-3 text-sm leading-snug text-foreground/90">{nextAction}</p>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full rounded-full bg-primary transition-all"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
+      ) : null}
 
-      <div className="mt-3">
-        <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-          <span>Journal de lancement</span>
-          <span>{milestoneProgress} %</span>
-        </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full rounded-full bg-emerald-600/80 transition-all"
-            style={{ width: `${milestoneProgress}%` }}
-          />
-        </div>
-      </div>
+      {overdue && !paused && daysSinceCheckIn !== null ? (
+        <p className="mt-3 flex items-center gap-1.5 text-xs text-amber-700">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+          Check-in il y a {daysSinceCheckIn} jour{daysSinceCheckIn > 1 ? "s" : ""}
+        </p>
+      ) : null}
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        <Button size="sm" asChild>
+      <div className="mt-auto pt-5">
+        <Button size="sm" className="w-full gap-2 sm:w-auto" asChild>
           <Link href={`/cockpit/${project.id}`}>
-            Piloter
+            Continuer
             <ArrowRight className="h-4 w-4" />
-          </Link>
-        </Button>
-        <Button size="sm" variant="outline" asChild>
-          <Link href={`/opportunities/${project.opportunitySlug}`}>
-            Fiche source
-            <ExternalLink className="h-4 w-4" />
           </Link>
         </Button>
       </div>

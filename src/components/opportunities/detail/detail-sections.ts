@@ -14,7 +14,7 @@ export const detailSections: DetailSection[] = [
   { id: "market", label: "2. Le marché en France", step: 2, tier: "free" },
   { id: "revenus", label: "3. Combien vous pouvez gagner", step: 3, tier: "free" },
   { id: "foreign", label: "4. Le SaaS sur son marché d'origine", step: 4, tier: "builder" },
-  { id: "prompt", label: "5. Prompt Claude Code", step: 5, tier: "pro" },
+  { id: "prompt", label: "5. Prompt Claude Code", step: 5, tier: "builder" },
   { id: "clients", label: "6. Trouvez vos premiers clients", step: 6, tier: "builder" },
   { id: "guide", label: "7. Guide d'action complet", step: 7, tier: "pro" },
 ];
@@ -30,6 +30,40 @@ const competitionLabels: Record<Opportunity["franceCompetition"], string> = {
 
 export function getFranceCompetitionLabel(opportunity: Opportunity): string {
   return competitionLabels[opportunity.franceCompetition];
+}
+
+const franceCompetitionShort: Record<Opportunity["franceCompetition"], string> = {
+  none: "inexistante",
+  low: "très faible",
+  medium: "modérée",
+  high: "élevée",
+};
+
+const franceEncartClosing: Record<Opportunity["franceCompetition"], string> = {
+  none: "Le marché existe, la douleur est réelle — personne n'a encore structuré la solution.",
+  low: "Le marché existe, la douleur est réelle — personne n'a encore structuré la solution.",
+  medium: "Des acteurs commencent à émerger — la fenêtre reste ouverte pour un spécialiste vertical.",
+  high: "La fenêtre se resserre — différenciation et vitesse d'exécution seront clés.",
+};
+
+export function getFranceEncartContent(opportunity: Opportunity): {
+  competitionLabel: string;
+  body: string;
+} {
+  const competitionLabel = franceCompetitionShort[opportunity.franceCompetition];
+  const analysis = opportunity.franceAnalysis[0]?.trim();
+
+  if (analysis) {
+    return {
+      competitionLabel,
+      body: analysis,
+    };
+  }
+
+  return {
+    competitionLabel,
+    body: franceEncartClosing[opportunity.franceCompetition],
+  };
 }
 
 function foreignProductName(opportunity: Opportunity): string {

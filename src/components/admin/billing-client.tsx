@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AdminPageHeader, AdminTable, KpiCard } from "@/components/admin/admin-ui";
+import { AdminPageSkeleton } from "@/components/admin/admin-page-skeleton";
+import { adminFetchJson } from "@/lib/admin/client-fetch";
 
 type Metrics = {
   mrrCents: number;
@@ -17,14 +19,18 @@ type Metrics = {
 export function AdminBillingClient() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [subscribers, setSubscribers] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/admin/billing");
-    const json = await res.json();
-    if (res.ok) {
-      setMetrics(json.metrics);
+    const { ok, data: json } = await adminFetchJson<{
+      metrics?: Metrics;
+      subscribers?: Record<string, unknown>[];
+    }>("/api/admin/billing");
+    if (ok) {
+      setMetrics(json.metrics ?? null);
       setSubscribers(json.subscribers ?? []);
     }
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -32,11 +38,16 @@ export function AdminBillingClient() {
   }, [load]);
 
   const snapshot = async () => {
-    await fetch("/api/admin/billing", { method: "POST" });
+    await adminFetchJson("/api/admin/billing", { method: "POST" });
+    setLoading(true);
     void load();
   };
 
   const fmt = (cents: number) => `${Math.round(cents / 100).toLocaleString("fr-FR")} €`;
+
+  if (loading && !metrics) {
+    return <AdminPageSkeleton kpiCount={4} />;
+  }
 
   return (
     <div>

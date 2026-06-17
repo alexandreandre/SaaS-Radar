@@ -35,11 +35,11 @@ SaaS Radar est un **compagnon de build** pour fondateurs de micro-SaaS en France
 |--------|-------------|
 | **Découverte** | Catalogue d’opportunités validées (marché US → adaptation FR) |
 | **Engagement** | Bouton « Je build cette opportunité » → projet dans Mes SaaS |
-| **Pilotage** | Cockpit Command Center : promesse Radar vs réalité |
+| **Pilotage** | Cockpit Command Center : projection fiche vs réel |
 | **Centralisation** | 30 connecteurs (paiements, pub, analytics, compta FR, dev, CRM…) |
 | **Rétention** | Check-in MRR mensuel, streak, alertes, actions Radar |
 
-**Différenciateur** : seul cockpit qui connaît la **promesse éditoriale** de la fiche opportunité (`financialScenarios`, `mvpPlan.stack`, `cacChannels`) et mesure l’écart vs la réalité du fondateur.
+**Différenciateur** : seul cockpit qui connaît le **scénario éditorial** de la fiche opportunité (`financialScenarios`, `mvpPlan.stack`, `cacChannels`) et mesure l’écart vs la réalité du fondateur.
 
 ---
 
@@ -48,21 +48,23 @@ SaaS Radar est un **compagnon de build** pour fondateurs de micro-SaaS en France
 ```
 Fiche opportunité (/opportunities/[slug])
     │
-    ├─► « Je build cette opportunité » (onboarding dialog)
+    ├─► « Je build cette opportunité » (Quick Launch — 1 choix : où en êtes-vous ?)
     │
     ▼
-Mes SaaS (/mes-saas)
-    │
-    ├─► Stats portfolio (MRR total, progression, check-ins en retard)
-    ├─► Cartes projet (phase, MRR, progression promesse)
+Launch Room (/cockpit/[id]/launch) — 3 micro-victoires
+    │   1. Preview Semaine 1
+    │   2. Première étape cochée (+ confetti)
+    │   3. Trajectoire Radar + stack MVP
     │
     ▼
-Cockpit (/cockpit/[id]?module=overview)
+Cockpit Mode Focus (/cockpit/[id]?module=build&focus=1)
+    │   Journal prominent · 3 modules · zéro alerte J1
+    │   Déblocage cockpit complet : 3 milestones OU skip
     │
-    ├─► Pulse bar (6 KPIs sticky)
-    ├─► Sidebar modules (9 modules)
-    ├─► Contenu module actif
-    └─► Panneau actions (check-in, Radar Intelligence, discipline)
+    ▼
+Cockpit complet (/cockpit/[id])
+    │
+Mes SaaS (/mes-saas) — portfolio + stats (bannière ?welcome=1 après création)
 ```
 
 **Phases projet** : `build` → `launch` → `revenue` → `paused`
@@ -78,10 +80,10 @@ Cockpit (/cockpit/[id]?module=overview)
 | `/` | Accueil, carte monde, feed opportunités |
 | `/opportunities` | Catalogue filtrable |
 | `/opportunities/[slug]` | Fiche détaillée + CTA build |
-| `/mes-saas` | Portfolio des projets en cours |
+| `/mes-saas` | Espace builder : briefing projet actif, portfolio, favoris |
 | `/cockpit/[id]` | Command Center par projet |
 | `/cockpit/[id]?module=revenus` | Deep link module (9 valeurs possibles) |
-| `/dashboard` | Vue agrégée utilisateur |
+| `/dashboard` | Redirige vers `/mes-saas` |
 | `/simulator` | Simulateur financier (lié au projet) |
 | `/pricing`, `/quiz`, `/newsletter`, `/world` | Pages marketing / contenu |
 
@@ -159,9 +161,9 @@ Cockpit (/cockpit/[id]?module=overview)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Header : nom, pitch, promesse Radar, phase, scénario       │
+│  Header : nom, pitch, scénario cible, phase, scénario       │
 ├─────────────────────────────────────────────────────────────┤
-│  Pulse bar (sticky) : MRR | Promesse | Clients | Runway |   │
+│  Pulse bar (sticky) : MRR | Objectif | Clients | Runway |   │
 │                       ROAS | Alertes critiques              │
 ├──────────┬──────────────────────────────┬───────────────────┤
 │ Sidebar  │  Module actif                │  Panneau actions  │
@@ -180,7 +182,7 @@ Cockpit (/cockpit/[id]?module=overview)
 
 | Paramètre URL | Module | Label |
 |---------------|--------|-------|
-| `?module=overview` | Vue d'ensemble | KPIs, promesse, alertes |
+| `?module=overview` | Vue d'ensemble | KPIs, trajectoire MRR, alertes |
 | `?module=revenus` | Revenus | MRR, ARR, NRR, historique |
 | `?module=acquisition` | Acquisition | Campagnes, ROAS, funnel |
 | `?module=produit` | Produit | Signups, MAU, activation |
@@ -196,7 +198,7 @@ Cockpit (/cockpit/[id]?module=overview)
 
 | Fichier | Rôle |
 |---------|------|
-| `cockpit-header.tsx` | En-tête + bandeau promesse + pills phase/scénario |
+| `cockpit-header.tsx` | En-tête + bandeau scénario + pills phase/scénario |
 | `cockpit-pulse-bar.tsx` | 6 tuiles KPI sticky |
 | `cockpit-sidebar.tsx` | Navigation verticale + compteur alertes |
 | `cockpit-shell.tsx` | Orchestration layout + routing `?module=` |
@@ -212,7 +214,7 @@ Agrège pour un couple `(UserProject, Opportunity)` :
 - `stackHealth` — couverture stack
 - `radarActions` — actions priorisées
 - `history` — snapshots mensuels
-- `chartData` — courbe promesse vs réalité (12 mois)
+- `chartData` — courbe projection fiche vs réel (12 mois)
 - `gap` — écart % vs scénario cible
 - `target` — MRR objectif Radar
 - `milestoneProgress` — % journal complété
@@ -228,8 +230,8 @@ Agrège pour un couple `(UserProject, Opportunity)` :
 |----------------|--------|
 | Grille KPI (11 métriques + sparklines) | `buildCockpitMetrics` |
 | Stack health bar | `buildStackHealth` |
-| Graphique Promesse vs Réalité (12 mois) | `buildPromiseCurve` + `mergeRealityCurve` |
-| Callout écart promesse (+% ou montant restant) | `getPromiseGapPercent` |
+| Graphique trajectoire MRR (12 mois) | `buildScenarioCurve` + `mergeRealityCurve` |
+| Callout écart objectif (+% ou montant restant) | `getTargetGapPercent` |
 | Panel alertes (clic → navigation module) | `buildCockpitAlerts` |
 | Prochaine action (Radar Intelligence #1) | `buildRadarActions` |
 | Saisie métriques manuelles | `ManualMetricsDialog` |
@@ -346,7 +348,7 @@ Agrège pour un couple `(UserProject, Opportunity)` :
 | Tuile | Source |
 |-------|--------|
 | MRR | snapshot latest / check-in |
-| Promesse | écart % vs scénario + % objectif |
+| Objectif | écart % vs scénario + % objectif |
 | Clients | `customers` snapshot |
 | Runway | `computeRunwayMonths` |
 | ROAS | `computeRoas(campaigns)` |
@@ -368,7 +370,7 @@ Agrège pour un couple `(UserProject, Opportunity)` :
 | Runway | `cashOnHand / burnRate` |
 | Objectif Radar | MRR scénario cible |
 | **NRR** | `(mrr / startMrr) × 100` approx |
-| **promiseProgressPct** | `mrr / target × 100` |
+| **targetProgressPct** | `mrr / target × 100` |
 | **stackCoveragePct** | connectés / recommandés |
 | **failedPayments** | stream Stripe `payment` |
 
@@ -529,7 +531,7 @@ Légende :
 | Priorité | **P0** |
 | Catégorie | payments |
 | Mode | snapshots + stream `payment` |
-| Impact promesse | Source de vérité MRR vs promesse Radar |
+| Impact cockpit | MRR réel vs projection fiche |
 | Snapshots | mrr, newMrr, expansionMrr, churnedMrr, customers |
 | Stream | failedPayments, recoveredPayments |
 | API future | Stripe Billing API, webhooks `invoice.paid`, `customer.subscription.deleted` |
@@ -574,7 +576,7 @@ Légende :
 |----------|--------|
 | Priorité | **P0** |
 | Mode | snapshots |
-| Impact promesse | ROAS vs budget acquisition Radar |
+| Impact cockpit | ROAS vs budget acquisition fiche |
 | Snapshots | adSpend, impressions, clicks, conversions |
 | API future | Google Ads API (campaign performance) |
 | Module cockpit | Acquisition |
@@ -700,7 +702,7 @@ Légende :
 
 | Priorité | P1 |
 | Mode | stream `finance` uniquement |
-| Impact promesse | Runway réel vs estimé |
+| Impact cockpit | Runway réel vs estimé |
 | Stream | cashBalance, monthlyInflow, monthlyOutflow, runwayDays |
 | API future | Qonto API v2 (accounts, transactions) |
 | Module cockpit | Finance |
@@ -709,7 +711,7 @@ Légende :
 
 | Priorité | P1 |
 | Mode | stream `accounting` |
-| Impact promesse | CA comptable vs MRR Stripe |
+| Impact cockpit | CA comptable vs MRR Stripe |
 | Stream | revenueBooked, expensesBooked, vatDue |
 | API future | Pennylane API (factures, écritures) |
 
@@ -825,7 +827,7 @@ Récapitulatif : quel connecteur produit quel stream à la sync démo.
 
 ### 14.3 Carte connecteur
 
-Affiche : nom, catégorie, job, badge P0, badge Démo/Connecté, description, impact promesse, métriques fournies, dernière sync, boutons Connecter / Sync / Déconnecter.
+Affiche : nom, catégorie, job, badge P0, badge Démo/Connecté, description, impact cockpit, métriques fournies, dernière sync, boutons Connecter / Sync / Déconnecter.
 
 ---
 

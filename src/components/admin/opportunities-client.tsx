@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { AdminPageHeader, AdminTable, KpiCard } from "@/components/admin/admin-ui";
 import { sectorLabels } from "@/data/opportunities";
 import { SECTORS } from "@/lib/sourcing/constants";
-import { canEditAdmin, type AdminRole } from "@/lib/admin/rbac";
+import { canEditAdmin } from "@/lib/admin/rbac";
+import { useAdminRole } from "@/contexts/admin-role-context";
+import { adminFetchJson } from "@/lib/admin/client-fetch";
 import { cn } from "@/lib/utils";
 import type { CatalogueStats } from "@/lib/admin/catalogue-stats.shared";
 
@@ -49,7 +51,8 @@ function parseApiError(json: { error?: string }): string {
   return json.error ?? "Erreur inconnue";
 }
 
-export function AdminOpportunitiesClient({ role }: { role: AdminRole }) {
+export function AdminOpportunitiesClient() {
+  const role = useAdminRole();
   const canEdit = canEditAdmin(role);
 
   const [items, setItems] = useState<OpportunityRow[]>([]);
@@ -82,9 +85,10 @@ export function AdminOpportunitiesClient({ role }: { role: AdminRole }) {
   const loadStats = useCallback(async () => {
     setStatsLoading(true);
     try {
-      const res = await fetch("/api/admin/opportunities/stats");
-      const json = await res.json();
-      if (!res.ok) throw new Error(parseApiError(json));
+      const { ok, data: json } = await adminFetchJson<{ stats?: CatalogueStats; error?: string }>(
+        "/api/admin/opportunities/stats"
+      );
+      if (!ok) throw new Error(parseApiError(json));
       setStats(json.stats ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -97,9 +101,10 @@ export function AdminOpportunitiesClient({ role }: { role: AdminRole }) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/opportunities?${queryString}`);
-      const json = (await res.json()) as ListResponse & { error?: string };
-      if (!res.ok) throw new Error(parseApiError(json));
+      const { ok, data: json } = await adminFetchJson<ListResponse & { error?: string }>(
+        `/api/admin/opportunities?${queryString}`
+      );
+      if (!ok) throw new Error(parseApiError(json));
       setItems(json.opportunities ?? []);
       setTotal(json.total ?? 0);
     } catch (err) {

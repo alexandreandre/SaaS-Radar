@@ -18,6 +18,7 @@ export type CockpitModuleProps = {
   onSyncIntegration: (connectorId: ConnectorId) => void;
   onDisconnectIntegration: (connectorId: ConnectorId) => void;
   onLogMetrics: (partial: Partial<MetricsSnapshot>) => void;
+  onRecordMrr: (amount: number, note?: string) => void;
   onSetCashOnHand: (amount: number) => void;
   onModuleChange: (module: CockpitModuleId) => void;
 };

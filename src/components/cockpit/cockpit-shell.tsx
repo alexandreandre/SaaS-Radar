@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Opportunity } from "@/types/opportunity";
 import type { UserProject } from "@/lib/portfolio";
@@ -9,10 +9,11 @@ import {
   normalizeModuleId,
   type CockpitModuleId,
 } from "@/lib/cockpit-modules";
+import { cn } from "@/lib/utils";
 import { DemoModeBanner } from "@/components/cockpit/demo-mode-banner";
-import { CockpitPulseBar } from "@/components/cockpit/cockpit-pulse-bar";
 import { CockpitSidebar } from "@/components/cockpit/cockpit-sidebar";
-import { CockpitActionsPanel } from "@/components/cockpit/cockpit-actions-panel";
+import { CockpitModuleBar } from "@/components/cockpit/cockpit-module-bar";
+import { CockpitNavDrawer } from "@/components/cockpit/cockpit-nav-drawer";
 import { OverviewModule } from "@/components/cockpit/modules/overview-module";
 import { RevenueModule } from "@/components/cockpit/modules/revenue-module";
 import { AcquisitionModule } from "@/components/cockpit/modules/acquisition-module";
@@ -22,13 +23,18 @@ import { ClientsModule } from "@/components/cockpit/modules/clients-module";
 import { BuildModule } from "@/components/cockpit/modules/build-module";
 import { IntegrationsModule } from "@/components/cockpit/modules/integrations-module";
 import { ReportsModule } from "@/components/cockpit/modules/reports-module";
+import { PlaybookModule } from "@/components/cockpit/modules/playbook-module";
 import type { CockpitModuleProps } from "@/components/cockpit/modules/module-props";
 import type { AdCampaign, ConnectorId, Expense, MetricsSnapshot } from "@/lib/connectors/types";
+import { shouldShowLaunchPad } from "@/lib/build-launch";
+import { LaunchPad } from "@/components/cockpit/launch-pad/launch-pad";
+import { useCockpitSidebarCollapsed } from "@/hooks/use-cockpit-sidebar-collapsed";
 
 type CockpitShellProps = {
   project: UserProject;
   opportunity: Opportunity;
   data: import("@/hooks/use-cockpit-data").CockpitData;
+  header?: ReactNode;
   onRecordMrr: (amount: number, note?: string) => void;
   onToggleMilestone: (milestoneId: string) => void;
   onAddCampaign: (campaign: Omit<AdCampaign, "id">) => void;
@@ -41,24 +47,27 @@ type CockpitShellProps = {
   onDisconnectIntegration: (connectorId: ConnectorId) => void;
   onLogMetrics: (partial: Partial<MetricsSnapshot>) => void;
   onSetCashOnHand: (amount: number) => void;
+  onCompleteOnboarding: () => void;
 };
 
 const MODULE_MAP: Record<CockpitModuleId, React.ComponentType<CockpitModuleProps>> = {
   overview: OverviewModule,
+  produit: ProductModule,
   revenus: RevenueModule,
   acquisition: AcquisitionModule,
-  produit: ProductModule,
   finance: FinanceModule,
   clients: ClientsModule,
+  rapports: ReportsModule,
+  playbook: PlaybookModule,
   build: BuildModule,
   integrations: IntegrationsModule,
-  rapports: ReportsModule,
 };
 
 export function CockpitShell({
   project,
   opportunity,
   data,
+  header,
   onRecordMrr,
   onToggleMilestone,
   onAddCampaign,
@@ -71,15 +80,19 @@ export function CockpitShell({
   onDisconnectIntegration,
   onLogMetrics,
   onSetCashOnHand,
+  onCompleteOnboarding,
 }: CockpitShellProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const paramModule = searchParams.get("module");
+  const launchPadMode = shouldShowLaunchPad(project);
+  const { collapsed, setCollapsed, hydrated } = useCockpitSidebarCollapsed();
   const initialModule = paramModule
     ? normalizeModuleId(paramModule)
     : DEFAULT_COCKPIT_MODULE;
 
   const [activeModule, setActiveModule] = useState<CockpitModuleId>(initialModule);
+  const [navDrawerOpen, setNavDrawerOpen] = useState(false);
 
   const handleModuleChange = useCallback(
     (module: CockpitModuleId) => {
@@ -97,6 +110,16 @@ export function CockpitShell({
     }
   }, [paramModule]);
 
+  useEffect(() => {
+    if (project.onboardingCompleted && launchPadMode === false) {
+      const params = new URLSearchParams(searchParams.toString());
+      if (!params.get("module")) {
+        params.set("module", "overview");
+        router.replace(`?${params.toString()}`, { scroll: false });
+      }
+    }
+  }, [project.onboardingCompleted, launchPadMode, router, searchParams]);
+
   const ModuleComponent = MODULE_MAP[activeModule];
 
   const moduleProps: CockpitModuleProps = {
@@ -113,44 +136,69 @@ export function CockpitShell({
     onSyncIntegration,
     onDisconnectIntegration,
     onLogMetrics,
+    onRecordMrr,
     onSetCashOnHand,
     onModuleChange: handleModuleChange,
   };
 
-  return (
-    <div className="mt-6 space-y-4">
-      {data.metrics.hasDemoData ? <DemoModeBanner /> : null}
-      <CockpitPulseBar data={data} hasDemoData={data.metrics.hasDemoData} />
+  if (launchPadMode) {
+    return (
+      <LaunchPad
+        project={project}
+        opportunity={opportunity}
+        onToggleMilestone={onToggleMilestone}
+        onRecordMrr={onRecordMrr}
+        onCompleteOnboarding={onCompleteOnboarding}
+        onOpenBuild={() => {
+          onCompleteOnboarding();
+          handleModuleChange("build");
+        }}
+      />
+    );
+  }
 
-      <div className="grid gap-6 xl:grid-cols-[220px_1fr_280px]">
-        <div className="hidden xl:block">
+  return (
+    <div className="flex min-h-[calc(100dvh-3.5rem)]">
+      <aside
+        className={cn(
+          "sticky top-14 hidden h-[calc(100dvh-3.5rem)] shrink-0 flex-col overflow-y-auto border-r border-border bg-muted/10 transition-[width] duration-200 lg:flex",
+          hydrated && collapsed ? "w-14" : "w-60"
+        )}
+      >
+        <div className="flex min-h-0 flex-1 flex-col p-3">
           <CockpitSidebar
             activeModule={activeModule}
             onModuleChange={handleModuleChange}
             alerts={data.alerts}
+            collapsed={hydrated && collapsed}
+            onCollapsedChange={setCollapsed}
           />
         </div>
+      </aside>
 
-        <div className="min-w-0 space-y-4">
-          <div className="overflow-x-auto pb-1 xl:hidden">
-            <CockpitSidebar
-              activeModule={activeModule}
-              onModuleChange={handleModuleChange}
-              alerts={data.alerts}
-            />
-          </div>
+      <div className="min-w-0 flex-1 px-4 py-10 sm:px-6">
+        {header}
+
+        <div className={cn(header ? "mt-6" : undefined, "space-y-4")}>
+          {data.metrics.hasDemoData ? <DemoModeBanner /> : null}
+
+          <CockpitModuleBar
+            activeModule={activeModule}
+            alerts={data.alerts}
+            onOpenNav={() => setNavDrawerOpen(true)}
+          />
+
           <ModuleComponent {...moduleProps} />
         </div>
-
-        <CockpitActionsPanel
-          project={project}
-          opportunity={opportunity}
-          data={data}
-          onRecordMrr={onRecordMrr}
-          onLogMetrics={onLogMetrics}
-          onModuleChange={handleModuleChange}
-        />
       </div>
+
+      <CockpitNavDrawer
+        open={navDrawerOpen}
+        onOpenChange={setNavDrawerOpen}
+        activeModule={activeModule}
+        onModuleChange={handleModuleChange}
+        alerts={data.alerts}
+      />
     </div>
   );
 }

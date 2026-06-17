@@ -12,6 +12,7 @@ export type { AdCampaign, Expense, Integration, MetricsSnapshot };
 
 export type ProjectPhase = "build" | "launch" | "revenue" | "paused";
 export type TargetScenario = FinancialScenario["name"];
+export type BuilderStage = "starting" | "building" | "has_mrr";
 
 export type MrrEntry = {
   date: string;
@@ -48,6 +49,11 @@ export type UserProject = {
   integrations?: Integration[];
   connectorStreams?: ConnectorStreams;
   cashOnHand?: number;
+  builderStage?: BuilderStage;
+  onboardingCompleted?: boolean;
+  onboardingCompletedAt?: string;
+  firstMilestoneAt?: string;
+  launchRoomSeenAt?: string;
 };
 
 export type { ConnectorId, ConnectorStreams };
@@ -56,6 +62,7 @@ export type AddProjectInput = {
   startedAt: string;
   currentMrr: number;
   targetScenario: TargetScenario;
+  builderStage?: BuilderStage;
 };
 
 export const PORTFOLIO_STORAGE_KEY = "saas-radar:portfolio";
@@ -79,14 +86,24 @@ export function generateProjectId(): string {
 }
 
 export function buildMilestonesFromOpportunity(opportunity: Opportunity): Milestone[] {
-  const launch: Milestone[] = (opportunity.launchTimeline ?? []).flatMap((week) =>
-    week.actions.map((action, index) => ({
-      id: `launch-w${week.week}-${index}`,
-      label: `S${week.week} — ${action}`,
-      done: false,
-      source: "launch" as const,
-    }))
-  );
+  const roadmap = opportunity.mvpPlan.roadmap;
+
+  const launch: Milestone[] =
+    roadmap.length > 0
+      ? roadmap.map((step, index) => ({
+          id: `build-step-${index}`,
+          label: `${step.day} — ${step.objective ?? step.tasks[0] ?? `Étape ${index + 1}`}`,
+          done: false,
+          source: "launch" as const,
+        }))
+      : (opportunity.launchTimeline ?? []).flatMap((week) =>
+          week.actions.map((action, index) => ({
+            id: `launch-w${week.week}-${index}`,
+            label: `S${week.week} — ${action}`,
+            done: false,
+            source: "launch" as const,
+          })),
+        );
 
   const revenue: Milestone[] = REVENUE_MILESTONES.map((m) => ({
     ...m,
@@ -94,6 +111,51 @@ export function buildMilestonesFromOpportunity(opportunity: Opportunity): Milest
   }));
 
   return [...launch, ...revenue];
+}
+
+/** Migre les jalons launch-w* vers build-step-* quand la roadmap est disponible. */
+export function syncBuildMilestones(
+  project: UserProject,
+  opportunity: Opportunity,
+): UserProject {
+  const roadmap = opportunity.mvpPlan.roadmap;
+  if (roadmap.length === 0) return project;
+
+  const hasBuildSteps = project.milestones.some((m) => m.id.startsWith("build-step-"));
+  if (hasBuildSteps) return project;
+
+  const legacyLaunch = project.milestones.filter(
+    (m) => m.source === "launch" && m.id.startsWith("launch-w"),
+  );
+  const revenue = project.milestones.filter((m) => m.source === "revenue");
+  const other = project.milestones.filter(
+    (m) => m.source !== "launch" && m.source !== "revenue",
+  );
+
+  const launch = roadmap.map((step, index) => {
+    const legacyForWeek = legacyLaunch.filter((m) => {
+      const weekMatch = m.id.match(/^launch-w(\d+)-/);
+      if (!weekMatch) return false;
+      const week = parseInt(weekMatch[1], 10);
+      const stepWeek = step.week ?? Math.min(4, Math.floor((index / roadmap.length) * 4) + 1);
+      return week === stepWeek;
+    });
+    const done = legacyForWeek.length > 0 && legacyForWeek.every((m) => m.done);
+    const doneAt = legacyForWeek.find((m) => m.doneAt)?.doneAt;
+
+    return {
+      id: `build-step-${index}`,
+      label: `${step.day} — ${step.objective ?? step.tasks[0] ?? `Étape ${index + 1}`}`,
+      done,
+      doneAt,
+      source: "launch" as const,
+    };
+  });
+
+  return {
+    ...project,
+    milestones: [...launch, ...revenue, ...other],
+  };
 }
 
 export function getScenarioMrr(opportunity: Opportunity, scenario: TargetScenario): number {
@@ -123,6 +185,10 @@ export function createProjectFromOpportunity(
     lastCheckInAt: input.currentMrr > 0 ? now : undefined,
     checkInStreak: input.currentMrr > 0 ? 1 : 0,
     createdAt: now,
+    builderStage: input.builderStage ?? "starting",
+    onboardingCompleted: false,
+    campaigns: [],
+    expenses: [],
   };
 }
 
@@ -134,6 +200,16 @@ export function getMilestoneProgress(project: UserProject): number {
   if (project.milestones.length === 0) return 0;
   const done = project.milestones.filter((m) => m.done).length;
   return Math.round((done / project.milestones.length) * 100);
+}
+
+export function getMilestoneCounts(project: UserProject): { done: number; total: number } {
+  const total = project.milestones.length;
+  const done = project.milestones.filter((m) => m.done).length;
+  return { done, total };
+}
+
+export function getNextIncompleteMilestone(project: UserProject): Milestone | null {
+  return project.milestones.find((m) => !m.done) ?? null;
 }
 
 export function daysSince(dateIso?: string): number | null {
@@ -153,7 +229,7 @@ export function countOverdueCheckIns(projects: UserProject[]): number {
   return projects.filter((p) => p.phase !== "paused" && isCheckInOverdue(p)).length;
 }
 
-export function buildPromiseCurve(
+export function buildScenarioCurve(
   opportunity: Opportunity,
   scenario: TargetScenario,
   months = 12
@@ -166,13 +242,13 @@ export function buildPromiseCurve(
 }
 
 export function mergeRealityCurve(
-  promise: { month: number; mrr: number }[],
+  projected: { month: number; mrr: number }[],
   history: MrrEntry[],
   startedAt: string
-): { month: number; promise: number; reality: number | null }[] {
+): { month: number; projected: number; reality: number | null }[] {
   const start = new Date(startedAt).getTime();
 
-  return promise.map((point) => {
+  return projected.map((point) => {
     const pointDate = new Date(start);
     pointDate.setMonth(pointDate.getMonth() + point.month);
 
@@ -183,13 +259,13 @@ export function mergeRealityCurve(
     const latest = entriesBeforePoint.at(-1);
     return {
       month: point.month,
-      promise: point.mrr,
+      projected: point.mrr,
       reality: latest ? latest.amount : point.month === 0 ? 0 : null,
     };
   });
 }
 
-export function getPromiseGapPercent(
+export function getTargetGapPercent(
   project: UserProject,
   opportunity: Opportunity
 ): number | null {
@@ -336,10 +412,31 @@ export function getNextActionMessage(project: UserProject, opportunity: Opportun
     return "Plus de 80 % du journal est complété — passez en phase Revenu et concentrez-vous sur la conversion.";
   }
 
-  return "Mettez à jour votre MRR ce mois-ci pour suivre votre progression face à la promesse Radar.";
+  return "Mettez à jour votre MRR ce mois-ci pour suivre votre progression face au plan de la fiche.";
+}
+
+export function getProjectCardActionSummary(
+  project: UserProject,
+  opportunity: Opportunity
+): string {
+  const raw = getNextActionMessage(project, opportunity);
+  const launchAction = raw.match(/^Commencez par : (.+?) — /);
+  if (launchAction) return launchAction[1].trim();
+  if (raw.length > 140) return `${raw.slice(0, 137).trim()}…`;
+  return raw;
+}
+
+export function getCurrentStepTitle(project: UserProject): string {
+  const next = getNextIncompleteMilestone(project);
+  if (next) return next.label;
+  if (project.phase === "revenue") return "Croissance et conversion";
+  if (project.phase === "launch") return "Lancement en cours";
+  if (project.phase === "paused") return "Projet en pause";
+  return "Journal complété";
 }
 
 export function migrateProject(project: UserProject): UserProject {
+  const hasLegacyOnboardingFlag = "onboardingCompleted" in project;
   return {
     ...project,
     metricsHistory: project.metricsHistory ?? [],
@@ -348,6 +445,10 @@ export function migrateProject(project: UserProject): UserProject {
     integrations: project.integrations ?? [],
     connectorStreams: project.connectorStreams ?? {},
     cashOnHand: project.cashOnHand ?? 5000,
+    builderStage: project.builderStage ?? "starting",
+    onboardingCompleted: hasLegacyOnboardingFlag
+      ? (project.onboardingCompleted ?? false)
+      : true,
   };
 }
 
@@ -426,6 +527,39 @@ export function getFunnel(snapshot: MetricsSnapshot) {
     { stage: "Trials", value: snapshot.trials },
     { stage: "Clients", value: snapshot.customers },
   ];
+}
+
+export function computeStickiness(dau: number, mau: number): number | null {
+  if (mau <= 0) return null;
+  return Math.round((dau / mau) * 100);
+}
+
+export function getEngagementSeries(history: MetricsSnapshot[]) {
+  return history.map((snap) => ({
+    date: snap.date,
+    signups: snap.signups,
+    mau: snap.mau,
+    dau: snap.dau,
+    stickiness: computeStickiness(snap.dau, snap.mau) ?? 0,
+  }));
+}
+
+export function getProductFunnel(
+  snapshot: MetricsSnapshot,
+  activationRate?: number
+) {
+  const stages: { stage: string; value: number }[] = [
+    { stage: "Signups", value: snapshot.signups },
+    { stage: "Trials", value: snapshot.trials },
+  ];
+  if (activationRate !== undefined && snapshot.signups > 0) {
+    stages.push({
+      stage: "Activés",
+      value: Math.round((snapshot.signups * activationRate) / 100),
+    });
+  }
+  stages.push({ stage: "Clients", value: snapshot.customers });
+  return stages.filter((d) => d.value > 0);
 }
 
 export function getRetentionSeries(history: MetricsSnapshot[]) {

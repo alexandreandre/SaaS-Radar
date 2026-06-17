@@ -7,7 +7,8 @@ import { TierProvider } from "@/contexts/tier-context";
 import { PortfolioProvider } from "@/contexts/portfolio-context";
 import { FavoritesProvider } from "@/contexts/favorites-context";
 import { getAllOpportunities } from "@/lib/opportunities";
-import { getCurrentUser, getTier } from "@/lib/auth";
+import { getCurrentUser, getTier, isAdmin } from "@/lib/auth";
+import { SessionProvider } from "@/contexts/session-context";
 
 const sourceSans = Source_Sans_3({
   subsets: ["latin"],
@@ -47,7 +48,11 @@ export default async function RootLayout({
 
   // Tier autoritatif cote serveur (profiles.plan) : injecte dans TierProvider pour
   // qu'aucun compte authentifie ne puisse se sur-classer via localStorage.
-  const [user, serverTier] = await Promise.all([getCurrentUser(), getTier()]);
+  const [user, serverTier, serverIsAdmin] = await Promise.all([
+    getCurrentUser(),
+    getTier(),
+    isAdmin(),
+  ]);
   const isAuthenticated = !!user;
 
   return (
@@ -56,13 +61,15 @@ export default async function RootLayout({
         className={`${sourceSans.variable} ${newsreader.variable} ${plexMono.variable} font-sans`}
       >
         <ThemeProvider>
-          <TierProvider serverTier={serverTier} isAuthenticated={isAuthenticated}>
-            <PortfolioProvider opportunityCatalog={opportunityCatalog}>
-              <FavoritesProvider>
-                <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
-              </FavoritesProvider>
-            </PortfolioProvider>
-          </TierProvider>
+          <SessionProvider isAuthenticated={isAuthenticated} isAdmin={serverIsAdmin}>
+            <TierProvider serverTier={serverTier} isAuthenticated={isAuthenticated}>
+              <PortfolioProvider opportunityCatalog={opportunityCatalog}>
+                <FavoritesProvider>
+                  <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
+                </FavoritesProvider>
+              </PortfolioProvider>
+            </TierProvider>
+          </SessionProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -23,7 +23,9 @@ import {
   relaunchSourcingRunAction,
   resumeQueuedRunsAction,
 } from "@/lib/admin/sourcing-actions";
-import { canEditAdmin, type AdminRole } from "@/lib/admin/rbac";
+import { canEditAdmin } from "@/lib/admin/rbac";
+import { useAdminRole } from "@/contexts/admin-role-context";
+import { adminFetchJson } from "@/lib/admin/client-fetch";
 import { CountryMultiSelect, type CountryOption } from "@/components/admin/country-multi-select";
 import { cn } from "@/lib/utils";
 
@@ -192,7 +194,8 @@ function FeedbackBanner({
 
 type MarketOption = CountryOption;
 
-export function SourcingConsole({ role }: { role: AdminRole }) {
+export function SourcingConsole() {
+  const role = useAdminRole();
   const canEdit = canEditAdmin(role);
   const defaultMinScore = process.env.NEXT_PUBLIC_SOURCING_MIN_SCORE ?? "65";
 
@@ -231,15 +234,15 @@ export function SourcingConsole({ role }: { role: AdminRole }) {
   const load = useCallback(async () => {
     try {
       const [runsRes, policyRes, marketsRes, summaryRes] = await Promise.all([
-        fetch("/api/admin/sourcing"),
-        fetch("/api/admin/sourcing/policy"),
-        fetch("/api/admin/markets"),
-        fetch("/api/admin/sourcing/summary"),
+        adminFetchJson("/api/admin/sourcing"),
+        adminFetchJson("/api/admin/sourcing/policy"),
+        adminFetchJson("/api/admin/markets"),
+        adminFetchJson("/api/admin/sourcing/summary"),
       ]);
-      const runsJson = await runsRes.json();
-      const policyJson = await policyRes.json();
-      const marketsJson = await marketsRes.json();
-      const summaryJson = await summaryRes.json();
+      const runsJson = runsRes.data as Record<string, unknown>;
+      const policyJson = policyRes.data as { settings?: SourcingSettings };
+      const marketsJson = marketsRes.data as { markets?: MarketOption[] };
+      const summaryJson = summaryRes.data as Summary;
 
       if (runsRes.ok) {
         const allRuns = (runsJson.runs ?? []) as Run[];
@@ -260,7 +263,7 @@ export function SourcingConsole({ role }: { role: AdminRole }) {
         );
       }
       if (policyRes.ok) {
-        setPolicy(policyJson.settings);
+        setPolicy(policyJson.settings ?? null);
         setRules(policyJson.settings?.auto_publish_rules ?? []);
       }
       if (summaryRes.ok) setSummary(summaryJson);
@@ -409,7 +412,10 @@ export function SourcingConsole({ role }: { role: AdminRole }) {
     setPolicySaving(true);
     setPolicyError(null);
     try {
-      const res = await fetch("/api/admin/sourcing/policy", {
+      const { ok, status, data: json } = await adminFetchJson<{
+        settings?: SourcingSettings;
+        error?: string;
+      }>("/api/admin/sourcing/policy", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -419,10 +425,9 @@ export function SourcingConsole({ role }: { role: AdminRole }) {
           monthly_cost_cap_usd: policy?.monthly_cost_cap_usd ?? null,
         }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(parseApiError(json, res.status));
-      setPolicy(json.settings);
-      setRules(json.settings.auto_publish_rules ?? []);
+      if (!ok) throw new Error(parseApiError(json, status));
+      setPolicy(json.settings ?? null);
+      setRules(json.settings?.auto_publish_rules ?? []);
       setPolicyFeedback("Règles de publication enregistrées");
     } catch (err) {
       setPolicyError(err instanceof Error ? err.message : String(err));
@@ -433,21 +438,23 @@ export function SourcingConsole({ role }: { role: AdminRole }) {
 
   const simulatePolicy = async () => {
     setPolicyError(null);
-    const res = await fetch("/api/admin/sourcing/policy", {
+    const { ok, data: json } = await adminFetchJson<{
+      simulation?: { total: number; wouldPublish: number };
+      error?: string;
+    }>("/api/admin/sourcing/policy", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "simulate",
         settings: { ...policy, auto_publish_rules: rules },
-        runPremium: premium,
+        runPremium: true,
       }),
     });
-    const json = await res.json();
-    if (!res.ok) {
+    if (!ok) {
       setPolicyError(parseApiError(json));
       return;
     }
-    setSimulation(json.simulation);
+    setSimulation(json.simulation ?? null);
   };
 
   const addPresetRule = (preset: AutoPublishRule) => {
@@ -627,19 +634,7 @@ export function SourcingConsole({ role }: { role: AdminRole }) {
               className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
             />
           </div>
-          <div className="flex items-end gap-3">
-            <label
-              className="flex items-center gap-2 text-sm"
-              title="Ajoute frenchCompetitors, launchTimeline, emailTemplates"
-            >
-              <input
-                type="checkbox"
-                checked={premium}
-                disabled={!canEdit}
-                onChange={(e) => setPremium(e.target.checked)}
-              />
-              Premium
-            </label>
+          <div className="flex items-end">
             <Button
               onClick={() => void launch()}
               disabled={!canEdit || loading || hasActiveRuns}

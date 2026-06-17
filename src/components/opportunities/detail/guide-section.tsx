@@ -1,125 +1,355 @@
-import Link from "next/link";
+"use client";
+
+import { Ban, Check, ChevronRight, Hammer, Layers, Sparkles } from "lucide-react";
 import type { Opportunity } from "@/types/opportunity";
+import type { UserProject } from "@/lib/portfolio";
+import type { CockpitModuleId } from "@/lib/cockpit-modules";
 import { cn } from "@/lib/utils";
+import { getMilestoneProgress } from "@/lib/portfolio";
+import {
+  getCurrentPlanDay,
+  getCurrentRoadmapStepIndex,
+  getGuideMilestoneProgress,
+  getPlanDayRangeLabel,
+  getPlanDurationDays,
+  getStepWeek,
+  getTargetClients,
+} from "@/lib/guide-plan";
 import { SectionTitle } from "@/components/opportunities/detail/section-title";
 import { AnimatedSection } from "@/components/opportunities/detail/animated-section";
+import { BuildOpportunityCta } from "@/components/cockpit/build-opportunity-cta";
+import { PlaybookGuideContextBanner } from "@/components/cockpit/playbook/playbook-guide-context";
+import { Button } from "@/components/ui/button";
+
+export type GuideContext = "detail" | "playbook" | "drawer" | "cockpit";
 
 interface GuideSectionProps {
   opportunity: Opportunity;
   animationIndex: number;
+  variant?: "detail" | "playbook";
+  context?: GuideContext;
+  project?: UserProject;
+  onModuleChange?: (module: CockpitModuleId) => void;
+  onOpenPrompt?: () => void;
 }
 
-export function GuideSection({ opportunity, animationIndex }: GuideSectionProps) {
-  const { mvpPlan } = opportunity;
-  const lastIndex = mvpPlan.roadmap.length - 1;
+function GuideWrapper({
+  isPlaybook,
+  animationIndex,
+  className,
+  children,
+  id,
+}: {
+  isPlaybook: boolean;
+  animationIndex: number;
+  className?: string;
+  children: React.ReactNode;
+  id: string;
+}) {
+  if (isPlaybook) {
+    return (
+      <section id={id} className={className}>
+        {children}
+      </section>
+    );
+  }
+  return (
+    <AnimatedSection id={id} animationIndex={animationIndex} className={className}>
+      {children}
+    </AnimatedSection>
+  );
+}
+
+function GuideCockpitFooter({
+  project,
+  onModuleChange,
+  onOpenPrompt,
+}: {
+  project: UserProject;
+  onModuleChange?: (module: CockpitModuleId) => void;
+  onOpenPrompt?: () => void;
+}) {
+  const journalProgress = getMilestoneProgress(project);
+  const milestoneProgress = getGuideMilestoneProgress(project);
 
   return (
-    <AnimatedSection id="guide" animationIndex={animationIndex} className="mb-12 scroll-mt-24">
-      <SectionTitle number={9} title="Guide J1 → J14" />
-      <p className="text-sm text-muted-foreground mb-6">
-        Exactement quoi faire chaque jour — de l&apos;idée au premier client payant
+    <div className="rounded-xl border border-primary/30 bg-gradient-to-r from-primary/5 to-card p-6 text-center">
+      <p className="font-semibold text-foreground">Passez à l&apos;action</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {milestoneProgress.total > 0
+          ? `${milestoneProgress.done}/${milestoneProgress.total} jalons complétés · ${journalProgress} % du journal`
+          : `${journalProgress} % du journal complété`}
       </p>
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+        {onModuleChange ? (
+          <Button type="button" className="gap-2" onClick={() => onModuleChange("build")}>
+            <Hammer className="h-4 w-4" />
+            Ouvrir le journal Build
+          </Button>
+        ) : null}
+        {onOpenPrompt ? (
+          <Button type="button" variant="outline" className="gap-2" onClick={onOpenPrompt}>
+            <Sparkles className="h-4 w-4" />
+            Prompt MVP
+          </Button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        <div className="p-4 bg-card border border-border rounded-xl text-center">
-          <p className="text-2xl font-black text-foreground">14</p>
-          <p className="text-xs text-muted-foreground mt-1">jours</p>
+function GuideTimelineStep({
+  step,
+  index,
+  lastIndex,
+  currentStepIndex,
+  totalSteps,
+}: {
+  step: Opportunity["mvpPlan"]["roadmap"][number];
+  index: number;
+  lastIndex: number;
+  currentStepIndex: number;
+  totalSteps: number;
+}) {
+  const focusMode = currentStepIndex >= 0;
+  const isPast = focusMode && index < currentStepIndex;
+  const isCurrent = focusMode && index === currentStepIndex;
+  const isFuture = focusMode && index > currentStepIndex;
+  const week = getStepWeek(step, index, totalSteps);
+
+  const card = (
+    <div
+      className={cn(
+        "flex-1 rounded-xl border border-border bg-card p-4 transition-colors",
+        isCurrent && "border-primary/40 ring-1 ring-primary/20",
+        isFuture && "opacity-60",
+        !isFuture && "hover:border-border",
+      )}
+    >
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-blue-400">{step.day}</span>
+          <span className="rounded bg-muted px-1.5 py-0.5 font-data text-[10px] uppercase tracking-data text-muted-foreground">
+            S{week}
+          </span>
         </div>
-        <div className="p-4 bg-card border border-border rounded-xl text-center">
-          <p className="text-2xl font-black text-green-400">{mvpPlan.features.length}</p>
-          <p className="text-xs text-muted-foreground mt-1">features MVP</p>
+        {index === 0 ? (
+          <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-xs text-green-400">
+            Démarrage
+          </span>
+        ) : null}
+        {index === lastIndex ? (
+          <span className="rounded-full bg-primary/20 px-2 py-0.5 text-xs text-blue-400">
+            Lancement
+          </span>
+        ) : null}
+        {isCurrent ? (
+          <span className="rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">
+            En cours
+          </span>
+        ) : null}
+      </div>
+      <ul className="space-y-1">
+        {step.tasks.map((task, j) => (
+          <li key={j} className="flex items-start gap-2 text-sm text-foreground/80">
+            <ChevronRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+            {task}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+
+  if (isPast) {
+    return (
+      <div className="relative pl-12">
+        <div className="absolute left-3.5 top-4 h-3 w-3 shrink-0 rounded-full border-2 border-green-500 bg-green-500/80" />
+        <details className="group">
+          <summary className="cursor-pointer list-none rounded-xl border border-border/60 bg-muted/20 px-4 py-3 marker:content-none [&::-webkit-details-marker]:hidden">
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>
+                {step.day}
+                <span className="ml-2 text-xs text-muted-foreground/70">· S{week} · terminé</span>
+              </span>
+              <span className="text-xs text-muted-foreground/60">Afficher</span>
+            </div>
+          </summary>
+          <div className="mt-2">{card}</div>
+        </details>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative flex gap-4 pl-12">
+      <div
+        className={cn(
+          "absolute left-3.5 top-4 h-3 w-3 shrink-0 rounded-full border-2",
+          index === 0
+            ? "border-green-500 bg-green-500"
+            : index === lastIndex
+              ? "border-blue-500 bg-blue-500"
+              : isCurrent
+                ? "border-primary bg-primary"
+                : "border-border bg-muted",
+        )}
+      />
+      {card}
+    </div>
+  );
+}
+
+export function GuideSection({
+  opportunity,
+  animationIndex,
+  variant = "detail",
+  context = "detail",
+  project,
+  onModuleChange,
+  onOpenPrompt,
+}: GuideSectionProps) {
+  const isPlaybook = variant === "playbook";
+  const isCockpit = context === "cockpit" && Boolean(project);
+  const { mvpPlan } = opportunity;
+  const lastIndex = mvpPlan.roadmap.length - 1;
+  const planLabel = getPlanDayRangeLabel(mvpPlan.roadmap);
+  const planDays = getPlanDurationDays(mvpPlan.roadmap);
+  const targetClients = getTargetClients(
+    opportunity,
+    project?.targetScenario ?? "Réaliste",
+  );
+  const currentPlanDay = project ? getCurrentPlanDay(project, opportunity) : null;
+  const currentStepIndex =
+    project && isCockpit ? getCurrentRoadmapStepIndex(project, opportunity) : 0;
+
+  return (
+    <GuideWrapper
+      isPlaybook={isPlaybook}
+      animationIndex={animationIndex}
+      id="guide"
+      className={cn(isPlaybook ? "mb-0" : "mb-12 scroll-mt-24")}
+    >
+      <SectionTitle
+        number={isPlaybook ? 1 : 9}
+        title={`Guide ${planLabel}`}
+        subtitle={
+          isPlaybook
+            ? "Quoi faire chaque jour — de l'idée au premier client payant"
+            : undefined
+        }
+        variant={isPlaybook ? "playbook" : "detail"}
+      />
+      {!isPlaybook ? (
+        <p className="mb-6 text-sm text-muted-foreground">
+          Exactement quoi faire chaque jour — de l&apos;idée au premier client payant
+        </p>
+      ) : null}
+
+      {isCockpit ? <PlaybookGuideContextBanner onModuleChange={onModuleChange} /> : null}
+
+      <div className="mb-6 grid grid-cols-3 gap-3">
+        <div className="rounded-xl border border-border bg-card p-4 text-center">
+          <p className="text-2xl font-black text-foreground">{planDays}</p>
+          <p className="mt-1 text-xs text-muted-foreground">jours plan</p>
         </div>
-        <div className="p-4 bg-card border border-border rounded-xl text-center">
-          <p className="text-2xl font-black text-blue-400">5</p>
-          <p className="text-xs text-muted-foreground mt-1">premiers clients</p>
+        <div className="rounded-xl border border-border bg-card p-4 text-center">
+          {currentPlanDay !== null ? (
+            <>
+              <p className="text-2xl font-black text-primary">J{currentPlanDay}</p>
+              <p className="mt-1 text-xs text-muted-foreground">jour actuel</p>
+            </>
+          ) : (
+            <>
+              <p className="text-2xl font-black text-green-400">{mvpPlan.features.length}</p>
+              <p className="mt-1 text-xs text-muted-foreground">features MVP</p>
+            </>
+          )}
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4 text-center">
+          <p className="text-2xl font-black text-blue-400">{targetClients}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {currentPlanDay !== null
+              ? `clients (${project?.targetScenario ?? "Réaliste"})`
+              : "clients cible"}
+          </p>
         </div>
       </div>
 
       <div className="relative mb-6">
-        <div className="absolute left-5 top-0 bottom-0 w-px bg-muted" />
-
+        <div className="absolute bottom-0 left-5 top-0 w-px bg-muted" />
         <div className="space-y-4">
           {mvpPlan.roadmap.map((step, i) => (
-            <div key={`${step.day}-${i}`} className="relative flex gap-4 pl-12">
-              <div
-                className={cn(
-                  "absolute left-3.5 top-4 w-3 h-3 rounded-full border-2 shrink-0",
-                  i === 0
-                    ? "bg-green-500 border-green-500"
-                    : i === lastIndex
-                      ? "bg-blue-500 border-blue-500"
-                      : "bg-muted border-border"
-                )}
-              />
+            <GuideTimelineStep
+              key={`${step.day}-${i}`}
+              step={step}
+              index={i}
+              lastIndex={lastIndex}
+              currentStepIndex={isCockpit ? currentStepIndex : -1}
+              totalSteps={mvpPlan.roadmap.length}
+            />
+          ))}
+        </div>
+      </div>
 
-              <div className="flex-1 p-4 bg-card border border-border rounded-xl hover:border-border transition-colors">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">
-                    {step.day}
-                  </span>
-                  {i === 0 && (
-                    <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">
-                      Démarrage
-                    </span>
-                  )}
-                  {i === lastIndex && (
-                    <span className="text-xs bg-primary/20 text-blue-400 px-2 py-0.5 rounded-full">
-                      Lancement
-                    </span>
-                  )}
-                </div>
-                <ul className="space-y-1">
-                  {step.tasks.map((task, j) => (
-                    <li key={j} className="flex items-start gap-2 text-sm text-foreground/80">
-                      <span className="text-muted-foreground/60 mt-1 shrink-0">→</span>
-                      {task}
-                    </li>
-                  ))}
-                </ul>
+      <details open className="group mb-4 rounded-xl border border-border bg-card">
+        <summary className="cursor-pointer list-none px-5 py-4 marker:content-none [&::-webkit-details-marker]:hidden">
+          <span className="inline-flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground">
+            <Layers className="h-3.5 w-3.5" />
+            Périmètre MVP
+          </span>
+        </summary>
+        <div className="space-y-4 border-t border-border px-5 pb-5 pt-2">
+          {mvpPlan.stack.length > 0 ? (
+            <div className="rounded-lg bg-muted/30 p-3">
+              <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                <Layers className="h-3.5 w-3.5" />
+                Stack MVP
               </div>
+              <p className="mt-1.5 text-sm">{mvpPlan.stack.join(" · ")}</p>
             </div>
-          ))}
-        </div>
-      </div>
+          ) : null}
 
-      <div className="p-5 bg-card border border-border rounded-xl mb-4">
-        <p className="text-xs text-muted-foreground uppercase tracking-widest mb-3">✅ Ce que tu construis</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          {mvpPlan.features.map((feature, i) => (
-            <div key={i} className="flex items-center gap-2 text-sm text-foreground/80">
-              <span className="text-green-400 shrink-0">✓</span>
-              {feature}
+          <div>
+            <p className="mb-3 flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground">
+              <Check className="h-3.5 w-3.5 text-green-400" />
+              Ce que tu construis
+            </p>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              {mvpPlan.features.map((feature, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm text-foreground/80">
+                  <Check className="h-3.5 w-3.5 shrink-0 text-green-400" />
+                  {feature}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
 
-      <div className="p-5 bg-card border border-border rounded-xl mb-6">
-        <p className="text-xs text-muted-foreground uppercase tracking-widest mb-3">
-          🚫 Ce qu&apos;on ne construit PAS au J1
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-          {mvpPlan.notYet.map((item, i) => (
-            <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
-              <span className="text-muted-foreground/60 shrink-0">✗</span>
-              {item}
+          <div>
+            <p className="mb-3 flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground">
+              <Ban className="h-3.5 w-3.5" />
+              Ce qu&apos;on ne construit PAS au J1
+            </p>
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+              {mvpPlan.notYet.map((item, i) => (
+                <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Ban className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
+                  {item}
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
-      </div>
+      </details>
 
-      <div className="p-6 bg-gradient-to-r from-blue-950/40 to-card border border-primary/30 rounded-xl text-center">
-        <p className="text-foreground font-semibold mb-1">Tu as tout ce qu&apos;il faut pour démarrer.</p>
-        <p className="text-muted-foreground text-sm mb-4">
-          Le prompt Claude Code + ce guide = ton MVP en 14 jours.
-        </p>
-        <Link
-          href="/pricing"
-          className="inline-block bg-blue-600 hover:bg-blue-500 text-primary-foreground font-semibold px-6 py-2.5 rounded-xl transition-colors text-sm"
-        >
-          Accéder à toutes les opportunités →
-        </Link>
-      </div>
-    </AnimatedSection>
+      {isCockpit && project ? (
+        <GuideCockpitFooter
+          project={project}
+          onModuleChange={onModuleChange}
+          onOpenPrompt={onOpenPrompt}
+        />
+      ) : (
+        <BuildOpportunityCta opportunity={opportunity} variant="footer" />
+      )}
+    </GuideWrapper>
   );
 }

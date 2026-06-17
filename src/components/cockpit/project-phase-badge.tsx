@@ -1,12 +1,14 @@
 import { cn } from "@/lib/utils";
 import type { ProjectPhase } from "@/lib/portfolio";
 
-const LABELS: Record<ProjectPhase, string> = {
+export const PHASE_LABELS: Record<ProjectPhase, string> = {
   build: "Build",
   launch: "Lancement",
   revenue: "Revenu",
   paused: "En pause",
 };
+
+const LABELS = PHASE_LABELS;
 
 const STYLES: Record<ProjectPhase, string> = {
   build: "bg-blue-500/10 text-blue-700 border-blue-500/20",

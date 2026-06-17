@@ -1,6 +1,13 @@
 import "server-only";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { FavoritesTableMissingError, isFavoritesTableMissingError } from "@/lib/favorites.errors";
 import { mergeFavoriteSlugs } from "@/lib/favorites.shared";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+
+function throwIfTableMissing(error: { message: string } | null): void {
+  if (error && isFavoritesTableMissingError(error)) {
+    throw new FavoritesTableMissingError(error.message);
+  }
+}
 
 export async function listFavoriteSlugs(userId: string): Promise<string[]> {
   const supabase = await createServerSupabaseClient();
@@ -10,6 +17,7 @@ export async function listFavoriteSlugs(userId: string): Promise<string[]> {
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
 
+  throwIfTableMissing(error);
   if (error) throw new Error(error.message);
   return (data ?? []).map((row) => row.opportunity_slug);
 }
@@ -33,6 +41,7 @@ export async function addFavorite(userId: string, slug: string): Promise<void> {
     { onConflict: "user_id,opportunity_slug", ignoreDuplicates: true }
   );
 
+  throwIfTableMissing(error);
   if (error) throw new Error(error.message);
 }
 
@@ -44,6 +53,7 @@ export async function removeFavorite(userId: string, slug: string): Promise<void
     .eq("user_id", userId)
     .eq("opportunity_slug", slug.trim());
 
+  throwIfTableMissing(error);
   if (error) throw new Error(error.message);
 }
 
@@ -68,6 +78,7 @@ export async function mergeFavorites(userId: string, incomingSlugs: string[]): P
       toInsert.map((opportunity_slug) => ({ user_id: userId, opportunity_slug })),
       { onConflict: "user_id,opportunity_slug", ignoreDuplicates: true }
     );
+    throwIfTableMissing(error);
     if (error) throw new Error(error.message);
   }
 

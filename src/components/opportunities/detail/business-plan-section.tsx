@@ -1,16 +1,31 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { Download } from "lucide-react";
 import type { Opportunity } from "@/types/opportunity";
 import { getWhyItWorksFact } from "@/types/opportunity";
-import { cn } from "@/lib/utils";
+import type { UserProject } from "@/lib/portfolio";
+import type { DualChartPoint } from "@/components/cockpit/mrr-trajectory-chart";
+import { PlaybookCollapsibleBlock } from "@/components/cockpit/playbook/playbook-collapsible-block";
+import { cn, formatCurrency } from "@/lib/utils";
 import { SectionTitle } from "@/components/opportunities/detail/section-title";
 import { AnimatedSection } from "@/components/opportunities/detail/animated-section";
+
+const MrrTrajectoryChart = dynamic(
+  () =>
+    import("@/components/cockpit/mrr-trajectory-chart").then((m) => m.MrrTrajectoryChart),
+  { ssr: false, loading: () => <div className="h-[320px] animate-pulse rounded-lg bg-muted/40" /> },
+);
 
 interface BusinessPlanSectionProps {
   opportunity: Opportunity;
   animationIndex: number;
+  variant?: "detail" | "playbook";
+  project?: UserProject;
+  chartData?: DualChartPoint[];
+  targetMrr?: number;
+  gap?: number | null;
 }
 
 const DEFAULT_STACK = ["Next.js 14", "Supabase", "Stripe", "Tailwind CSS"];
@@ -29,8 +44,18 @@ function franceCompetitionLabel(competition: Opportunity["franceCompetition"]): 
   return "Élevée";
 }
 
-export function BusinessPlanSection({ opportunity, animationIndex }: BusinessPlanSectionProps) {
+export function BusinessPlanSection({
+  opportunity,
+  animationIndex,
+  variant = "detail",
+  project,
+  chartData,
+  targetMrr,
+  gap,
+}: BusinessPlanSectionProps) {
+  const isPlaybook = variant === "playbook";
   const realistic = opportunity.financialScenarios.find((s) => s.name === "Réaliste");
+  const targetScenario = project?.targetScenario;
 
   const [price, setPrice] = useState(realistic?.avgPrice ?? 79);
   const [churn, setChurn] = useState(5);
@@ -208,17 +233,30 @@ export function BusinessPlanSection({ opportunity, animationIndex }: BusinessPla
       );
       addLine("LTV", `${ltv.toLocaleString("fr-FR")} EUR`);
 
-      addSectionTitle("07 — STRATEGIE D'ACQUISITION");
+      if (project) {
+        addSectionTitle("07 — SUIVI COCKPIT");
+        addLine("Scénario cible", project.targetScenario);
+        addLine("MRR actuel", `${project.currentMrr.toLocaleString("fr-FR")} EUR`);
+        if (targetMrr !== undefined) {
+          addLine("Objectif fiche", `${targetMrr.toLocaleString("fr-FR")} EUR/mois`);
+        }
+        if (gap !== null && gap !== undefined) {
+          addLine("Ecart vs objectif", `${gap >= 0 ? "+" : ""}${gap} %`);
+        }
+        addLine("Date export", new Date().toLocaleDateString("fr-FR"));
+      }
+
+      addSectionTitle(project ? "08 — STRATEGIE D'ACQUISITION" : "07 — STRATEGIE D'ACQUISITION");
       opportunity.cacChannels.forEach((c) => {
         addLine(c.channel, `CAC ~${c.estimate} EUR`);
         addBullet(sanitizePdfText(c.note));
       });
 
-      addSectionTitle("08 — STACK TECHNIQUE");
+      addSectionTitle(project ? "09 — STACK TECHNIQUE" : "08 — STACK TECHNIQUE");
       const stack = opportunity.mvpPlan.stack.length > 0 ? opportunity.mvpPlan.stack : DEFAULT_STACK;
       addParagraph(stack.join(" / "));
 
-      addSectionTitle("09 — ROADMAP J1 -> J14");
+      addSectionTitle(project ? "10 — ROADMAP J1 -> J14" : "09 — ROADMAP J1 -> J14");
       opportunity.mvpPlan.roadmap.forEach((step) => {
         checkPage();
         doc.setFontSize(9);
@@ -256,21 +294,300 @@ export function BusinessPlanSection({ opportunity, animationIndex }: BusinessPla
   const stack =
     opportunity.mvpPlan.stack.length > 0 ? opportunity.mvpPlan.stack : DEFAULT_STACK;
 
+  const marketBlock = (
+    <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+      <div>
+        <p className="mb-1 text-xs text-muted-foreground">Score global</p>
+        <p className="text-2xl font-black text-primary">
+          {opportunity.scores.opportunity}
+          <span className="text-sm text-muted-foreground">/100</span>
+        </p>
+      </div>
+      <div>
+        <p className="mb-1 text-xs text-muted-foreground">Adapté France</p>
+        <p className="text-2xl font-black text-foreground">
+          {opportunity.scores.franceFit}
+          <span className="text-sm text-muted-foreground">/10</span>
+        </p>
+      </div>
+      <div>
+        <p className="mb-1 text-xs text-muted-foreground">Facilité</p>
+        <p className="text-2xl font-black text-foreground">
+          {opportunity.scores.buildability}
+          <span className="text-sm text-muted-foreground">/10</span>
+        </p>
+      </div>
+      <div>
+        <p className="mb-1 text-xs text-muted-foreground">Concurrence FR</p>
+        <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-sm font-semibold text-emerald-600">
+          {franceCompetitionLabel(opportunity.franceCompetition)}
+        </span>
+      </div>
+      <div>
+        <p className="mb-1 text-xs text-muted-foreground">Lancement</p>
+        <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-sm font-semibold text-emerald-600">
+          {opportunity.buildableUnder30Days ? "< 30 jours" : "30-60 jours"}
+        </span>
+      </div>
+      <div>
+        <p className="mb-1 text-xs text-muted-foreground">Type</p>
+        <span className="rounded-full bg-primary/15 px-2 py-1 text-sm font-semibold text-primary">
+          {opportunity.clientType.toUpperCase()}
+        </span>
+      </div>
+    </div>
+  );
+
+  const acquisitionBlock = (
+    <div className="space-y-3">
+      {opportunity.cacChannels.map((channel, i) => (
+        <div
+          key={i}
+          className="flex items-center justify-between border-b border-border py-2 last:border-0"
+        >
+          <div>
+            <p className="text-sm font-medium text-foreground">{channel.channel}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{channel.note}</p>
+          </div>
+          <span className="text-sm font-bold text-primary">~{channel.estimate}€ CAC</span>
+        </div>
+      ))}
+    </div>
+  );
+
+  const stackBlock = (
+    <div className="flex flex-wrap gap-2">
+      {stack.map((tech, i) => (
+        <span
+          key={i}
+          className="rounded-full border border-border bg-muted px-3 py-1.5 text-xs text-foreground/80"
+        >
+          {tech}
+        </span>
+      ))}
+    </div>
+  );
+
+  const executiveSummary = (
+    <div className="rounded-2xl border border-border bg-card p-6">
+      <p className="mb-4 text-xs uppercase tracking-widest text-muted-foreground">Résumé exécutif</p>
+      <p className="mb-4 text-sm leading-relaxed text-foreground/80">{opportunity.pitch}</p>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div>
+          <p className="mb-1 text-xs text-muted-foreground">Prix cible</p>
+          <p className="text-xl font-bold text-foreground">
+            {realistic?.avgPrice}€<span className="text-sm text-muted-foreground">/mois</span>
+          </p>
+        </div>
+        <div>
+          <p className="mb-1 text-xs text-muted-foreground">Objectif 12 mois</p>
+          <p className="text-xl font-bold text-foreground">{realistic?.clients} clients</p>
+        </div>
+        <div>
+          <p className="mb-1 text-xs text-muted-foreground">MRR cible</p>
+          <p className="text-xl font-bold text-emerald-600">
+            {realistic?.mrr.toLocaleString("fr-FR")}€
+          </p>
+        </div>
+        <div>
+          <p className="mb-1 text-xs text-muted-foreground">Marge brute</p>
+          <p className="text-xl font-bold text-foreground">{realistic?.grossMargin}%</p>
+        </div>
+      </div>
+    </div>
+  );
+
+  const simulatorBlock = (
+    <div className="rounded-2xl border border-border bg-card p-6">
+      <p className="mb-1 text-xs uppercase tracking-widest text-muted-foreground">Simulateur MRR</p>
+      <p className="mb-2 text-xs text-muted-foreground/60">
+        Pré-rempli avec les données de {opportunity.foreignInspiration?.split(" ")[0]} — ajuste
+        selon ta situation
+      </p>
+      {project ? (
+        <p className="mb-6 text-sm text-muted-foreground">
+          MRR aujourd&apos;hui :{" "}
+          <span className="font-medium text-foreground">{formatCurrency(project.currentMrr)}</span>
+          {" · "}
+          Projection simulateur M12 :{" "}
+          <span className="font-medium text-emerald-600">{formatCurrency(mrr12)}</span>
+          {targetMrr !== undefined ? (
+            <>
+              {" · "}
+              Objectif fiche ({targetScenario}) :{" "}
+              <span className="font-medium text-foreground">{formatCurrency(targetMrr)}</span>
+            </>
+          ) : null}
+        </p>
+      ) : (
+        <div className="mb-6" />
+      )}
+
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+        <div className="space-y-5">
+          {[
+            {
+              label: "Prix / mois",
+              value: price,
+              setValue: setPrice,
+              min: 9,
+              max: 499,
+              unit: "€",
+            },
+            {
+              label: "Nouveaux clients / mois",
+              value: newClients,
+              setValue: setNewClients,
+              min: 1,
+              max: 100,
+              unit: "",
+            },
+            {
+              label: "Churn mensuel",
+              value: churn,
+              setValue: setChurn,
+              min: 1,
+              max: 30,
+              unit: "%",
+            },
+            { label: "CAC", value: cac, setValue: setCac, min: 10, max: 1000, unit: "€" },
+          ].map((slider, i) => (
+            <div key={i}>
+              <div className="mb-2 flex justify-between">
+                <label className="text-sm text-muted-foreground">{slider.label}</label>
+                <span className="text-sm font-semibold text-foreground">
+                  {slider.value}
+                  {slider.unit}
+                </span>
+              </div>
+              <input
+                type="range"
+                min={slider.min}
+                max={slider.max}
+                value={slider.value}
+                onChange={(e) => slider.setValue(Number(e.target.value))}
+                className="w-full accent-primary"
+              />
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => {
+              setPrice(realistic?.avgPrice ?? 79);
+              setChurn(5);
+              setCac(opportunity.cacChannels[0]?.estimate ?? 120);
+              setNewClients(realistic ? Math.round(realistic.clients / 12) : 8);
+            }}
+            className="text-xs text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+          >
+            ↺ Réinitialiser
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <div className="rounded-xl border border-border bg-background p-5">
+            <p className="mb-1 text-xs text-muted-foreground">MRR à 12 mois</p>
+            <p className="text-4xl font-black text-emerald-600">
+              {mrr12.toLocaleString("fr-FR")}€
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl border border-border bg-background p-4 text-center">
+              <p className="mb-1 text-xs text-muted-foreground">Break-even</p>
+              <p className="text-lg font-bold text-foreground">M{breakEven}</p>
+            </div>
+            <div className="rounded-xl border border-border bg-background p-4 text-center">
+              <p className="mb-1 text-xs text-muted-foreground">LTV/CAC</p>
+              <p
+                className={cn(
+                  "text-lg font-bold",
+                  Number(ltvcac) >= 3 ? "text-emerald-600" : "text-amber-600",
+                )}
+              >
+                {ltvcac}x
+              </p>
+            </div>
+            <div className="rounded-xl border border-border bg-background p-4 text-center">
+              <p className="mb-1 text-xs text-muted-foreground">LTV</p>
+              <p className="text-lg font-bold text-foreground">{ltv.toLocaleString("fr-FR")}€</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {chartData && chartData.length > 0 ? (
+        <div className="mt-8 border-t border-border pt-6">
+          <p className="mb-4 text-xs uppercase tracking-widest text-muted-foreground">
+            Trajectoire projection fiche vs votre MRR
+          </p>
+          <MrrTrajectoryChart data={chartData} />
+        </div>
+      ) : null}
+    </div>
+  );
+
+  const secondaryBlocks = isPlaybook ? (
+    <div className="space-y-3">
+      <PlaybookCollapsibleBlock title="Marché & Opportunité">{marketBlock}</PlaybookCollapsibleBlock>
+      <PlaybookCollapsibleBlock title="Stratégie d'acquisition">
+        {acquisitionBlock}
+      </PlaybookCollapsibleBlock>
+      <PlaybookCollapsibleBlock title="Stack technique recommandée">
+        {stackBlock}
+      </PlaybookCollapsibleBlock>
+    </div>
+  ) : (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-border bg-card p-6">
+        <p className="mb-4 text-xs uppercase tracking-widest text-muted-foreground">
+          Marché & Opportunité
+        </p>
+        {marketBlock}
+      </div>
+      <div className="rounded-2xl border border-border bg-card p-6">
+        <p className="mb-4 text-xs uppercase tracking-widest text-muted-foreground">
+          Stratégie d&apos;acquisition
+        </p>
+        {acquisitionBlock}
+      </div>
+      <div className="rounded-2xl border border-border bg-card p-6">
+        <p className="mb-4 text-xs uppercase tracking-widest text-muted-foreground">
+          Stack technique recommandée
+        </p>
+        {stackBlock}
+      </div>
+    </div>
+  );
+
   return (
     <AnimatedSection
       id="business-plan"
       animationIndex={animationIndex}
-      className="mb-12 scroll-mt-24"
+      className={cn(isPlaybook ? "mb-0" : "mb-12 scroll-mt-24")}
     >
-      <SectionTitle number={6} title="Business plan + Simulateur MRR" />
+      <SectionTitle
+        number={isPlaybook ? 2 : 6}
+        title="Business plan + Simulateur MRR"
+        subtitle={isPlaybook ? "Plan financier complet et projection personnalisée" : undefined}
+        variant={isPlaybook ? "playbook" : "detail"}
+      />
 
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <p className="text-sm text-muted-foreground">Plan financier complet et projection personnalisée</p>
+      <div
+        className={cn(
+          "mb-6 flex gap-4",
+          isPlaybook
+            ? "flex-col sm:flex-row sm:items-center sm:justify-end"
+            : "items-center justify-between",
+        )}
+      >
+        {!isPlaybook ? (
+          <p className="text-sm text-muted-foreground">Plan financier complet et projection personnalisée</p>
+        ) : null}
         <button
           type="button"
           onClick={handleDownloadPDF}
           disabled={isGenerating}
-          className="flex shrink-0 items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-blue-500 disabled:opacity-50"
+          className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
         >
           {isGenerating ? (
             <>
@@ -286,216 +603,19 @@ export function BusinessPlanSection({ opportunity, animationIndex }: BusinessPla
         </button>
       </div>
 
-      <div className="mb-6 space-y-4">
-        <div className="rounded-2xl border border-border bg-card p-6">
-          <p className="mb-4 text-xs uppercase tracking-widest text-muted-foreground">Résumé exécutif</p>
-          <p className="mb-4 text-sm leading-relaxed text-foreground/80">{opportunity.pitch}</p>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <div>
-              <p className="mb-1 text-xs text-muted-foreground">Prix cible</p>
-              <p className="text-xl font-bold text-foreground">
-                {realistic?.avgPrice}€<span className="text-sm text-muted-foreground">/mois</span>
-              </p>
-            </div>
-            <div>
-              <p className="mb-1 text-xs text-muted-foreground">Objectif 12 mois</p>
-              <p className="text-xl font-bold text-foreground">{realistic?.clients} clients</p>
-            </div>
-            <div>
-              <p className="mb-1 text-xs text-muted-foreground">MRR cible</p>
-              <p className="text-xl font-bold text-green-400">
-                {realistic?.mrr.toLocaleString("fr-FR")}€
-              </p>
-            </div>
-            <div>
-              <p className="mb-1 text-xs text-muted-foreground">Marge brute</p>
-              <p className="text-xl font-bold text-foreground">{realistic?.grossMargin}%</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-6">
-          <p className="mb-4 text-xs uppercase tracking-widest text-muted-foreground">
-            Marché & Opportunité
-          </p>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
-            <div>
-              <p className="mb-1 text-xs text-muted-foreground">Score global</p>
-              <p className="text-2xl font-black text-blue-400">
-                {opportunity.scores.opportunity}
-                <span className="text-sm text-muted-foreground">/100</span>
-              </p>
-            </div>
-            <div>
-              <p className="mb-1 text-xs text-muted-foreground">Adapté France</p>
-              <p className="text-2xl font-black text-foreground">
-                {opportunity.scores.franceFit}
-                <span className="text-sm text-muted-foreground">/10</span>
-              </p>
-            </div>
-            <div>
-              <p className="mb-1 text-xs text-muted-foreground">Facilité</p>
-              <p className="text-2xl font-black text-foreground">
-                {opportunity.scores.buildability}
-                <span className="text-sm text-muted-foreground">/10</span>
-              </p>
-            </div>
-            <div>
-              <p className="mb-1 text-xs text-muted-foreground">Concurrence FR</p>
-              <span className="rounded-full bg-green-500/10 px-2 py-1 text-sm font-semibold text-green-400">
-                {franceCompetitionLabel(opportunity.franceCompetition)}
-              </span>
-            </div>
-            <div>
-              <p className="mb-1 text-xs text-muted-foreground">Lancement</p>
-              <span className="rounded-full bg-green-500/10 px-2 py-1 text-sm font-semibold text-green-400">
-                {opportunity.buildableUnder30Days ? "< 30 jours" : "30-60 jours"}
-              </span>
-            </div>
-            <div>
-              <p className="mb-1 text-xs text-muted-foreground">Type</p>
-              <span className="rounded-full bg-primary/20 px-2 py-1 text-sm font-semibold text-blue-400">
-                {opportunity.clientType.toUpperCase()}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-6">
-          <p className="mb-4 text-xs uppercase tracking-widest text-muted-foreground">
-            Stratégie d&apos;acquisition
-          </p>
-          <div className="space-y-3">
-            {opportunity.cacChannels.map((channel, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between border-b border-border py-2 last:border-0"
-              >
-                <div>
-                  <p className="text-sm font-medium text-foreground">{channel.channel}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{channel.note}</p>
-                </div>
-                <span className="text-sm font-bold text-blue-400">~{channel.estimate}€ CAC</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-border bg-card p-6">
-          <p className="mb-4 text-xs uppercase tracking-widest text-muted-foreground">
-            Stack technique recommandée
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {stack.map((tech, i) => (
-              <span
-                key={i}
-                className="rounded-full border border-border bg-muted px-3 py-1.5 text-xs text-foreground/80"
-              >
-                {tech}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-border bg-card p-6">
-        <p className="mb-1 text-xs uppercase tracking-widest text-muted-foreground">Simulateur MRR</p>
-        <p className="mb-6 text-xs text-muted-foreground/60">
-          Pré-rempli avec les données de {opportunity.foreignInspiration?.split(" ")[0]} — ajuste
-          selon ta situation
-        </p>
-
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
-          <div className="space-y-5">
-            {[
-              {
-                label: "Prix / mois",
-                value: price,
-                setValue: setPrice,
-                min: 9,
-                max: 499,
-                unit: "€",
-              },
-              {
-                label: "Nouveaux clients / mois",
-                value: newClients,
-                setValue: setNewClients,
-                min: 1,
-                max: 100,
-                unit: "",
-              },
-              {
-                label: "Churn mensuel",
-                value: churn,
-                setValue: setChurn,
-                min: 1,
-                max: 30,
-                unit: "%",
-              },
-              { label: "CAC", value: cac, setValue: setCac, min: 10, max: 1000, unit: "€" },
-            ].map((slider, i) => (
-              <div key={i}>
-                <div className="mb-2 flex justify-between">
-                  <label className="text-sm text-muted-foreground">{slider.label}</label>
-                  <span className="text-sm font-semibold text-foreground">
-                    {slider.value}
-                    {slider.unit}
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min={slider.min}
-                  max={slider.max}
-                  value={slider.value}
-                  onChange={(e) => slider.setValue(Number(e.target.value))}
-                  className="w-full accent-blue-500"
-                />
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={() => {
-                setPrice(realistic?.avgPrice ?? 79);
-                setChurn(5);
-                setCac(opportunity.cacChannels[0]?.estimate ?? 120);
-                setNewClients(realistic ? Math.round(realistic.clients / 12) : 8);
-              }}
-              className="text-xs text-muted-foreground/60 transition-colors hover:text-muted-foreground"
-            >
-              ↺ Réinitialiser
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            <div className="rounded-xl border border-border bg-background p-5">
-              <p className="mb-1 text-xs text-muted-foreground">MRR à 12 mois</p>
-              <p className="text-4xl font-black text-green-400">
-                {mrr12.toLocaleString("fr-FR")}€
-              </p>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-xl border border-border bg-background p-4 text-center">
-                <p className="mb-1 text-xs text-muted-foreground">Break-even</p>
-                <p className="text-lg font-bold text-foreground">M{breakEven}</p>
-              </div>
-              <div className="rounded-xl border border-border bg-background p-4 text-center">
-                <p className="mb-1 text-xs text-muted-foreground">LTV/CAC</p>
-                <p
-                  className={cn(
-                    "text-lg font-bold",
-                    Number(ltvcac) >= 3 ? "text-green-400" : "text-yellow-400",
-                  )}
-                >
-                  {ltvcac}x
-                </p>
-              </div>
-              <div className="rounded-xl border border-border bg-background p-4 text-center">
-                <p className="mb-1 text-xs text-muted-foreground">LTV</p>
-                <p className="text-lg font-bold text-foreground">{ltv.toLocaleString("fr-FR")}€</p>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className="space-y-4">
+        {executiveSummary}
+        {isPlaybook ? (
+          <>
+            {simulatorBlock}
+            {secondaryBlocks}
+          </>
+        ) : (
+          <>
+            {secondaryBlocks}
+            {simulatorBlock}
+          </>
+        )}
       </div>
     </AnimatedSection>
   );

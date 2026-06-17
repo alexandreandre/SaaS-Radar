@@ -39,11 +39,151 @@ export type CockpitMetrics = {
   churnRate: number;
   campaignStats: ReturnType<typeof aggregateCampaigns>;
   hasDemoData: boolean;
-  promiseProgressPct: number;
+  targetProgressPct: number;
   stackCoveragePct: number;
   nrr: number;
   failedPayments: number;
+  productKpis: ProductKpis;
 };
+
+export type ProductKpis = {
+  kpis: CockpitKpi[];
+  stickiness: number | null;
+  trialToPaid: number | null;
+};
+
+function buildProductKpi(
+  key: string,
+  label: string,
+  raw: number,
+  previous: number | undefined,
+  history: ReturnType<typeof getMetricsHistory>,
+  historyKey: keyof import("@/lib/connectors/types").MetricsSnapshot,
+  format: CockpitKpi["format"]
+): CockpitKpi {
+  return {
+    key,
+    label,
+    value:
+      format === "percent"
+        ? `${raw} %`
+        : format === "ratio"
+          ? `${raw}x`
+          : String(raw),
+    raw,
+    delta: previous !== undefined ? getDeltaPercent(raw, previous) : null,
+    sparkline: getSparklineValues(history, historyKey),
+    format,
+  };
+}
+
+export function buildProductKpis(
+  project: UserProject,
+  _opportunity: Opportunity
+): ProductKpis {
+  const history = getMetricsHistory(project);
+  const latest = getLatestSnapshot(history) ?? {
+    date: new Date().toISOString().slice(0, 7),
+    mrr: project.currentMrr,
+    newMrr: 0,
+    expansionMrr: 0,
+    churnedMrr: 0,
+    customers: project.currentMrr > 0 ? Math.max(1, Math.round(project.currentMrr / 79)) : 0,
+    signups: 0,
+    trials: 0,
+    activeUsers: 0,
+    mau: 0,
+    dau: 0,
+    adSpend: 0,
+    impressions: 0,
+    clicks: 0,
+    conversions: 0,
+  };
+  const previous = getPreviousSnapshot(history);
+
+  const stickiness =
+    latest.mau > 0 ? Math.round((latest.dau / latest.mau) * 100) : null;
+  const trialToPaid =
+    latest.trials > 0 ? Math.round((latest.customers / latest.trials) * 100) : null;
+
+  const kpis: CockpitKpi[] = [
+    buildProductKpi(
+      "mau",
+      "MAU",
+      latest.mau,
+      previous?.mau,
+      history,
+      "mau",
+      "number"
+    ),
+    {
+      key: "stickiness",
+      label: "Stickiness",
+      value: stickiness !== null ? `${stickiness} %` : "—",
+      raw: stickiness ?? 0,
+      delta:
+        previous && previous.mau > 0 && stickiness !== null
+          ? getDeltaPercent(
+              stickiness,
+              Math.round(((previous.dau ?? 0) / previous.mau) * 100)
+            )
+          : null,
+      sparkline: history.map((s) =>
+        s.mau > 0 ? Math.round((s.dau / s.mau) * 100) : 0
+      ),
+      format: "percent",
+    },
+    buildProductKpi(
+      "signups",
+      "Signups",
+      latest.signups,
+      previous?.signups,
+      history,
+      "signups",
+      "number"
+    ),
+    buildProductKpi(
+      "trials",
+      "Trials",
+      latest.trials,
+      previous?.trials,
+      history,
+      "trials",
+      "number"
+    ),
+    buildProductKpi(
+      "dau",
+      "DAU",
+      latest.dau,
+      previous?.dau,
+      history,
+      "dau",
+      "number"
+    ),
+    buildProductKpi(
+      "activeUsers",
+      "Utilisateurs actifs",
+      latest.activeUsers,
+      previous?.activeUsers,
+      history,
+      "activeUsers",
+      "number"
+    ),
+    {
+      key: "trialToPaid",
+      label: "Trial → Paid",
+      value: trialToPaid !== null ? `${trialToPaid} %` : "—",
+      raw: trialToPaid ?? 0,
+      delta: null,
+      sparkline: history.map((s) =>
+        s.trials > 0 ? Math.round((s.customers / s.trials) * 100) : 0
+      ),
+      format: "percent",
+    },
+  ];
+
+  return { kpis, stickiness, trialToPaid };
+}
 
 function fmtCurrency(v: number) {
   return new Intl.NumberFormat("fr-FR", {
@@ -96,7 +236,7 @@ export function buildCockpitMetrics(
   const arr = latest.mrr * 12;
   const arpu = latest.customers > 0 ? Math.round(latest.mrr / latest.customers) : 0;
   const target = getTargetMrr(project, opportunity);
-  const promiseProgressPct =
+  const targetProgressPct =
     target > 0 ? Math.min(100, Math.round((latest.mrr / target) * 100)) : 0;
 
   const stackCoveragePct = buildStackHealth(opportunity, project.integrations).coveragePct;
@@ -221,6 +361,7 @@ export function buildCockpitMetrics(
     latest,
     previous,
     kpis,
+    productKpis: buildProductKpis(project, opportunity),
     arr,
     arpu,
     ltvCacRatio,
@@ -230,7 +371,7 @@ export function buildCockpitMetrics(
     churnRate,
     campaignStats,
     hasDemoData,
-    promiseProgressPct,
+    targetProgressPct,
     stackCoveragePct,
     nrr,
     failedPayments,

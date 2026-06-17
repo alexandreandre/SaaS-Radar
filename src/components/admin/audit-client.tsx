@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AdminPageHeader, AdminTable } from "@/components/admin/admin-ui";
+import { AdminPageSkeleton } from "@/components/admin/admin-page-skeleton";
+import { adminFetchJson } from "@/lib/admin/client-fetch";
 
 type LogRow = {
   id: string;
@@ -14,16 +16,21 @@ type LogRow = {
 
 export function AdminAuditClient() {
   const [logs, setLogs] = useState<LogRow[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/admin/audit");
-    const json = await res.json();
-    if (res.ok) setLogs(json.logs ?? []);
+    const { ok, data: json } = await adminFetchJson<{ logs?: LogRow[] }>("/api/admin/audit");
+    if (ok) setLogs(json.logs ?? []);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  if (loading) {
+    return <AdminPageSkeleton kpiCount={0} />;
+  }
 
   return (
     <div>

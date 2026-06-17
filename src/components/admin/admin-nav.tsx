@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
 import {
   Activity,
   BookOpen,
@@ -19,6 +20,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { AdminRole } from "@/lib/admin/rbac";
 import { ADMIN_ROLE_LABELS } from "@/lib/admin/rbac";
+import { ADMIN_NAV_HREFS, prefetchAdminRoute } from "@/lib/admin/route-prefetch";
 
 const NAV = [
   { href: "/admin", label: "Overview", icon: LayoutDashboard, exact: true },
@@ -36,6 +38,13 @@ const NAV = [
 
 export function AdminNav({ role, email }: { role: AdminRole; email: string | null }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    for (const href of ADMIN_NAV_HREFS) {
+      router.prefetch(href);
+    }
+  }, [router]);
 
   return (
     <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-border bg-card">
@@ -61,6 +70,9 @@ export function AdminNav({ role, email }: { role: AdminRole; email: string | nul
             <Link
               key={item.href}
               href={item.href}
+              prefetch
+              onMouseEnter={() => prefetchAdminRoute(item.href)}
+              onFocus={() => prefetchAdminRoute(item.href)}
               className={cn(
                 "flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors",
                 active
@@ -76,7 +88,7 @@ export function AdminNav({ role, email }: { role: AdminRole; email: string | nul
       </nav>
       <div className="border-t border-border p-3">
         <Link
-          href="/dashboard"
+          href="/mes-saas"
           className="text-xs text-muted-foreground hover:text-foreground"
         >
           ← Retour au produit

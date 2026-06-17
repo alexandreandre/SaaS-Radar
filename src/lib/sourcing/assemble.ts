@@ -1,7 +1,11 @@
 import { randomUUID } from "crypto";
-import type { Opportunity } from "@/types/opportunity";
+import { resolveSignalKind, sortTractionSignals } from "../traction-signals";
+import type { Opportunity, TractionSignal } from "@/types/opportunity";
 import { CANONICAL_CAC, CANONICAL_STACK, SCORE_WEIGHTS } from "./constants";
+import { normalizeAcquisitionTabs } from "@/lib/acquisition-channels";
 import type { AnalyticalData, FactualLead } from "./schema";
+import { normalizeWhyItWorks } from "@/types/opportunity";
+import { detectCountryMismatch } from "./traction-quality";
 
 /** Normalise un nom en slug kebab-case. */
 export function slugify(input: string): string {
@@ -60,9 +64,53 @@ export type ScoreFactsContext = {
   sourceVerified: boolean;
   factConfidence?: "low" | "medium" | "high" | null;
   tractionCount: number;
+  tractionCategoriesCovered?: number;
   techComplexity?: string;
   franceCompetition?: string;
 };
+
+function dedupeTractionSignals(signals: TractionSignal[]): TractionSignal[] {
+  const seen = new Set<string>();
+  const out: TractionSignal[] = [];
+  for (const signal of signals) {
+    const key = `${signal.label}|${signal.value}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      ...signal,
+      kind: signal.kind ?? resolveSignalKind(signal),
+    });
+  }
+  return out;
+}
+
+function parseProductName(foreignInspiration: string, fallbackName: string): string {
+  const beforeParen = foreignInspiration.split("(")[0]?.split("—")[0]?.trim();
+  return beforeParen || fallbackName;
+}
+
+function parseInspirationSummary(foreignInspiration: string, pitch: string): string {
+  const dashParts = foreignInspiration.split("—");
+  if (dashParts.length > 1) {
+    return dashParts.slice(1).join("—").trim() || pitch;
+  }
+  return pitch;
+}
+
+/** Normalise pays, kind et signaux avant assemblage / persistance. */
+export function normalizeLead(lead: FactualLead): FactualLead {
+  const productName = parseProductName(lead.foreignInspiration, lead.name);
+  const summary = parseInspirationSummary(lead.foreignInspiration, lead.pitch);
+  const foreignInspiration = detectCountryMismatch(lead)
+    ? `${productName} (${lead.originCountry}) — ${summary}`
+    : lead.foreignInspiration;
+
+  return {
+    ...lead,
+    foreignInspiration,
+    tractionSignals: sortTractionSignals(dedupeTractionSignals(lead.tractionSignals)),
+  };
+}
 
 /** Score 0-100 basé sur la qualité des faits (pas le LLM). */
 export function computeFactsScore(ctx: ScoreFactsContext): number {
@@ -72,6 +120,8 @@ export function computeFactsScore(ctx: ScoreFactsContext): number {
   else if (ctx.factConfidence === "medium") score += 12;
   else if (ctx.factConfidence === "low") score += 0;
   score += Math.min(ctx.tractionCount * 5, 15);
+  if (ctx.tractionCategoriesCovered === 3) score += 10;
+  else if (ctx.tractionCategoriesCovered === 2) score += 5;
   if (ctx.techComplexity === "high") score -= 10;
   if (ctx.franceCompetition === "high") score -= 8;
   return Math.max(0, Math.min(100, Math.round(score)));
@@ -196,8 +246,8 @@ export function assembleOpportunity(
       ...analytical.subScores,
     },
     franceFitCriteria: analytical.franceFitCriteria,
-    tractionSignals: lead.tractionSignals,
-    whyItWorks: analytical.whyItWorks,
+    tractionSignals: sortTractionSignals(lead.tractionSignals),
+    whyItWorks: normalizeWhyItWorks(analytical.whyItWorks),
     franceAnalysis: analytical.franceAnalysis,
     financialScenarios,
     cacChannels: CANONICAL_CAC,
@@ -206,15 +256,27 @@ export function assembleOpportunity(
       notYet: analytical.mvpPlan.notYet,
       stack: mergeStack(analytical.mvpPlan.stackExtras),
       roadmap: analytical.mvpPlan.roadmap,
+      ...(analytical.mvpPlan.stackGuide ? { stackGuide: analytical.mvpPlan.stackGuide } : {}),
+      ...(analytical.mvpPlan.pitfalls ? { pitfalls: analytical.mvpPlan.pitfalls } : {}),
+      ...(analytical.mvpPlan.launchChecklist
+        ? { launchChecklist: analytical.mvpPlan.launchChecklist }
+        : {}),
     },
     claudePrompt: analytical.claudePrompt,
-    acquisition: analytical.acquisition,
+    ...(analytical.buildPrompts ? { buildPrompts: analytical.buildPrompts } : {}),
+    acquisition: normalizeAcquisitionTabs(analytical.acquisition),
     entrepreneursBuilding: analytical.entrepreneursBuilding,
     foreignInspiration: lead.foreignInspiration,
     url: lead.url,
-    foreignMarketProfile: analytical.foreignMarketProfile,
+    foreignMarketProfile: analytical.foreignMarketProfile
+      ? {
+          ...analytical.foreignMarketProfile,
+          country: lead.originCountry,
+          flag: lead.originFlag,
+        }
+      : undefined,
     createdAt: new Date().toISOString(),
-    // Premium (optionnels) : inclus seulement si --premium les a produits.
+    // Champs enrichis (optionnels) : inclus si Gemini les a produits.
     // Sinon laissés undefined → enrichOpportunity() fournit le fallback au runtime.
     ...(analytical.frenchCompetitors ? { frenchCompetitors: analytical.frenchCompetitors } : {}),
     ...(analytical.launchTimeline ? { launchTimeline: analytical.launchTimeline } : {}),

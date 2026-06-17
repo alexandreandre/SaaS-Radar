@@ -3,6 +3,7 @@
 import { Plug, RefreshCw, Unplug } from "lucide-react";
 import type { ConnectorDefinition } from "@/lib/connectors/types";
 import type { ConnectorId, Integration } from "@/lib/connectors/types";
+import { ConnectorLogo } from "@/components/cockpit/integrations/connector-logo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -41,31 +42,38 @@ export function IntegrationCard({
 
   return (
     <div className="rounded-xl border border-border bg-card p-5 shadow-card">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="font-semibold">{connector.name}</p>
-            {connector.priority === "p0" ? (
-              <Badge variant="outline" className="border-primary/40 text-primary text-[10px]">
-                P0
+      <div className="flex items-start gap-3">
+        <ConnectorLogo connectorId={connector.id} size="md" showRing={isConnected} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-semibold">{connector.name}</p>
+                {connector.priority === "p0" ? (
+                  <Badge variant="outline" className="border-primary/40 text-primary text-[10px]">
+                    P0
+                  </Badge>
+                ) : null}
+              </div>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {CATEGORY_LABELS[connector.category]} · {connector.jobLabel}
+              </p>
+            </div>
+            {isDemo ? (
+              <Badge variant="outline" className="shrink-0 border-violet-500/40 text-violet-700">
+                Démo
+              </Badge>
+            ) : isConnected ? (
+              <Badge variant="success" className="shrink-0">
+                Connecté
               </Badge>
             ) : null}
           </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">
-            {CATEGORY_LABELS[connector.category]} · {connector.jobLabel}
-          </p>
         </div>
-        {isDemo ? (
-          <Badge variant="outline" className="border-violet-500/40 text-violet-700">
-            Démo
-          </Badge>
-        ) : isConnected ? (
-          <Badge variant="success">Connecté</Badge>
-        ) : null}
       </div>
       <p className="mt-3 text-sm text-muted-foreground">{connector.description}</p>
-      {connector.impactOnPromise ? (
-        <p className="mt-2 text-xs text-primary/80">{connector.impactOnPromise}</p>
+      {connector.cockpitImpact ? (
+        <p className="mt-2 text-xs text-primary/80">{connector.cockpitImpact}</p>
       ) : null}
       {connector.provides.length > 0 ? (
         <p className="mt-2 text-xs text-muted-foreground">

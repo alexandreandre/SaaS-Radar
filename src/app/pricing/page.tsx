@@ -274,17 +274,13 @@ export default function PricingPage() {
                   "Potentiel financier détaillé",
                   "Stratégie d'acquisition France",
                   "Trouver tes premiers clients",
+                  "Prompt Claude Code",
+                  "Générez le MVP en 1 session",
                   "Comparateur d'opportunités",
                   "Accès aux archives complètes",
                 ].map((f) => (
                   <li key={f} className="flex items-center gap-2">
                     <Check className="h-4 w-4 shrink-0 text-primary" />
-                    {f}
-                  </li>
-                ))}
-                {["Prompt Claude Code"].map((f) => (
-                  <li key={f} className="flex items-center gap-2 opacity-40">
-                    <X className="h-4 w-4 shrink-0" />
                     {f}
                   </li>
                 ))}
@@ -315,10 +311,10 @@ export default function PricingPage() {
             <ul className="space-y-3 text-sm text-foreground">
               {[
                 "Tout le plan Builder",
-                "Prompt Claude Code complet",
-                "Générez le MVP en 1 session",
+                "Emails cold prêts à envoyer",
+                "Partenaires France",
+                "Alertes concurrence",
                 "Variantes Cursor / v0 / Replit",
-                "Nouveau prompt chaque semaine",
                 "Accès prioritaire aux nouvelles features",
                 "Support email prioritaire",
               ].map((f) => (

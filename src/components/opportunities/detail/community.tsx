@@ -35,7 +35,7 @@ export function Community({ opportunity }: { opportunity: Opportunity }) {
         message="Rejoignez les builders sur cette opportunité"
       >
         <Button variant="outline" asChild>
-          <Link href="/dashboard">Rejoindre le Discord Builder</Link>
+          <Link href="/mes-saas">Rejoindre le Discord Builder</Link>
         </Button>
       </PaywallGate>
     </SectionShell>

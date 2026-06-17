@@ -2,23 +2,33 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AdminPageHeader, AdminTable, KpiCard } from "@/components/admin/admin-ui";
+import { AdminPageSkeleton } from "@/components/admin/admin-page-skeleton";
+import { adminFetchJson } from "@/lib/admin/client-fetch";
 
 export function AdminNewsletterClient() {
   const [stats, setStats] = useState({ total: 0, active: 0, pending: 0 });
   const [subscribers, setSubscribers] = useState<Record<string, unknown>[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/admin/newsletter");
-    const json = await res.json();
-    if (res.ok) {
-      setStats(json.stats);
+    const { ok, data: json } = await adminFetchJson<{
+      stats?: { total: number; active: number; pending: number };
+      subscribers?: Record<string, unknown>[];
+    }>("/api/admin/newsletter");
+    if (ok) {
+      setStats(json.stats ?? { total: 0, active: 0, pending: 0 });
       setSubscribers(json.subscribers ?? []);
     }
+    setLoading(false);
   }, []);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  if (loading) {
+    return <AdminPageSkeleton kpiCount={3} />;
+  }
 
   return (
     <div>

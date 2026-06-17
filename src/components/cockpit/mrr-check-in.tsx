@@ -3,25 +3,18 @@
 import { useEffect, useState } from "react";
 import { Flame, TrendingUp } from "lucide-react";
 import type { UserProject } from "@/lib/portfolio";
-import {
-  daysSince,
-  getNewlyCrossedMrrMilestone,
-  getTargetMrr,
-  getPromiseGapPercent,
-} from "@/lib/portfolio";
+import { daysSince, getNewlyCrossedMrrMilestone } from "@/lib/portfolio";
 import { formatCurrency, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { usePortfolio } from "@/contexts/portfolio-context";
 
 type MrrCheckInProps = {
   project: UserProject;
   onRecord: (amount: number, note?: string) => void;
+  compact?: boolean;
 };
 
-export function MrrCheckIn({ project, onRecord }: MrrCheckInProps) {
-  const { getCatalogOpportunity } = usePortfolio();
-  const opportunity = getCatalogOpportunity(project.opportunitySlug);
+export function MrrCheckIn({ project, onRecord, compact = false }: MrrCheckInProps) {
   const [amount, setAmount] = useState(String(project.currentMrr));
   const [note, setNote] = useState("");
   const [celebration, setCelebration] = useState<string | null>(null);
@@ -34,13 +27,10 @@ export function MrrCheckIn({ project, onRecord }: MrrCheckInProps) {
     e.preventDefault();
     const next = Number(amount) || 0;
     const previous = project.currentMrr;
-    const target = opportunity ? getTargetMrr(project, opportunity) : 0;
 
     const milestone = getNewlyCrossedMrrMilestone(previous, next);
     if (milestone) {
       setCelebration(`${milestone.toLocaleString("fr-FR")} € MRR atteint !`);
-    } else if (target > 0 && previous < target && next >= target) {
-      setCelebration("Vous avez atteint la promesse Radar !");
     } else {
       setCelebration("Check-in enregistré");
     }
@@ -51,33 +41,33 @@ export function MrrCheckIn({ project, onRecord }: MrrCheckInProps) {
   };
 
   const days = daysSince(project.lastCheckInAt ?? project.createdAt);
-  const gap = opportunity ? getPromiseGapPercent(project, opportunity) : null;
-  const target = opportunity ? getTargetMrr(project, opportunity) : 0;
 
   return (
-    <section className="rounded-xl border border-border bg-card p-6 shadow-card">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-data text-[10px] uppercase tracking-data text-primary">
-            Check-in mensuel
-          </p>
-          <h2 className="mt-1 text-lg font-semibold">Mettre à jour votre MRR</h2>
-        </div>
-        {project.checkInStreak > 0 ? (
-          <div className="flex items-center gap-1 rounded-full bg-orange-500/10 px-2.5 py-1 text-xs font-medium text-orange-700">
-            <Flame className="h-3.5 w-3.5" />
-            {project.checkInStreak} mois
+    <section className={compact ? "" : "rounded-xl border border-border bg-card p-6 shadow-card"}>
+      {!compact ? (
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="font-data text-[10px] uppercase tracking-data text-primary">
+              Check-in mensuel
+            </p>
+            <h2 className="mt-1 text-lg font-semibold">Mettre à jour votre MRR</h2>
           </div>
-        ) : null}
-      </div>
+          {project.checkInStreak > 0 ? (
+            <div className="flex items-center gap-1 rounded-full bg-orange-500/10 px-2.5 py-1 text-xs font-medium text-orange-700">
+              <Flame className="h-3.5 w-3.5" />
+              {project.checkInStreak} mois
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
-      {days !== null ? (
+      {!compact && days !== null ? (
         <p className="mt-2 text-sm text-muted-foreground">
           Dernier check-in il y a {days} jour{days > 1 ? "s" : ""}
         </p>
       ) : null}
 
-      <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+      <form onSubmit={handleSubmit} className={compact ? "space-y-3" : "mt-5 space-y-4"}>
         <div className="space-y-2">
           <Label htmlFor="mrr-amount">MRR actuel</Label>
           <div className="relative">
@@ -122,29 +112,8 @@ export function MrrCheckIn({ project, onRecord }: MrrCheckInProps) {
         </div>
       ) : null}
 
-      <div className="mt-5 space-y-2 border-t border-border pt-5 text-sm">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Objectif ({project.targetScenario})</span>
-          <span className="font-medium">{formatCurrency(target)}</span>
-        </div>
-        {gap !== null ? (
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Écart vs promesse</span>
-            <span
-              className={cn(
-                "font-medium",
-                gap >= 0 ? "text-emerald-600" : "text-amber-600"
-              )}
-            >
-              {gap >= 0 ? "+" : ""}
-              {gap} %
-            </span>
-          </div>
-        ) : null}
-      </div>
-
-      {project.mrrHistory.length > 0 ? (
-        <ul className="mt-4 max-h-32 space-y-2 overflow-y-auto text-xs text-muted-foreground">
+      {!compact && project.mrrHistory.length > 0 ? (
+        <ul className="mt-5 max-h-32 space-y-2 overflow-y-auto border-t border-border pt-5 text-xs text-muted-foreground">
           {[...project.mrrHistory].reverse().slice(0, 6).map((entry) => (
             <li key={`${entry.date}-${entry.amount}`} className="flex justify-between gap-2">
               <span>{new Date(entry.date).toLocaleDateString("fr-FR")}</span>

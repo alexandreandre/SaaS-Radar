@@ -16,6 +16,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useAdminRole } from "@/contexts/admin-role-context";
+import { adminFetchJson } from "@/lib/admin/client-fetch";
 import {
   ADMIN_ROLE_LABELS,
   ADMIN_ROLE_RANK,
@@ -81,7 +83,8 @@ function TableSkeleton() {
   );
 }
 
-export function AdminUsersClient({ currentRole }: { currentRole: AdminRole }) {
+export function AdminUsersClient() {
+  const currentRole = useAdminRole();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -147,9 +150,10 @@ export function AdminUsersClient({ currentRole }: { currentRole: AdminRole }) {
   }, []);
 
   const loadStats = useCallback(async () => {
-    const res = await fetch("/api/admin/users/stats");
-    const json = await res.json();
-    if (res.ok) setStats(json.stats ?? null);
+    const { ok, data: json } = await adminFetchJson<{ stats?: UserStats }>(
+      "/api/admin/users/stats"
+    );
+    if (ok) setStats(json.stats ?? null);
   }, []);
 
   const loadUsers = useCallback(async () => {
@@ -164,13 +168,17 @@ export function AdminUsersClient({ currentRole }: { currentRole: AdminRole }) {
       params.set("limit", String(PAGE_SIZE));
       params.set("offset", String(offsetParam));
 
-      const res = await fetch(`/api/admin/users?${params}`);
-      const json = await res.json();
-      if (!res.ok) {
+      const { ok, data: json } = await adminFetchJson<{
+        users?: UserRow[];
+        total?: number;
+        hasMore?: boolean;
+        error?: string;
+      }>(`/api/admin/users?${params}`);
+      if (!ok) {
         setError(json.error ?? "Impossible de charger les utilisateurs");
         return;
       }
-      const rows = (json.users ?? []) as UserRow[];
+      const rows = json.users ?? [];
       setUsers(rows);
       setTotal(json.total ?? rows.length);
       setHasMore(Boolean(json.hasMore));

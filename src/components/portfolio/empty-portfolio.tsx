@@ -19,7 +19,7 @@ export function EmptyPortfolio({ weeklyPickSlug }: EmptyPortfolioProps) {
       <h2 className="mt-6 font-display text-2xl font-medium">Aucun SaaS en cours</h2>
       <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
         Choisissez une opportunité dans le catalogue et cliquez sur « Je build cette opportunité »
-        pour suivre votre progression face à la promesse Radar.
+        pour suivre votre progression face au plan de la fiche.
       </p>
       <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
         <Button asChild>

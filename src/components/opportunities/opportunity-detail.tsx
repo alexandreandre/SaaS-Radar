@@ -42,7 +42,6 @@ export function OpportunityDetail({ opportunity }: { opportunity: Opportunity })
             publishedAt: opportunity.publishedAt,
             sourceVerified: opportunity.sourceVerified,
             showOriginalLink: true,
-            showScoreBreakdown: true,
           }}
         />
 
