@@ -692,7 +692,12 @@ export function restoreBuildSetupSnapshot(
   const snapshot = (project.buildSetupHistory ?? []).find((s) => s.savedAt === savedAt);
   if (!snapshot) return null;
   const current = project.buildSetup ? pushBuildSetupSnapshot(project) : project;
-  const { savedAt: _s, label: _l, ...setup } = snapshot;
+  const setup = (() => {
+    const { savedAt, label, ...rest } = snapshot;
+    void savedAt;
+    void label;
+    return rest;
+  })();
   const toolId = setup.toolId as BuildToolId;
   const kits: BuildKitsByTool = { ...(current.buildKitsByTool ?? {}), [toolId]: setup };
   return normalizeBuildKits({

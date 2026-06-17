@@ -7,7 +7,6 @@ import {
   getBuildStepMilestoneId,
   getCurrentBuildStepIndex,
   getRoadmapProgress,
-  getWeekForRoadmapStep,
 } from "@/lib/build-recipe";
 import { getStepWeek } from "@/lib/guide-plan";
 import { Checkbox } from "@/components/ui/checkbox";

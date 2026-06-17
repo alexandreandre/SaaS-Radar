@@ -204,8 +204,8 @@ export function AdminUsersClient() {
   useEffect(() => {
     if (!selectedUser) return;
     const updated = users.find((u) => u.id === selectedUser.id);
-    if (updated) setSelectedUser(updated);
-  }, [users, selectedUser?.id]);
+    if (updated && updated !== selectedUser) setSelectedUser(updated);
+  }, [users, selectedUser]);
 
   const applyRoleChange = async (user: UserRow, nextRole: AdminRole) => {
     const previous = roleOverrides[user.id] ?? user.admin_role ?? "none";

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import {
   Bot,
@@ -342,9 +343,12 @@ export function AcquisitionSection({
             >
               <div className="flex items-center gap-3 p-4">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
-                  <img
+                  <Image
                     src={`https://www.google.com/s2/favicons?domain=${faviconDomain}&sz=32`}
                     alt={tab.title}
+                    width={20}
+                    height={20}
+                    unoptimized
                     className="h-5 w-5"
                     onError={(e) => {
                       e.currentTarget.style.display = "none";

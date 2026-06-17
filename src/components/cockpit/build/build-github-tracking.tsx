@@ -6,7 +6,6 @@ import {
   ExternalLink,
   GitBranch,
   Loader2,
-  Star,
   Workflow,
 } from "lucide-react";
 import { BuildPlatformLogo } from "@/components/cockpit/build/build-tool-logo";

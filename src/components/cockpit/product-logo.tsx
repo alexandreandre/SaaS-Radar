@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState } from "react";
 import type { ProductLogo } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
@@ -29,17 +30,17 @@ export function ProductLogoImage({
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center overflow-hidden border border-border/60 bg-muted/30",
+        "relative inline-flex shrink-0 items-center justify-center overflow-hidden border border-border/60 bg-muted/30",
         SIZE_CONFIG[size],
         className,
       )}
     >
-      <img
+      <Image
         src={logo.url}
         alt={alt}
-        className="h-full w-full object-cover"
-        loading="lazy"
-        decoding="async"
+        fill
+        unoptimized
+        className="object-cover"
         onError={() => setVisible(false)}
       />
     </span>

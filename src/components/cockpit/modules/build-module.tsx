@@ -52,7 +52,7 @@ export function BuildModule({
       (activeToolId ? getBuildTool(activeToolId)?.level : undefined) ??
       recommendLevel(project, opportunity)
     );
-  }, [project.buildDevLevel, activeToolId, project, opportunity]);
+  }, [activeToolId, project, opportunity]);
 
   const recipeTool = useMemo(() => {
     return activeToolId ? getBuildTool(activeToolId) : undefined;

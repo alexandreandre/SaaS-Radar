@@ -166,7 +166,6 @@ export function BuildPlatformLogo({
   className,
 }: BuildPlatformLogoProps) {
   const brand = BUILD_PLATFORM_BRANDS[platform];
-  const config = SIZE_CONFIG[size];
 
   if (brand.source === "connector") {
     const connectorSize = size === "lg" ? "lg" : size === "xs" ? "sm" : "md";

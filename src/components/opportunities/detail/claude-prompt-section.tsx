@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useRef, useState } from "react";
 import { BadgeCheck, Check, Copy, ExternalLink, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -269,9 +270,12 @@ function TechLevelQuiz({
             {techLevel === "none" && (
               <>
                 <p className="flex items-center gap-2 font-semibold text-foreground">
-                  <img
+                  <Image
                     src="https://www.google.com/s2/favicons?domain=v0.dev&sz=32"
                     alt=""
+                    width={16}
+                    height={16}
+                    unoptimized
                     className="h-4 w-4"
                   />
                   v0 by Vercel
@@ -285,9 +289,12 @@ function TechLevelQuiz({
             {techLevel === "medium" && (
               <>
                 <p className="flex items-center gap-2 font-semibold text-foreground">
-                  <img
+                  <Image
                     src="https://www.google.com/s2/favicons?domain=claude.ai&sz=32"
                     alt=""
+                    width={16}
+                    height={16}
+                    unoptimized
                     className="h-4 w-4"
                   />
                   Claude Code
@@ -301,9 +308,12 @@ function TechLevelQuiz({
             {techLevel === "high" && (
               <>
                 <p className="flex items-center gap-2 font-semibold text-foreground">
-                  <img
+                  <Image
                     src="https://www.google.com/s2/favicons?domain=cursor.sh&sz=32"
                     alt=""
+                    width={16}
+                    height={16}
+                    unoptimized
                     className="h-4 w-4"
                   />
                   Cursor
@@ -351,9 +361,12 @@ function ToolCardsAccordion({
                 className="flex min-w-0 flex-1 items-center gap-2 text-left"
               >
                 <div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted">
-                  <img
+                  <Image
                     src={tool.favicon}
                     alt={tool.name}
+                    width={16}
+                    height={16}
+                    unoptimized
                     className="h-4 w-4"
                     onError={(e) => {
                       e.currentTarget.style.display = "none";
@@ -573,9 +586,12 @@ export function ClaudePromptSection({
                 className="flex min-w-0 flex-1 items-center gap-2 text-left"
               >
                 <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-lg bg-muted">
-                  <img
+                  <Image
                     src={tool.favicon}
                     alt={tool.name}
+                    width={16}
+                    height={16}
+                    unoptimized
                     className="h-4 w-4"
                     onError={(e) => {
                       e.currentTarget.style.display = "none";

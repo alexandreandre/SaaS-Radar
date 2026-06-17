@@ -57,7 +57,7 @@ function CockpitLoaded({ project, opportunity, inLaunchPad }: CockpitLoadedProps
     if (idsDiffer) {
       updateProject(project.id, { milestones: synced.milestones });
     }
-  }, [project.id, project.milestones, opportunity.slug, updateProject, opportunity]);
+  }, [project, updateProject, opportunity]);
 
   const shellProps = {
     project,
