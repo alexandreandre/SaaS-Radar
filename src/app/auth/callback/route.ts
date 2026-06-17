@@ -11,11 +11,8 @@ function safeNext(raw: string | null): string {
 }
 
 /**
- * Callback d'authentification — gere les DEUX flux Supabase :
- *  - OAuth / PKCE (Google) : `?code` -> exchangeCodeForSession
- *  - Magic link email      : `?token_hash` + `?type` -> verifyOtp
- * Selon la config du projet, le magic link peut aussi arriver en `?code` : les deux
- * branches sont donc tentees. En cas d'echec -> /login?error=auth.
+ * Callback d'authentification — flux OAuth restant (ex. anciennes sessions).
+ * La connexion principale utilise email + mot de passe côté client.
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);

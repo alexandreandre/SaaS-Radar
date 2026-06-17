@@ -30,7 +30,7 @@ Voir [`.env.example`](.env.example) pour la liste complète. Essentiel :
 
 | Variable | Rôle |
 |----------|------|
-| `SUPABASE_URL` / `SUPABASE_ANON_KEY` | Lecture publique du catalogue + auth (session SSR, magic link, OAuth) |
+| `SUPABASE_URL` / `SUPABASE_ANON_KEY` | Lecture publique du catalogue + auth (session SSR, email/mot de passe) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Écriture serveur (sourcing, seed) — jamais côté client |
 | `OPENROUTER_API_KEY` | Pipeline de sourcing IA |
 | `SOURCING_MIN_SCORE` | Score plancher (0-100) sous lequel une fiche est rejetée |
