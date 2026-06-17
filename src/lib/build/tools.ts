@@ -134,12 +134,39 @@ export function getToolsByLevel(level: BuildToolLevel): BuildTool[] {
   return BUILD_TOOLS.filter((t) => t.level === level);
 }
 
-export function recommendTool(
-  _project: UserProject,
-  _opportunity: Opportunity,
-): BuildToolId {
-  if (_project.builderStage === "has_mrr" || _project.builderStage === "building") {
-    return "lovable";
+export function recommendLevel(
+  project: UserProject,
+  opportunity: Opportunity,
+): BuildToolLevel {
+  if (project.buildDevLevel) return project.buildDevLevel;
+  if (project.buildSetup?.toolId) {
+    const tool = getBuildTool(project.buildSetup.toolId);
+    if (tool) return tool.level;
   }
-  return "base44";
+  if (project.builderStage === "has_mrr") return "intermediate";
+  if (project.builderStage === "building") return "intermediate";
+  if (opportunity.techComplexity === "high") return "advanced";
+  if (opportunity.techComplexity === "medium") return "intermediate";
+  return "nocode";
+}
+
+export function recommendTool(
+  project: UserProject,
+  opportunity: Opportunity,
+  level?: BuildToolLevel,
+): BuildToolId {
+  const resolvedLevel = level ?? recommendLevel(project, opportunity);
+  const tools = getToolsByLevel(resolvedLevel);
+
+  if (resolvedLevel === "nocode") {
+    if (project.builderStage === "building" || project.builderStage === "has_mrr") {
+      return "lovable";
+    }
+    return "base44";
+  }
+  if (resolvedLevel === "intermediate") {
+    return opportunity.techComplexity === "high" ? "replit" : "v0";
+  }
+  if (project.builderStage === "has_mrr") return "cursor";
+  return tools[0]?.id ?? "cursor";
 }

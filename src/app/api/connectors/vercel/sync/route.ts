@@ -7,6 +7,8 @@ import {
   fetchVercelDeployMetrics,
   listVercelProjects,
 } from "@/lib/vercel/client";
+import { detectHostLogo } from "@/lib/build/detect-host-logo";
+import { buildProductLogo } from "@/lib/build/product-logo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -89,7 +91,13 @@ export async function POST(request: Request) {
       connectedAt: new Date().toISOString(),
     };
 
-    return NextResponse.json({ connection, stream, metrics });
+    let productLogo;
+    if (metrics.productionUrl) {
+      const logoUrl = await detectHostLogo(metrics.productionUrl);
+      if (logoUrl) productLogo = buildProductLogo(logoUrl, "host");
+    }
+
+    return NextResponse.json({ connection, stream, metrics, productLogo });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Erreur Vercel" },

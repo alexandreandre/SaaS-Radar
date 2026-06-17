@@ -5,6 +5,7 @@ import type { Opportunity } from "@/types/opportunity";
 import type { UserProject } from "@/lib/portfolio";
 import { getOnboardingProgress } from "@/lib/build-launch";
 import { Checkbox } from "@/components/ui/checkbox";
+import { StackInline } from "@/components/cockpit/build/build-tool-logo";
 import { CelebrationOverlay } from "@/components/cockpit/celebration-overlay";
 
 type LaunchJournalTrackerProps = {
@@ -114,7 +115,9 @@ export function LaunchJournalTracker({
       {opportunity.mvpPlan.stack.length > 0 ? (
         <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm">
           <p className="font-medium">Stack conseillée</p>
-          <p className="mt-2 text-muted-foreground">{opportunity.mvpPlan.stack.join(" · ")}</p>
+          <p className="mt-2 text-muted-foreground">
+            <StackInline items={opportunity.mvpPlan.stack} />
+          </p>
         </div>
       ) : null}
     </div>

@@ -1,15 +1,15 @@
 import type { ConnectorId, ConnectorSyncResult } from "@/lib/connectors/types";
-import type { UserProject } from "@/lib/portfolio";
 
 /**
- * Real OAuth/API sync entry point — to be wired to `/api/connectors/[id]/sync`.
- * Currently throws; demo mode uses syncConnectorDemo instead.
+ * Real OAuth/API sync entry point — wired via `/api/connectors/[id]/sync`.
+ * Stripe sync is implemented server-side in lib/connectors/stripe/metrics.ts.
  */
 export async function syncConnectorReal(
-  project: UserProject,
+  _project: unknown,
   connectorId: ConnectorId
 ): Promise<ConnectorSyncResult> {
-  void project;
-  void connectorId;
-  throw new Error("syncConnectorReal: OAuth/API sync not implemented yet");
+  if (connectorId !== "stripe") {
+    throw new Error(`syncConnectorReal: OAuth/API sync not implemented for ${connectorId}`);
+  }
+  throw new Error("syncConnectorReal: appeler /api/connectors/stripe/sync côté serveur");
 }

@@ -90,13 +90,23 @@ export function ConnectorLogo({
   })();
 
   if (!showTile) {
-    return <span className={cn("inline-flex shrink-0 items-center justify-center", className)}>{iconMarkup}</span>;
+    return (
+      <span
+        className={cn(
+          "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-md bg-white p-0.5 ring-1 ring-black/[0.06] dark:bg-white/95 dark:ring-white/20",
+          size === "sm" ? "h-6 w-6" : size === "lg" ? "h-8 w-8" : "h-7 w-7",
+          className,
+        )}
+      >
+        {iconMarkup}
+      </span>
+    );
   }
 
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center border border-border/80 bg-muted/40 p-1.5",
+        "inline-flex shrink-0 items-center justify-center overflow-hidden border border-border/30 bg-white p-1.5 ring-1 ring-black/[0.06] dark:bg-white/95 dark:ring-white/20",
         config.tile,
         config.rounded,
         showRing && "ring-2 ring-emerald-500/50 ring-offset-1 ring-offset-card",

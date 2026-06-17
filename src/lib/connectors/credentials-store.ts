@@ -7,7 +7,7 @@ import {
   isCredentialsEncryptionConfigured,
 } from "@/lib/crypto/credentials";
 
-export type ConnectorProvider = "github" | "vercel" | "netlify";
+export type ConnectorProvider = "github" | "vercel" | "netlify" | "stripe";
 
 export type StoredCredential<T> = {
   provider: ConnectorProvider;

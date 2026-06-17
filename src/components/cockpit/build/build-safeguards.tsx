@@ -58,7 +58,7 @@ export function BuildSafeguards({
                   onClick={() => onModuleChange("playbook")}
                 >
                   <BookOpen className="h-4 w-4" />
-                  Ouvrir le Playbook
+                  Ouvrir la fiche modèle
                 </Button>
               ) : null}
             </div>

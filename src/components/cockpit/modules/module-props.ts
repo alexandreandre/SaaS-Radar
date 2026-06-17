@@ -14,9 +14,12 @@ export type CockpitModuleProps = {
   onRemoveCampaign: (id: string) => void;
   onAddExpense: (expense: Omit<Expense, "id">) => void;
   onRemoveExpense: (id: string) => void;
-  onConnectIntegration: (connectorId: ConnectorId) => void;
-  onSyncIntegration: (connectorId: ConnectorId) => void;
-  onDisconnectIntegration: (connectorId: ConnectorId) => void;
+  onConnectIntegration: (
+    connectorId: ConnectorId,
+    options?: import("@/contexts/portfolio-context").ConnectIntegrationOptions,
+  ) => Promise<void>;
+  onSyncIntegration: (connectorId: ConnectorId) => Promise<void>;
+  onDisconnectIntegration: (connectorId: ConnectorId) => Promise<void>;
   onLogMetrics: (partial: Partial<MetricsSnapshot>) => void;
   onRecordMrr: (amount: number, note?: string) => void;
   onSetCashOnHand: (amount: number) => void;

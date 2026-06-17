@@ -59,14 +59,14 @@ export function PlaybookDrawer({
         <DialogHeader className="shrink-0 border-b border-border px-6 py-4 pr-12">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <DialogTitle>Playbook · {opportunity.name}</DialogTitle>
+              <DialogTitle>{opportunity.name}</DialogTitle>
               <DialogDescription className="mt-1">
-                Recherche et ressources pour builder — sans quitter le cockpit.
+                Le modèle à adapter pour la France
               </DialogDescription>
             </div>
             <Button variant="outline" size="sm" asChild>
               <Link href={fullscreenHref} onClick={() => onOpenChange(false)}>
-                Ouvrir dans Playbook
+                Ouvrir en plein écran
                 <ExternalLink className="h-4 w-4" />
               </Link>
             </Button>

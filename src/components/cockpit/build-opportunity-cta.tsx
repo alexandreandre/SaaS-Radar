@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { QuickLaunchSheet } from "@/components/cockpit/quick-launch/quick-launch-sheet";
 import Link from "next/link";
+import { getCockpitHref } from "@/lib/cockpit-modules";
 
 type BuildOpportunityCtaProps = {
   opportunity: Opportunity;
@@ -43,7 +44,7 @@ export function BuildOpportunityCta({
             Reprenez là où vous en étiez — {progress} % du journal complété.
           </p>
           <Button variant="default" className="mt-4 gap-2" asChild>
-            <Link href={`/cockpit/${existing.id}`}>
+            <Link href={getCockpitHref(existing.id, "build")}>
               Continuer mon build
               <ArrowRight className="h-4 w-4" />
             </Link>
@@ -57,7 +58,7 @@ export function BuildOpportunityCta({
           En build · {progress} % journal
         </Badge>
         <Button variant="default" asChild className={variant === "sticky" ? "flex-1" : ""}>
-          <Link href={`/cockpit/${existing.id}`}>
+          <Link href={getCockpitHref(existing.id, "build")}>
             Continuer mon build
             <ArrowRight className="h-4 w-4" />
           </Link>

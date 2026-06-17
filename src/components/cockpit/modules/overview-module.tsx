@@ -1,10 +1,11 @@
 "use client";
 
 import { KpiGrid } from "@/components/cockpit/kpi-grid";
-import { AlertsPanel } from "@/components/cockpit/alerts-panel";
 import { NextActionCard } from "@/components/cockpit/next-action-card";
 import { ManualMetricsDialog } from "@/components/cockpit/manual-metrics-dialog";
+import { ModuleCalloutsList } from "@/components/cockpit/module-callouts-list";
 import { StackHealthBar } from "@/components/cockpit/stack-health-bar";
+import { buildModuleCallouts } from "@/lib/cockpit-callouts";
 import type { CockpitModuleProps } from "@/components/cockpit/modules/module-props";
 
 export function OverviewModule({
@@ -14,20 +15,18 @@ export function OverviewModule({
   onLogMetrics,
   onModuleChange,
 }: CockpitModuleProps) {
+  const callouts = buildModuleCallouts("overview", project, opportunity, {
+    stackHealth: data.stackHealth,
+    alerts: data.alerts,
+  });
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="label-data">Tableau de bord</p>
-        <ManualMetricsDialog onSubmit={onLogMetrics} />
-      </div>
+      <ModuleCalloutsList callouts={callouts} onModuleChange={onModuleChange} />
+
       <KpiGrid metrics={data.metrics} />
 
       <StackHealthBar stackHealth={data.stackHealth} onModuleChange={onModuleChange} />
-
-      <section>
-        <p className="mb-3 font-semibold">Alertes</p>
-        <AlertsPanel alerts={data.alerts} onModuleChange={onModuleChange} />
-      </section>
 
       <NextActionCard
         project={project}
@@ -35,6 +34,10 @@ export function OverviewModule({
         radarAction={data.radarActions[0]}
         onModuleChange={onModuleChange}
       />
+
+      <div className="flex justify-end">
+        <ManualMetricsDialog onSubmit={onLogMetrics} />
+      </div>
     </div>
   );
 }

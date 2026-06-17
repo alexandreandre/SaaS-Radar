@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   AlertCircle,
@@ -19,8 +21,10 @@ import {
   getMilestoneCounts,
   getProjectCardActionSummary,
   isCheckInOverdue,
+  resolveProductName,
 } from "@/lib/portfolio";
 import { sectorLabels } from "@/data/opportunities";
+import { getCockpitHref } from "@/lib/cockpit-modules";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,6 +35,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PHASE_LABELS, ProjectPhaseBadge } from "@/components/cockpit/project-phase-badge";
+import { ProductLogoImage } from "@/components/cockpit/product-logo";
+import { prefetchCockpitEntry } from "@/lib/cockpit-module-loader";
 
 type ProjectCardProps = {
   project: UserProject;
@@ -40,8 +46,20 @@ type ProjectCardProps = {
 };
 
 export function ProjectCard({ project, onPause, onResume, onRemove }: ProjectCardProps) {
+  const router = useRouter();
   const { getCatalogOpportunity } = usePortfolio();
   const opportunity = getCatalogOpportunity(project.opportunitySlug);
+
+  const cockpitHref = getCockpitHref(project.id, "build");
+  const prefetchCockpit = useCallback(() => {
+    router.prefetch(cockpitHref);
+    prefetchCockpitEntry(project, "build");
+  }, [cockpitHref, project, router]);
+
+  const openBuilder = useCallback(() => {
+    router.push(cockpitHref);
+  }, [cockpitHref, router]);
+
   if (!opportunity) return null;
 
   const { done: milestonesDone, total: milestonesTotal } = getMilestoneCounts(project);
@@ -58,14 +76,38 @@ export function ProjectCard({ project, onPause, onResume, onRemove }: ProjectCar
       layout
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
+      role="link"
+      tabIndex={0}
+      onClick={openBuilder}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          openBuilder();
+        }
+      }}
+      onMouseEnter={prefetchCockpit}
+      onFocus={prefetchCockpit}
       className={cn(
-        "flex h-full flex-col rounded-xl border border-border bg-card p-6 shadow-card transition-shadow hover:shadow-card-hover",
+        "flex h-full cursor-pointer flex-col rounded-xl border border-border bg-card p-6 shadow-card transition-shadow hover:border-primary/30 hover:shadow-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         paused && "opacity-70"
       )}
     >
       <div className="flex items-start justify-between gap-3">
-        <h2 className="min-w-0 text-lg font-semibold leading-tight">{opportunity.name}</h2>
-        <div className="flex shrink-0 items-center gap-1.5">
+        <div className="flex min-w-0 items-start gap-2.5">
+          <ProductLogoImage
+            logo={project.productLogo}
+            size="sm"
+            alt={resolveProductName(project, opportunity)}
+          />
+          <h2 className="min-w-0 text-lg font-semibold leading-tight">
+            {resolveProductName(project, opportunity)}
+          </h2>
+        </div>
+        <div
+          className="flex shrink-0 items-center gap-1.5"
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
+        >
           <ProjectPhaseBadge phase={project.phase} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -146,13 +188,9 @@ export function ProjectCard({ project, onPause, onResume, onRemove }: ProjectCar
         </p>
       ) : null}
 
-      <div className="mt-auto pt-5">
-        <Button size="sm" className="w-full gap-2 sm:w-auto" asChild>
-          <Link href={`/cockpit/${project.id}`}>
-            Continuer
-            <ArrowRight className="h-4 w-4" />
-          </Link>
-        </Button>
+      <div className="mt-auto flex items-center gap-2 pt-5 text-sm font-medium text-primary">
+        Ouvrir le build
+        <ArrowRight className="h-4 w-4" />
       </div>
     </motion.article>
   );

@@ -1,64 +1,39 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { syncProjectMetrics, type SyncProjectMetricsInput } from "@/lib/portfolio-sync";
-import type { BuildSetup, BuildSetupSnapshot, GitHubConnection, HostConnection, ProjectPhase } from "@/lib/portfolio";
-import type { ConnectorStreams } from "@/lib/connectors/streams";
+import { syncUserProject } from "@/lib/portfolio-sync";
+import type { ProjectPhase, UserProject } from "@/lib/portfolio";
+import { migrateProject } from "@/lib/portfolio";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const VALID_PHASES: ProjectPhase[] = ["build", "launch", "revenue", "paused"];
 
-function parseBody(body: unknown): SyncProjectMetricsInput | null {
+function parseProject(body: unknown): UserProject | null {
   if (!body || typeof body !== "object") return null;
   const b = body as Record<string, unknown>;
 
-  const projectId = typeof b.projectId === "string" ? b.projectId.trim() : "";
+  const id = typeof b.id === "string" ? b.id.trim() : "";
   const opportunitySlug = typeof b.opportunitySlug === "string" ? b.opportunitySlug.trim() : "";
   const phase = typeof b.phase === "string" ? b.phase : "";
   const currentMrr = typeof b.currentMrr === "number" ? b.currentMrr : Number(b.currentMrr);
+  const startedAt = typeof b.startedAt === "string" ? b.startedAt : undefined;
+  const createdAt = typeof b.createdAt === "string" ? b.createdAt : undefined;
+  const targetScenario = b.targetScenario;
 
-  if (!projectId || !opportunitySlug || !VALID_PHASES.includes(phase as ProjectPhase)) {
+  if (!id || !opportunitySlug || !VALID_PHASES.includes(phase as ProjectPhase)) {
     return null;
   }
   if (!Number.isFinite(currentMrr) || currentMrr < 0) return null;
+  if (!startedAt || !createdAt) return null;
+  if (targetScenario !== "Prudent" && targetScenario !== "Réaliste" && targetScenario !== "Optimiste") {
+    return null;
+  }
 
-  return {
-    projectId,
-    opportunitySlug,
-    phase: phase as ProjectPhase,
-    currentMrr,
-    metricsHistory: Array.isArray(b.metricsHistory) ? b.metricsHistory : [],
-    mrrHistory: Array.isArray(b.mrrHistory) ? b.mrrHistory : [],
-    lastCheckInAt: typeof b.lastCheckInAt === "string" ? b.lastCheckInAt : undefined,
-    checkInStreak: typeof b.checkInStreak === "number" ? b.checkInStreak : undefined,
-    milestones: Array.isArray(b.milestones) ? b.milestones : undefined,
-    launchChecklistDone: Array.isArray(b.launchChecklistDone)
-      ? b.launchChecklistDone.filter((i): i is number => typeof i === "number")
-      : undefined,
-    buildSetup:
-      b.buildSetup && typeof b.buildSetup === "object"
-        ? (b.buildSetup as BuildSetup)
-        : undefined,
-    buildSetupHistory: Array.isArray(b.buildSetupHistory)
-      ? (b.buildSetupHistory as BuildSetupSnapshot[])
-      : undefined,
-    githubConnection:
-      b.githubConnection && typeof b.githubConnection === "object"
-        ? (b.githubConnection as GitHubConnection)
-        : undefined,
-    hostConnection:
-      b.hostConnection && typeof b.hostConnection === "object"
-        ? (b.hostConnection as HostConnection)
-        : undefined,
-    connectorStreams:
-      b.connectorStreams && typeof b.connectorStreams === "object"
-        ? (b.connectorStreams as ConnectorStreams)
-        : undefined,
-  };
+  return migrateProject(body as UserProject);
 }
 
-export async function PATCH(request: Request) {
+export async function PUT(request: Request) {
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
@@ -71,13 +46,13 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Corps JSON invalide" }, { status: 400 });
   }
 
-  const input = parseBody(body);
-  if (!input) {
+  const project = parseProject(body);
+  if (!project) {
     return NextResponse.json({ error: "Données invalides" }, { status: 400 });
   }
 
   try {
-    await syncProjectMetrics(user.id, input);
+    await syncUserProject(user.id, project);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json(

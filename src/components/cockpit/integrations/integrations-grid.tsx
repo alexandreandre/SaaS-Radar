@@ -3,15 +3,18 @@
 import { CONNECTORS } from "@/lib/connectors/registry";
 import type { ConnectorId, Integration } from "@/lib/connectors/types";
 import { IntegrationCard } from "@/components/cockpit/integrations/integration-card";
+import type { ConnectIntegrationOptions } from "@/contexts/portfolio-context";
 
 type IntegrationsGridProps = {
+  projectId: string;
   integrations: Integration[];
-  onConnect: (id: ConnectorId) => void;
-  onSync: (id: ConnectorId) => void;
-  onDisconnect: (id: ConnectorId) => void;
+  onConnect: (id: ConnectorId, options?: ConnectIntegrationOptions) => Promise<void>;
+  onSync: (id: ConnectorId) => Promise<void>;
+  onDisconnect: (id: ConnectorId) => Promise<void>;
 };
 
 export function IntegrationsGrid({
+  projectId,
   integrations,
   onConnect,
   onSync,
@@ -24,6 +27,7 @@ export function IntegrationsGrid({
         return (
           <IntegrationCard
             key={connector.id}
+            projectId={projectId}
             connector={connector}
             integration={integration}
             onConnect={onConnect}

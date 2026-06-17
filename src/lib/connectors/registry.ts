@@ -35,7 +35,7 @@ export const CONNECTORS: ConnectorDefinition[] = [
     priority: "p0",
     cockpitImpact: "MRR réel vs projection fiche",
     recommendedFor: ["stripe"],
-    description: "MRR, nouveaux clients, churn et expansion depuis vos abonnements.",
+    description: "MRR, churn et clients — connexion en 1 clic via OAuth Stripe (lecture seule).",
     provides: ["mrr", "newMrr", "expansionMrr", "churnedMrr", "customers"],
     demoFields: ["mrr", "newMrr", "expansionMrr", "churnedMrr", "customers"],
   }),

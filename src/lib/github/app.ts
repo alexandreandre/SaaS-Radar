@@ -1,6 +1,11 @@
 import "server-only";
 
 import { createSign } from "crypto";
+import {
+  MANIFEST_CANDIDATES,
+  REPO_LOGO_CANDIDATES,
+  parseManifestIcons,
+} from "@/lib/build/product-logo";
 
 const GITHUB_API = "https://api.github.com";
 
@@ -155,4 +160,69 @@ export async function listInstallationRepos(
     fullName: r.full_name,
     private: r.private,
   }));
+}
+
+type GitHubContentFile = {
+  type?: string;
+  download_url?: string;
+  content?: string;
+  encoding?: string;
+};
+
+async function fetchRepoFile(
+  token: string,
+  owner: string,
+  repo: string,
+  path: string,
+  ref: string,
+): Promise<GitHubContentFile | null> {
+  return ghFetch<GitHubContentFile>(
+    token,
+    `/repos/${owner}/${repo}/contents/${path}?ref=${encodeURIComponent(ref)}`,
+  );
+}
+
+function decodeGitHubContent(file: GitHubContentFile): string | null {
+  if (!file.content || file.encoding !== "base64") return null;
+  try {
+    return Buffer.from(file.content.replace(/\n/g, ""), "base64").toString("utf8");
+  } catch {
+    return null;
+  }
+}
+
+export async function detectRepoLogo(
+  token: string,
+  owner: string,
+  repo: string,
+  defaultBranch: string,
+): Promise<string | null> {
+  const ref = defaultBranch || "main";
+
+  for (const path of REPO_LOGO_CANDIDATES) {
+    const file = await fetchRepoFile(token, owner, repo, path, ref);
+    if (file?.type === "file" && file.download_url) {
+      return file.download_url;
+    }
+  }
+
+  for (const manifestPath of MANIFEST_CANDIDATES) {
+    const file = await fetchRepoFile(token, owner, repo, manifestPath, ref);
+    if (file?.type !== "file") continue;
+    const raw = decodeGitHubContent(file);
+    if (!raw) continue;
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      const manifestDir = manifestPath.includes("/")
+        ? manifestPath.slice(0, manifestPath.lastIndexOf("/") + 1)
+        : "";
+      const rawBase = `https://raw.githubusercontent.com/${owner}/${repo}/${ref}/${manifestDir}`;
+      const iconUrl = parseManifestIcons(parsed, rawBase);
+      if (iconUrl) return iconUrl;
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
 }

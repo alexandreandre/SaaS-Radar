@@ -9,8 +9,6 @@ import type { Opportunity } from "@/types/opportunity";
 import type { UserProject } from "@/lib/portfolio";
 import type { CockpitData } from "@/hooks/use-cockpit-data";
 import type { CockpitModuleId } from "@/lib/cockpit-modules";
-import { formatCurrency } from "@/lib/utils";
-import { getRoadmapProgress } from "@/lib/build-recipe";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { OpportunitySection } from "@/components/opportunities/detail/opportunity-section";
@@ -130,57 +128,32 @@ export function PlaybookContent({
   );
 
   const hasCockpitContext = Boolean(project && data);
-  const roadmapProgress =
-    project && data ? getRoadmapProgress(project, opportunity) : null;
 
   return (
     <div className={className}>
       {showHeader ? (
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="font-data text-[10px] uppercase tracking-data text-primary">Playbook</p>
-            <h2 className="mt-1 text-xl font-semibold">{opportunity.name}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Recherche, projections et acquisition — le build se fait dans le module Build.
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2">
+            <h2 className="shrink-0 text-base font-semibold tracking-tight">
+              {opportunity.name}
+            </h2>
+            <p className="min-w-0 max-w-xl truncate text-sm text-muted-foreground">
+              {opportunity.pitch}
             </p>
             {onModuleChange ? (
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 shrink-0 gap-1.5"
                 onClick={() => onModuleChange("build")}
-                className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline"
               >
                 <Hammer className="h-3.5 w-3.5" />
-                Ouvrir la recette Build
-                {roadmapProgress ? ` (${roadmapProgress.done}/${roadmapProgress.total})` : ""}
-              </button>
-            ) : null}
-            {hasCockpitContext && project && data ? (
-              <p className="mt-2 text-xs text-muted-foreground">
-                Objectif cockpit :{" "}
-                <span className="font-medium text-foreground">{project.targetScenario}</span>
-                {" · "}
-                MRR actuel :{" "}
-                <span className="font-data font-medium tabular-nums">
-                  {formatCurrency(project.currentMrr)}
-                </span>
-                {data.gap !== null ? (
-                  <>
-                    {" · "}
-                    Écart :{" "}
-                    <span
-                      className={
-                        data.gap >= 0 ? "font-medium text-emerald-600" : "font-medium text-amber-600"
-                      }
-                    >
-                      {data.gap >= 0 ? "+" : ""}
-                      {data.gap} %
-                    </span>
-                  </>
-                ) : null}
-              </p>
+                Ouvrir Build
+              </Button>
             ) : null}
           </div>
-          <Button variant="outline" size="sm" asChild>
+          <Button variant="outline" size="sm" className="shrink-0" asChild>
             <Link href={`/opportunities/${opportunity.slug}`} target="_blank">
               Plein écran
               <ExternalLink className="h-4 w-4" />
@@ -192,13 +165,13 @@ export function PlaybookContent({
       <Tabs value={tab} onValueChange={handleTabChange} className="flex min-h-0 flex-1 flex-col">
         <TabsList className="w-full shrink-0 gap-0 overflow-x-auto">
           <TabsTrigger value="opportunity" className="flex-1 px-2">
-            Opportunité
+            Le modèle
           </TabsTrigger>
           <TabsTrigger value="finances" className="flex-1 px-2">
-            Projections
+            Projections FR
           </TabsTrigger>
           <TabsTrigger value="clients" className="flex-1 px-2">
-            Clients
+            Trouver des clients
           </TabsTrigger>
         </TabsList>
 

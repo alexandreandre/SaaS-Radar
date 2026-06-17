@@ -1,14 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { ArrowRight, BarChart3 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { KpiCard } from "@/components/cockpit/kpi-card";
 import { ManualMetricsDialog } from "@/components/cockpit/manual-metrics-dialog";
+import { ModuleCalloutsList } from "@/components/cockpit/module-callouts-list";
 import { ChartSection, StatCard } from "@/components/cockpit/ui/module-primitives";
 import { ChartSkeleton } from "@/components/cockpit/ui/chart-skeleton";
 import type { CockpitModuleProps } from "@/components/cockpit/modules/module-props";
 import type { CockpitKpi } from "@/lib/cockpit-metrics";
+import { buildModuleCallouts } from "@/lib/cockpit-callouts";
 import {
   getProductStream,
   hasProductAnalyticsConnected,
@@ -31,6 +31,7 @@ function findProductKpi(kpis: CockpitKpi[], key: string) {
 
 export function ProductModule({
   project,
+  opportunity,
   data,
   onLogMetrics,
   onModuleChange,
@@ -41,6 +42,9 @@ export function ProductModule({
   const productStream = getProductStream(project.connectorStreams);
   const hasAnalytics = hasProductAnalyticsConnected(project.integrations);
   const sourceBadge = data.metrics.hasDemoData ? "démo" : hasAnalytics ? "sync" : "manuel";
+  const callouts = buildModuleCallouts("produit", project, opportunity, {
+    alerts: data.alerts,
+  });
 
   const heroKpi = findProductKpi(productKpis, "mau");
   const stickinessKpi = findProductKpi(productKpis, "stickiness");
@@ -56,35 +60,7 @@ export function ProductModule({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="label-data">Engagement produit</p>
-        <ManualMetricsDialog focus="product" onSubmit={onLogMetrics} />
-      </div>
-
-      {!productStream ? (
-        <div className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-3 text-sm">
-          <div className="flex min-w-0 items-start gap-2">
-            <BarChart3 className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-            <div>
-              <p className="font-medium">Analytics produit non connecté</p>
-              <p className="mt-0.5 text-muted-foreground">
-                Connectez Plausible pour le trafic (P0) ou PostHog pour l&apos;activation in-app et
-                la rétention J7.
-              </p>
-            </div>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="shrink-0"
-            onClick={() => onModuleChange("integrations")}
-          >
-            Connecteurs
-            <ArrowRight className="ml-1 h-3.5 w-3.5" />
-          </Button>
-        </div>
-      ) : null}
+      <ModuleCalloutsList callouts={callouts} onModuleChange={onModuleChange} />
 
       <div className="grid grid-cols-12 gap-3">
         {heroKpi ? (
@@ -191,6 +167,10 @@ export function ProductModule({
           </p>
         </section>
       ) : null}
+
+      <div className="flex justify-end">
+        <ManualMetricsDialog focus="product" onSubmit={onLogMetrics} />
+      </div>
     </div>
   );
 }

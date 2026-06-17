@@ -18,6 +18,7 @@ import {
 import { SectionTitle } from "@/components/opportunities/detail/section-title";
 import { AnimatedSection } from "@/components/opportunities/detail/animated-section";
 import { BuildOpportunityCta } from "@/components/cockpit/build-opportunity-cta";
+import { StackInline } from "@/components/cockpit/build/build-tool-logo";
 import { PlaybookGuideContextBanner } from "@/components/cockpit/playbook/playbook-guide-context";
 import { Button } from "@/components/ui/button";
 
@@ -305,7 +306,9 @@ export function GuideSection({
                 <Layers className="h-3.5 w-3.5" />
                 Stack MVP
               </div>
-              <p className="mt-1.5 text-sm">{mvpPlan.stack.join(" · ")}</p>
+              <p className="mt-1.5 text-sm">
+                <StackInline items={mvpPlan.stack} />
+              </p>
             </div>
           ) : null}
 

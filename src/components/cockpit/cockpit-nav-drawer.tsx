@@ -11,7 +11,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CockpitSidebar } from "@/components/cockpit/cockpit-sidebar";
+import { CockpitProjectIdentity } from "@/components/cockpit/cockpit-project-identity";
 import type { CockpitModuleId } from "@/lib/cockpit-modules";
+import type { Opportunity } from "@/types/opportunity";
+import type { UserProject } from "@/lib/portfolio";
 import type { CockpitAlert } from "@/lib/cockpit-alerts";
 
 type CockpitNavDrawerProps = {
@@ -20,6 +23,8 @@ type CockpitNavDrawerProps = {
   activeModule: CockpitModuleId;
   onModuleChange: (module: CockpitModuleId) => void;
   alerts: CockpitAlert[];
+  opportunity: Opportunity;
+  project: UserProject;
 };
 
 export function CockpitNavDrawer({
@@ -28,6 +33,8 @@ export function CockpitNavDrawer({
   activeModule,
   onModuleChange,
   alerts,
+  opportunity,
+  project,
 }: CockpitNavDrawerProps) {
   const handleModuleChange = (module: CockpitModuleId) => {
     onModuleChange(module);
@@ -46,16 +53,19 @@ export function CockpitNavDrawer({
             "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
           )}
         >
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <div>
-              <DialogTitle className="font-display text-base font-medium">
-                Navigation cockpit
-              </DialogTitle>
+          <div className="flex items-start justify-between gap-2 border-b border-border px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="sr-only">Navigation cockpit</DialogTitle>
               <DialogDescription className="sr-only">
                 Choisir un module du cockpit
               </DialogDescription>
+              <CockpitProjectIdentity
+                project={project}
+                opportunity={opportunity}
+                className="mb-0 border-b-0 pb-0"
+              />
             </div>
-            <DialogPrimitive.Close className="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
+            <DialogPrimitive.Close className="mt-0.5 shrink-0 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
               <X className="h-4 w-4" />
               <span className="sr-only">Fermer</span>
             </DialogPrimitive.Close>
@@ -66,6 +76,7 @@ export function CockpitNavDrawer({
               activeModule={activeModule}
               onModuleChange={handleModuleChange}
               alerts={alerts}
+              opportunity={opportunity}
               showCollapseToggle={false}
             />
           </div>

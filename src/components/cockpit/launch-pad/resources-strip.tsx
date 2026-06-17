@@ -6,13 +6,13 @@ import { getMvpStackPreview } from "@/lib/build-launch";
 
 type ResourcesStripProps = {
   opportunity: Opportunity;
-  onOpenPlaybook: (tab?: string) => void;
+  onOpenModel: (tab?: string) => void;
   onOpenBuild?: () => void;
 };
 
 export function ResourcesStrip({
   opportunity,
-  onOpenPlaybook,
+  onOpenModel,
   onOpenBuild,
 }: ResourcesStripProps) {
   const stack = getMvpStackPreview(opportunity, 5);
@@ -36,7 +36,7 @@ export function ResourcesStrip({
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => (onOpenBuild ? onOpenBuild() : onOpenPlaybook())}
+            onClick={() => (onOpenBuild ? onOpenBuild() : onOpenModel())}
             className="inline-flex items-center gap-1.5 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs font-medium text-primary transition-colors hover:bg-primary/10"
           >
             <Hammer className="h-3.5 w-3.5" />
@@ -44,7 +44,7 @@ export function ResourcesStrip({
           </button>
           <button
             type="button"
-            onClick={() => (onOpenBuild ? onOpenBuild() : onOpenPlaybook())}
+            onClick={() => (onOpenBuild ? onOpenBuild() : onOpenModel())}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium transition-colors hover:bg-muted/50"
           >
             <Sparkles className="h-3.5 w-3.5" />
@@ -52,7 +52,7 @@ export function ResourcesStrip({
           </button>
           <button
             type="button"
-            onClick={() => onOpenPlaybook("clients")}
+            onClick={() => onOpenModel("clients")}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium transition-colors hover:bg-muted/50"
           >
             <Users className="h-3.5 w-3.5" />
@@ -60,7 +60,7 @@ export function ResourcesStrip({
           </button>
           <button
             type="button"
-            onClick={() => onOpenPlaybook("finances")}
+            onClick={() => onOpenModel("finances")}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium transition-colors hover:bg-muted/50"
           >
             <BookOpen className="h-3.5 w-3.5" />

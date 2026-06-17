@@ -156,6 +156,11 @@ export function BuildRoadmap({ opportunity, project, onToggle }: BuildRoadmapPro
 
   if (totalSteps === 0) return null;
 
+  const stackRef =
+    mvpPlan.stack.length > 0
+      ? `Stack de référence : ${mvpPlan.stack.join(" · ")}`
+      : null;
+
   return (
     <details className="rounded-xl border border-border bg-card shadow-card">
       <summary className="cursor-pointer list-none px-5 py-4 marker:content-none [&::-webkit-details-marker]:hidden">
@@ -167,6 +172,9 @@ export function BuildRoadmap({ opportunity, project, onToggle }: BuildRoadmapPro
             <p className="mt-0.5 font-medium">
               Voir le plan complet ({totalSteps} étapes)
             </p>
+            {stackRef ? (
+              <p className="mt-1 text-xs text-muted-foreground">{stackRef}</p>
+            ) : null}
           </div>
           <span className="font-data text-sm tabular-nums text-primary">
             {progress.done}/{progress.total}

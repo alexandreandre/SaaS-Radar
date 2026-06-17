@@ -1,15 +1,17 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { AlertTriangle, CreditCard, TrendingUp } from "lucide-react";
+import { CreditCard, TrendingUp } from "lucide-react";
 import { formatCurrency, cn } from "@/lib/utils";
 import { ChartSection } from "@/components/cockpit/ui/module-primitives";
 import { ChartSkeleton } from "@/components/cockpit/ui/chart-skeleton";
 import { KpiCard } from "@/components/cockpit/kpi-card";
 import { ManualMetricsDialog } from "@/components/cockpit/manual-metrics-dialog";
+import { ModuleCalloutsList } from "@/components/cockpit/module-callouts-list";
 import { MrrCheckIn } from "@/components/cockpit/mrr-check-in";
 import { Button } from "@/components/ui/button";
 import type { CockpitModuleProps } from "@/components/cockpit/modules/module-props";
+import { buildModuleCallouts } from "@/lib/cockpit-callouts";
 import {
   buildArpuKpi,
   buildNrrKpi,
@@ -70,6 +72,7 @@ function RevenueEmptyActions({
 
 export function RevenueModule({
   project,
+  opportunity,
   data,
   onLogMetrics,
   onRecordMrr,
@@ -80,7 +83,9 @@ export function RevenueModule({
   const paymentConnected = hasPaymentConnector(project);
   const paymentStreams = getPaymentStreams(project);
   const failedStreams = getFailedPaymentStreams(paymentStreams);
-  const churnAlert = data.alerts.find((a) => a.id === "churn-spike");
+  const callouts = buildModuleCallouts("revenus", project, opportunity, {
+    alerts: data.alerts,
+  });
 
   const mrrKpi = findKpi(metrics.kpis, "mrr");
   const arrKpi = findKpi(metrics.kpis, "arr");
@@ -94,38 +99,7 @@ export function RevenueModule({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <p className="label-data">Revenus</p>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-            {sourceBadge}
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {showConnectCta ? (
-            <Button variant="outline" size="sm" onClick={() => onModuleChange("integrations")}>
-              <CreditCard className="h-4 w-4" />
-              Connecter un paiement
-            </Button>
-          ) : null}
-          <ManualMetricsDialog onSubmit={onLogMetrics} />
-        </div>
-      </div>
-
-      {churnAlert ? (
-        <section className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
-          <div className="flex items-start gap-3">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
-            <div>
-              <p className="font-medium text-amber-900">Pic de churn détecté</p>
-              <p className="mt-1 text-muted-foreground">{churnAlert.message}</p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Churn MRR actuel : {metrics.churnRate} % · NRR : {metrics.nrr} %
-              </p>
-            </div>
-          </div>
-        </section>
-      ) : null}
+      <ModuleCalloutsList callouts={callouts} onModuleChange={onModuleChange} />
 
       <div className="grid grid-cols-12 gap-3">
         {mrrKpi ? (
@@ -300,6 +274,10 @@ export function RevenueModule({
           </div>
         </section>
       )}
+
+      <div className="flex justify-end">
+        <ManualMetricsDialog onSubmit={onLogMetrics} />
+      </div>
     </div>
   );
 }

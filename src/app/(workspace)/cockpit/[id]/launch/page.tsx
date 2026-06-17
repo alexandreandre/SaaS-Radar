@@ -5,7 +5,6 @@ import { notFound, useRouter } from "next/navigation";
 import { Suspense, useEffect } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Navbar } from "@/components/layout/navbar";
-import { Footer } from "@/components/layout/footer";
 import { usePortfolio } from "@/contexts/portfolio-context";
 
 function LaunchRedirectContent({ projectId }: { projectId: string }) {
@@ -49,7 +48,6 @@ export default function CockpitLaunchPage({ params }: { params: { id: string } }
           <LaunchRedirectContent projectId={params.id} />
         </Suspense>
       </main>
-      <Footer />
     </>
   );
 }

@@ -8,6 +8,7 @@ import type { BuilderStage } from "@/lib/build-launch";
 import { getLaunchTeaser, getQuickLaunchDefaults } from "@/lib/build-launch";
 import { usePortfolio } from "@/contexts/portfolio-context";
 import { StagePicker } from "@/components/cockpit/quick-launch/stage-picker";
+import { BuildProductNameCard } from "@/components/cockpit/build/build-product-name-card";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,6 +28,7 @@ type QuickLaunchSheetProps = {
     currentMrr: number;
     targetScenario: "Prudent" | "Réaliste" | "Optimiste";
     builderStage: BuilderStage;
+    productName?: string;
   }) => void;
 };
 
@@ -39,12 +41,20 @@ export function QuickLaunchSheet({
   const router = useRouter();
   const { addProject } = usePortfolio();
   const [stage, setStage] = useState<BuilderStage>("starting");
+  const [productName, setProductName] = useState("");
   const teaser = getLaunchTeaser(opportunity);
 
   const handleSubmit = () => {
     const defaults = getQuickLaunchDefaults(stage);
-    const project = addProject(opportunity.slug, defaults);
-    onLaunch(defaults);
+    const trimmedName = productName.trim();
+    const project = addProject(opportunity.slug, {
+      ...defaults,
+      ...(trimmedName ? { productName: trimmedName } : {}),
+    });
+    onLaunch({
+      ...defaults,
+      ...(trimmedName ? { productName: trimmedName } : {}),
+    });
     onOpenChange(false);
     if (project) {
       router.push(`/cockpit/${project.id}`);
@@ -55,7 +65,7 @@ export function QuickLaunchSheet({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Prêt à builder {opportunity.name} ?</DialogTitle>
+          <DialogTitle>Prêt à builder ?</DialogTitle>
           <DialogDescription>
             Un clic pour démarrer — votre première action vous attend dans le cockpit.
           </DialogDescription>
@@ -73,6 +83,13 @@ export function QuickLaunchSheet({
           </div>
 
           <StagePicker value={stage} onChange={setStage} />
+
+          <BuildProductNameCard
+            opportunity={opportunity}
+            value={productName}
+            onChange={setProductName}
+            compact
+          />
         </div>
 
         <DialogFooter>

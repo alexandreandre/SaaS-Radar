@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   const demoConnectors = (connectors.data ?? []).filter((c) => c.status === "demo").length;
 
   return NextResponse.json({
-    note: "Le portfolio utilisateur reste principalement en localStorage côté client. Les tables serveur sont prêtes pour la sync.",
+    note: "Portfolio utilisateur synchronisé sur user_projects (source de vérité compte). localStorage sert de cache local.",
     projects: projects.data ?? [],
     connectors: connectors.data ?? [],
     stats: {

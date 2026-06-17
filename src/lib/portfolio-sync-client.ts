@@ -1,27 +1,40 @@
 import type { UserProject } from "@/lib/portfolio";
 
-export function queueProjectMetricsSync(project: UserProject) {
+export function queueProjectSync(project: UserProject) {
   if (typeof window === "undefined") return;
 
   void fetch("/api/portfolio/metrics", {
-    method: "PATCH",
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      projectId: project.id,
-      opportunitySlug: project.opportunitySlug,
-      phase: project.phase,
-      currentMrr: project.currentMrr,
-      metricsHistory: project.metricsHistory ?? [],
-      mrrHistory: project.mrrHistory,
-      lastCheckInAt: project.lastCheckInAt,
-      checkInStreak: project.checkInStreak,
-      milestones: project.milestones,
-      launchChecklistDone: project.launchChecklistDone ?? [],
-      buildSetup: project.buildSetup,
-      buildSetupHistory: project.buildSetupHistory,
-      githubConnection: project.githubConnection,
-      hostConnection: project.hostConnection,
-      connectorStreams: project.connectorStreams,
-    }),
+    body: JSON.stringify(project),
   }).catch(() => {});
+}
+
+export function queueProjectDelete(projectId: string) {
+  if (typeof window === "undefined") return;
+
+  void fetch(`/api/portfolio/${encodeURIComponent(projectId)}`, {
+    method: "DELETE",
+  }).catch(() => {});
+}
+
+/** @deprecated Utiliser queueProjectSync */
+export function queueProjectMetricsSync(project: UserProject) {
+  queueProjectSync(project);
+}
+
+export async function fetchAccountProjects(): Promise<UserProject[]> {
+  const res = await fetch("/api/portfolio");
+  if (!res.ok) return [];
+  const data = (await res.json()) as { projects?: UserProject[] };
+  return Array.isArray(data.projects) ? data.projects : [];
+}
+
+export async function uploadAccountProject(project: UserProject): Promise<boolean> {
+  const res = await fetch("/api/portfolio/metrics", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(project),
+  });
+  return res.ok;
 }

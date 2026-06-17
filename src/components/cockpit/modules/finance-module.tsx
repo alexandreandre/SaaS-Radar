@@ -4,9 +4,11 @@ import dynamic from "next/dynamic";
 import { formatCurrency } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { ExpenseTable } from "@/components/cockpit/expenses/expense-table";
+import { ModuleCalloutsList } from "@/components/cockpit/module-callouts-list";
 import { ChartSection, StatCard } from "@/components/cockpit/ui/module-primitives";
 import { ChartSkeleton } from "@/components/cockpit/ui/chart-skeleton";
 import type { CockpitModuleProps } from "@/components/cockpit/modules/module-props";
+import { buildModuleCallouts } from "@/lib/cockpit-callouts";
 
 const ExpenseDonutChart = dynamic(
   () => import("@/components/cockpit/metrics/expense-donut").then((m) => m.ExpenseDonutChart),
@@ -30,10 +32,12 @@ const AccountingVsMrrChart = dynamic(
 
 export function FinanceModule({
   project,
+  opportunity,
   data,
   onAddExpense,
   onRemoveExpense,
   onSetCashOnHand,
+  onModuleChange,
 }: CockpitModuleProps) {
   const expenses = project.expenses ?? [];
   const cashOnHand = project.cashOnHand ?? 5000;
@@ -41,13 +45,14 @@ export function FinanceModule({
   const accountingStream =
     project.connectorStreams?.pennylane ?? project.connectorStreams?.abby;
   const latestMrr = data.metrics.latest?.mrr ?? project.currentMrr;
-
-  const qontoMismatch =
-    qontoStream?.type === "finance" &&
-    Math.abs(qontoStream.cashBalance - cashOnHand) / Math.max(cashOnHand, 1) > 0.1;
+  const callouts = buildModuleCallouts("finance", project, opportunity, {
+    alerts: data.alerts,
+  });
 
   return (
     <div className="space-y-6">
+      <ModuleCalloutsList callouts={callouts} onModuleChange={onModuleChange} />
+
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard
           label="Trésorerie"
@@ -61,13 +66,6 @@ export function FinanceModule({
           value={data.metrics.runwayMonths !== null ? `${data.metrics.runwayMonths} mois` : "—"}
         />
       </div>
-
-      {qontoMismatch ? (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900">
-          Écart Qonto ({formatCurrency(qontoStream!.cashBalance)}) vs saisie manuelle (
-          {formatCurrency(cashOnHand)}).
-        </div>
-      ) : null}
 
       <section className="rounded-xl border border-border bg-card p-6 shadow-card">
         <Label htmlFor="cash">Trésorerie disponible (€)</Label>

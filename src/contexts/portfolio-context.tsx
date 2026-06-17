@@ -5,20 +5,25 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
 import {
-  mergeSnapshots,
-  mergeProjectStreams,
   removeConnectorStream,
   syncConnectorAllDemo,
   type ConnectorId,
 } from "@/lib/connectors";
+import {
+  applyConnectorSyncToProject,
+  setIntegrationError,
+  type ConnectorSyncApiResponse,
+} from "@/lib/connectors/integration-client";
 import type { AdCampaign, Expense, MetricsSnapshot } from "@/lib/connectors/types";
 import type { Opportunity } from "@/types/opportunity";
 import { useTier } from "@/contexts/tier-context";
+import { useSession } from "@/contexts/session-context";
 import { enrichOpportunity } from "@/data/opportunity-enrichment";
 import { gateOpportunityForTier } from "@/lib/opportunity-access";
 import { isOnboardingComplete } from "@/lib/build-launch";
@@ -35,16 +40,34 @@ import {
   resetBuildSetup,
   restoreBuildSetupSnapshot,
   setBuildSetup,
+  switchBuildTool,
+  setBuildDevLevel as applyBuildDevLevel,
+  setBuildPromptLanguage as applyBuildPromptLanguage,
   type AddProjectInput,
   type BuildSetup,
+  type BuildDevLevel,
   type GitHubConnection,
   type HostConnection,
+  type ProductLogo,
   type ResetBuildOptions,
   type ProjectPhase,
   type TargetScenario,
   type UserProject,
 } from "@/lib/portfolio";
-import { queueProjectMetricsSync } from "@/lib/portfolio-sync-client";
+import {
+  fetchAccountProjects,
+  queueProjectDelete,
+  queueProjectSync,
+  uploadAccountProject,
+} from "@/lib/portfolio-sync-client";
+import type { BuildToolId } from "@/lib/build/tools";
+import type { BuildPromptLanguage } from "@/lib/build/prompt-language";
+
+export type ConnectIntegrationOptions = {
+  mode?: "demo" | "real";
+  secretKey?: string;
+  currency?: string;
+};
 
 type PortfolioContextValue = {
   projects: UserProject[];
@@ -57,6 +80,11 @@ type PortfolioContextValue = {
   toggleMilestone: (id: string, milestoneId: string) => void;
   toggleLaunchChecklistItem: (id: string, itemIndex: number) => void;
   setBuildSetupForProject: (id: string, setup: BuildSetup) => void;
+  switchBuildTool: (id: string, toolId: BuildToolId) => void;
+  setBuildDevLevel: (id: string, level: BuildDevLevel) => void;
+  setBuildPromptLanguage: (id: string, language: BuildPromptLanguage) => void;
+  setProductName: (id: string, name: string) => void;
+  setProductLogo: (id: string, logo: ProductLogo | undefined) => void;
   restoreBuildVersion: (id: string, savedAt: string) => void;
   resetBuild: (id: string, opts?: ResetBuildOptions) => void;
   setGitHubConnection: (id: string, connection: GitHubConnection | undefined) => void;
@@ -68,9 +96,13 @@ type PortfolioContextValue = {
   activeProject: UserProject | null;
   overdueCheckIns: number;
   stats: ReturnType<typeof getPortfolioStats>;
-  connectIntegration: (projectId: string, connectorId: ConnectorId) => void;
-  disconnectIntegration: (projectId: string, connectorId: ConnectorId) => void;
-  syncIntegration: (projectId: string, connectorId: ConnectorId) => void;
+  connectIntegration: (
+    projectId: string,
+    connectorId: ConnectorId,
+    options?: ConnectIntegrationOptions,
+  ) => Promise<void>;
+  disconnectIntegration: (projectId: string, connectorId: ConnectorId) => Promise<void>;
+  syncIntegration: (projectId: string, connectorId: ConnectorId) => Promise<void>;
   addCampaign: (projectId: string, campaign: Omit<AdCampaign, "id">) => void;
   updateCampaign: (projectId: string, campaignId: string, patch: Partial<AdCampaign>) => void;
   removeCampaign: (projectId: string, campaignId: string) => void;
@@ -100,6 +132,25 @@ function persistProjects(projects: UserProject[]) {
   localStorage.setItem(PORTFOLIO_STORAGE_KEY, JSON.stringify(projects));
 }
 
+async function syncAccountPortfolioInBackground(
+  localProjects: UserProject[]
+): Promise<UserProject[]> {
+  const serverProjects = (await fetchAccountProjects()).map(migrateProject);
+  const serverIds = new Set(serverProjects.map((p) => p.id));
+  const serverSlugs = new Set(serverProjects.map((p) => p.opportunitySlug));
+
+  const toUpload = localProjects.filter(
+    (p) => !serverIds.has(p.id) && !serverSlugs.has(p.opportunitySlug)
+  );
+
+  if (toUpload.length > 0) {
+    void Promise.all(toUpload.map((p) => uploadAccountProject(migrateProject(p))));
+    return [...toUpload, ...serverProjects].map(migrateProject);
+  }
+
+  return serverProjects.length > 0 ? serverProjects : localProjects;
+}
+
 export function PortfolioProvider({
   children,
   opportunityCatalog,
@@ -108,13 +159,38 @@ export function PortfolioProvider({
   opportunityCatalog: Opportunity[];
 }) {
   const { tier } = useTier();
+  const { isAuthenticated } = useSession();
   const [projects, setProjects] = useState<UserProject[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
-  useEffect(() => {
-    setProjects(readStoredProjects());
+  useLayoutEffect(() => {
+    const local = readStoredProjects();
+    setProjects(local);
     setHydrated(true);
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let cancelled = false;
+    const local = readStoredProjects();
+
+    void (async () => {
+      try {
+        const accountProjects = await syncAccountPortfolioInBackground(local);
+        if (!cancelled) {
+          setProjects(accountProjects);
+          persistProjects(accountProjects);
+        }
+      } catch {
+        /* conserve le cache local */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
 
   const getCatalogOpportunity = useCallback(
     (slug: string) => {
@@ -127,13 +203,33 @@ export function PortfolioProvider({
     [opportunityCatalog, tier]
   );
 
-  const commit = useCallback((updater: (prev: UserProject[]) => UserProject[]) => {
-    setProjects((prev) => {
-      const next = updater(prev);
-      persistProjects(next);
-      return next;
-    });
-  }, []);
+  const commit = useCallback(
+    (updater: (prev: UserProject[]) => UserProject[]) => {
+      setProjects((prev) => {
+        const next = updater(prev);
+        persistProjects(next);
+
+        if (isAuthenticated && next !== prev) {
+          const nextIds = new Set(next.map((p) => p.id));
+          const prevById = new Map(prev.map((p) => [p.id, p]));
+
+          for (const project of next) {
+            if (prevById.get(project.id) !== project) {
+              queueProjectSync(project);
+            }
+          }
+          for (const project of prev) {
+            if (!nextIds.has(project.id)) {
+              queueProjectDelete(project.id);
+            }
+          }
+        }
+
+        return next;
+      });
+    },
+    [isAuthenticated]
+  );
 
   const addProject = useCallback(
     (slug: string, input: AddProjectInput): UserProject | null => {
@@ -238,7 +334,6 @@ export function PortfolioProvider({
             lastCheckInAt: isoNow,
             checkInStreak: nextStreak,
           };
-          queueProjectMetricsSync(updated);
           return updated;
         })
       );
@@ -283,11 +378,9 @@ export function PortfolioProvider({
               onboardingCompleted: true,
               onboardingCompletedAt: now,
             };
-            queueProjectMetricsSync(completed);
             return completed;
           }
 
-          queueProjectMetricsSync(updated);
           return updated;
         })
       );
@@ -301,7 +394,6 @@ export function PortfolioProvider({
         prev.map((project) => {
           if (project.id !== id) return project;
           const updated = applyLaunchChecklistToggle(project, itemIndex);
-          queueProjectMetricsSync(updated);
           return updated;
         }),
       );
@@ -315,7 +407,73 @@ export function PortfolioProvider({
         prev.map((project) => {
           if (project.id !== id) return project;
           const updated = setBuildSetup(project, setup);
-          queueProjectMetricsSync(updated);
+          return updated;
+        }),
+      );
+    },
+    [commit],
+  );
+
+  const switchBuildToolForProject = useCallback(
+    (id: string, toolId: BuildToolId) => {
+      commit((prev) =>
+        prev.map((project) => {
+          if (project.id !== id) return project;
+          const updated = switchBuildTool(project, toolId);
+          return updated;
+        }),
+      );
+    },
+    [commit],
+  );
+
+  const setBuildDevLevel = useCallback(
+    (id: string, level: BuildDevLevel) => {
+      commit((prev) =>
+        prev.map((project) => {
+          if (project.id !== id) return project;
+          const updated = applyBuildDevLevel(project, level);
+          return updated;
+        }),
+      );
+    },
+    [commit],
+  );
+
+  const setBuildPromptLanguage = useCallback(
+    (id: string, language: BuildPromptLanguage) => {
+      commit((prev) =>
+        prev.map((project) => {
+          if (project.id !== id) return project;
+          const updated = applyBuildPromptLanguage(project, language);
+          return updated;
+        }),
+      );
+    },
+    [commit],
+  );
+
+  const setProductName = useCallback(
+    (id: string, name: string) => {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      commit((prev) =>
+        prev.map((project) => {
+          if (project.id !== id) return project;
+          const updated = { ...project, productName: trimmed };
+          return updated;
+        }),
+      );
+    },
+    [commit],
+  );
+
+  const setProductLogo = useCallback(
+    (id: string, logo: ProductLogo | undefined) => {
+      commit((prev) =>
+        prev.map((project) => {
+          if (project.id !== id) return project;
+          const updated = { ...project, productLogo: logo };
           return updated;
         }),
       );
@@ -330,7 +488,6 @@ export function PortfolioProvider({
           if (project.id !== id) return project;
           const restored = restoreBuildSetupSnapshot(project, savedAt);
           if (!restored) return project;
-          queueProjectMetricsSync(restored);
           return restored;
         }),
       );
@@ -344,7 +501,6 @@ export function PortfolioProvider({
         prev.map((project) => {
           if (project.id !== id) return project;
           const updated = resetBuildSetup(project, opts);
-          queueProjectMetricsSync(updated);
           return updated;
         }),
       );
@@ -358,7 +514,6 @@ export function PortfolioProvider({
         prev.map((project) => {
           if (project.id !== id) return project;
           const updated = { ...project, githubConnection: connection };
-          queueProjectMetricsSync(updated);
           return updated;
         }),
       );
@@ -372,7 +527,6 @@ export function PortfolioProvider({
         prev.map((project) => {
           if (project.id !== id) return project;
           const updated = { ...project, hostConnection: connection };
-          queueProjectMetricsSync(updated);
           return updated;
         }),
       );
@@ -401,74 +555,221 @@ export function PortfolioProvider({
   );
 
   const connectIntegration = useCallback(
-    (projectId: string, connectorId: ConnectorId) => {
+    async (
+      projectId: string,
+      connectorId: ConnectorId,
+      options?: ConnectIntegrationOptions,
+    ) => {
+      if (connectorId === "stripe" && options?.mode === "demo") {
+        throw new Error("La connexion démo Stripe n'est plus disponible. Utilisez OAuth ou une clé restreinte.");
+      }
+
+      if (connectorId === "stripe" && options?.mode !== "real" && !options?.secretKey?.trim()) {
+        throw new Error("Connectez Stripe via OAuth ou une clé restreinte.");
+      }
+
+      const isStripeReal =
+        connectorId === "stripe" &&
+        options?.mode === "real" &&
+        (Boolean(options.secretKey?.trim()) || !options.secretKey);
+
+      if (isStripeReal && options?.secretKey?.trim()) {
+        try {
+          const res = await fetch("/api/connectors/stripe/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectId,
+              secretKey: options!.secretKey!.trim(),
+              currency: options?.currency ?? "eur",
+            }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion Stripe échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? "Stripe",
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion Stripe échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
+      if (isStripeReal) {
+        try {
+          const res = await fetch("/api/connectors/stripe/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ projectId }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion Stripe échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? "Stripe",
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion Stripe échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
       commit((prev) =>
         prev.map((project) => {
           if (project.id !== projectId) return project;
           const opportunity = getCatalogOpportunity(project.opportunitySlug);
           if (!opportunity) return project;
           const now = new Date().toISOString();
-          const { snapshots, stream } = syncConnectorAllDemo(
+          const { snapshots, stream } = syncConnectorAllDemo(project, connectorId, opportunity);
+          const demoResult: ConnectorSyncApiResponse = {
+            snapshots,
+            stream,
+            syncedAt: now,
+          };
+          const oppName = opportunity.name;
+          return applyConnectorSyncToProject(
             project,
             connectorId,
-            opportunity
+            demoResult,
+            "demo",
+            `Démo · ${oppName}`,
           );
-          const integrations = [...(project.integrations ?? [])];
-          const idx = integrations.findIndex((i) => i.connectorId === connectorId);
-          const connector = opportunity;
-          const entry = {
-            connectorId,
-            status: "demo" as const,
-            connectedAt: now,
-            lastSyncAt: now,
-            accountLabel: connector ? `Démo · ${connector.name}` : "Démo",
-            syncSchedule: "manual" as const,
-          };
-          if (idx >= 0) integrations[idx] = entry;
-          else integrations.push(entry);
-
-          const latestMrr = snapshots.at(-1)?.mrr ?? project.currentMrr;
-          let connectorStreams = project.connectorStreams ?? {};
-          if (stream) {
-            connectorStreams = mergeProjectStreams(connectorStreams, connectorId, stream);
-          }
-
-          return {
-            ...project,
-            integrations,
-            connectorStreams,
-            metricsHistory: mergeSnapshots(project.metricsHistory ?? [], snapshots),
-            currentMrr: latestMrr > 0 ? latestMrr : project.currentMrr,
-          };
-        })
+        }),
       );
     },
-    [commit, getCatalogOpportunity]
+    [commit, getCatalogOpportunity],
   );
 
   const disconnectIntegration = useCallback(
-    (projectId: string, connectorId: ConnectorId) => {
+    async (projectId: string, connectorId: ConnectorId) => {
+      if (connectorId === "stripe") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find((i) => i.connectorId === "stripe");
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/stripe/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
       commit((prev) =>
         prev.map((project) => {
           if (project.id !== projectId) return project;
           return {
             ...project,
             integrations: (project.integrations ?? []).map((i) =>
-              i.connectorId === connectorId ? { ...i, status: "disconnected" as const } : i
+              i.connectorId === connectorId ? { ...i, status: "disconnected" as const } : i,
             ),
             connectorStreams: removeConnectorStream(project.connectorStreams ?? {}, connectorId),
           };
-        })
+        }),
       );
     },
-    [commit]
+    [commit, projects],
   );
 
   const syncIntegration = useCallback(
-    (projectId: string, connectorId: ConnectorId) => {
-      connectIntegration(projectId, connectorId);
+    async (projectId: string, connectorId: ConnectorId) => {
+      const project = projects.find((p) => p.id === projectId);
+      const integration = project?.integrations?.find((i) => i.connectorId === connectorId);
+
+      if (connectorId === "stripe") {
+        if (integration?.status === "connected" || integration?.status === "demo") {
+          try {
+            const res = await fetch("/api/connectors/stripe/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation Stripe échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "Stripe",
+                );
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "Synchronisation Stripe échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
+          return;
+        }
+
+        throw new Error("Connectez Stripe via OAuth ou une clé restreinte.");
+      }
+
+      await connectIntegration(projectId, connectorId, { mode: "demo" });
     },
-    [connectIntegration]
+    [commit, connectIntegration, projects],
   );
 
   const addCampaign = useCallback(
@@ -604,7 +905,6 @@ export function PortfolioProvider({
             currentMrr: merged.mrr,
             mrrHistory: nextMrrHistory,
           };
-          queueProjectMetricsSync(updated);
           return updated;
         })
       );
@@ -659,6 +959,11 @@ export function PortfolioProvider({
       toggleMilestone,
       toggleLaunchChecklistItem,
       setBuildSetupForProject,
+      switchBuildTool: switchBuildToolForProject,
+      setBuildDevLevel,
+      setBuildPromptLanguage,
+      setProductName,
+      setProductLogo,
       restoreBuildVersion,
       resetBuild,
       setGitHubConnection,
@@ -694,6 +999,11 @@ export function PortfolioProvider({
       toggleMilestone,
       toggleLaunchChecklistItem,
       setBuildSetupForProject,
+      switchBuildToolForProject,
+      setBuildDevLevel,
+      setBuildPromptLanguage,
+      setProductName,
+      setProductLogo,
       restoreBuildVersion,
       resetBuild,
       setGitHubConnection,

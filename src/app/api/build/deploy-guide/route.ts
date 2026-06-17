@@ -30,18 +30,20 @@ export async function POST(request: Request) {
   const b = body as Record<string, unknown>;
   const opportunitySlug =
     typeof b.opportunitySlug === "string" ? b.opportunitySlug.trim() : "";
+  const productName =
+    typeof b.productName === "string" ? b.productName.trim() : "";
   const toolId = typeof b.toolId === "string" ? b.toolId.trim() : "";
 
   const tool = getBuildTool(toolId);
   const opportunity = await getEnrichedOpportunityBySlug(opportunitySlug);
-  if (!tool || !opportunity) {
+  if (!tool || !opportunity || !productName) {
     return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
   }
 
   try {
     const markdown = await generateDeployRecipeMarkdown(
       "Tu rédiges des guides de déploiement courts en français, numérotés.",
-      buildDeployRecipePrompt(opportunity, tool),
+      buildDeployRecipePrompt(opportunity, tool, productName),
     );
     return NextResponse.json({ markdown });
   } catch (err) {

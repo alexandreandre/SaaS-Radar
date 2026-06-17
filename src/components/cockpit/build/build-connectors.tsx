@@ -1,6 +1,8 @@
 "use client";
 
 import { Plug } from "lucide-react";
+import { ConnectorLogo } from "@/components/cockpit/integrations/connector-logo";
+import { BuildPlatformName } from "@/components/cockpit/build/build-tool-logo";
 import { StatCard } from "@/components/cockpit/ui/module-primitives";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
@@ -40,7 +42,9 @@ export function BuildConnectors({
         {!hasAnyConnector ? (
           <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-center">
             <p className="text-sm text-muted-foreground">
-              Connectez GitHub, Sentry ou Vercel pour suivre deploys, erreurs et uptime ici.
+              Connectez <BuildPlatformName platform="github" size="xs" />, Sentry ou{" "}
+              <BuildPlatformName platform="vercel" size="xs" /> pour suivre deploys, erreurs et
+              uptime ici.
             </p>
             <Button
               type="button"
@@ -65,7 +69,10 @@ export function BuildConnectors({
             <div className="grid gap-3 sm:grid-cols-2">
               {sentryStream?.type === "dev" ? (
                 <div className="rounded-lg border border-border bg-muted/20 p-4">
-                  <h4 className="font-semibold">Sentry</h4>
+                  <h4 className="flex items-center gap-2 font-semibold">
+                    <ConnectorLogo connectorId="sentry" size="sm" showTile={false} />
+                    Sentry
+                  </h4>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Taux d&apos;erreur : {sentryStream.errorRate} % · {sentryStream.openIssues}{" "}
                     issues
@@ -74,7 +81,9 @@ export function BuildConnectors({
               ) : null}
               {vercelStream?.type === "dev" ? (
                 <div className="rounded-lg border border-border bg-muted/20 p-4">
-                  <h4 className="font-semibold">Vercel</h4>
+                  <h4 className="flex items-center gap-2 font-semibold">
+                    <BuildPlatformName platform="vercel" size="sm" />
+                  </h4>
                   <p className="mt-1 text-sm text-muted-foreground">
                     Uptime {vercelStream.uptimePct} % · {vercelStream.deploysLast30d} deploys
                   </p>

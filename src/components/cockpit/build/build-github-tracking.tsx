@@ -3,25 +3,39 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   Activity,
+  ExternalLink,
   GitBranch,
-  Github,
   Loader2,
   Star,
   Workflow,
 } from "lucide-react";
+import { BuildPlatformLogo } from "@/components/cockpit/build/build-tool-logo";
+import { BuildCopyPrompt } from "@/components/cockpit/build/build-copy-prompt";
 import type { CockpitModuleId } from "@/lib/cockpit-modules";
 import type { DevStream } from "@/lib/connectors/streams";
 import type { UserProject } from "@/lib/portfolio";
+import { resolveProductName } from "@/lib/portfolio";
+import { getActiveBuildToolId } from "@/lib/portfolio";
+import type { Opportunity } from "@/types/opportunity";
+import type { BuildTool } from "@/lib/build/tools";
+import type { BuildTrackingGithubMode } from "@/lib/build/tracking-profile";
 import { getBuildGitHubAlert } from "@/lib/build/github-alerts";
+import { getGitHubCursorPrompt, getGitHubManualSteps } from "@/lib/build/deploy-prompts";
+import { getBuildTool } from "@/lib/build/tools";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { usePortfolio } from "@/contexts/portfolio-context";
-import { queueProjectMetricsSync } from "@/lib/portfolio-sync-client";
+import { mergeDetectedProductLogo } from "@/lib/build/product-logo-client";
+import type { ProductLogo } from "@/lib/portfolio";
 import { useSearchParams } from "next/navigation";
 
 type BuildGithubTrackingProps = {
   project: UserProject;
+  opportunity?: Opportunity;
+  tool?: BuildTool;
+  mode?: BuildTrackingGithubMode;
   onModuleChange?: (module: CockpitModuleId) => void;
+  embedded?: boolean;
 };
 
 function MetricTile({
@@ -52,7 +66,13 @@ function MetricTile({
   );
 }
 
-export function BuildGithubTracking({ project }: BuildGithubTrackingProps) {
+export function BuildGithubTracking({
+  project,
+  opportunity,
+  tool: toolProp,
+  mode = "required",
+  embedded = false,
+}: BuildGithubTrackingProps) {
   const { setGitHubConnection, updateProject } = usePortfolio();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
@@ -62,6 +82,10 @@ export function BuildGithubTracking({ project }: BuildGithubTrackingProps) {
 
   const stream = project.connectorStreams?.github as DevStream | undefined;
   const alert = getBuildGitHubAlert(project, stream);
+
+  const buildTool =
+    toolProp ??
+    (getActiveBuildToolId(project) ? getBuildTool(getActiveBuildToolId(project)!) : undefined);
 
   const syncRepo = useCallback(
     async (installationId: number, repoFullName: string) => {
@@ -77,7 +101,7 @@ export function BuildGithubTracking({ project }: BuildGithubTrackingProps) {
         if (!res.ok) throw new Error(data.error ?? "Sync échouée");
 
         setGitHubConnection(project.id, data.connection);
-        const updated: UserProject = {
+        const baseUpdated: UserProject = {
           ...project,
           githubConnection: data.connection,
           connectorStreams: {
@@ -85,11 +109,16 @@ export function BuildGithubTracking({ project }: BuildGithubTrackingProps) {
             github: data.stream,
           },
         };
+        const withLogo = mergeDetectedProductLogo(
+          baseUpdated,
+          data.productLogo as ProductLogo | undefined,
+        );
+        const updated = withLogo ?? baseUpdated;
         updateProject(project.id, {
           githubConnection: data.connection,
           connectorStreams: updated.connectorStreams,
+          ...(withLogo ? { productLogo: withLogo.productLogo } : {}),
         });
-        queueProjectMetricsSync(updated);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erreur");
       } finally {
@@ -136,17 +165,37 @@ export function BuildGithubTracking({ project }: BuildGithubTrackingProps) {
   };
 
   const installationId = project.githubConnection?.installationId;
+  const showCursorHelp =
+    mode === "required" &&
+    Boolean(opportunity && buildTool?.deployModel === "github-vercel" && !project.githubConnection);
 
-  return (
-    <section className="rounded-xl border border-border bg-card p-5 shadow-card">
+  const optionalHint = buildTool
+    ? `Si vous avez activé la sync GitHub dans ${buildTool.name}, liez le repo ici pour suivre commits et CI — ce n'est pas requis pour publier.`
+    : "Liez votre repo pour suivre commits, CI et momentum — sans quitter le cockpit.";
+
+  const requiredHint =
+    "Une fois le code sur GitHub, connectez-le ici pour suivre commits et déploiements.";
+
+  const content = (
+    <>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-data text-[10px] uppercase tracking-data text-muted-foreground">
-            Suivi
-          </p>
-          <h3 className="mt-1 flex items-center gap-2 text-lg font-semibold">
-            <Github className="h-5 w-5" />
+          {!embedded ? (
+            <p className="font-data text-[10px] uppercase tracking-data text-muted-foreground">
+              Suivi
+            </p>
+          ) : null}
+          <h3
+            className={cn(
+              "flex items-center gap-2 font-semibold",
+              embedded ? "text-base" : "mt-1 text-lg",
+            )}
+          >
+            <BuildPlatformLogo platform="github" size="sm" />
             GitHub
+            {mode === "optional" ? (
+              <span className="text-xs font-normal text-muted-foreground">(optionnel)</span>
+            ) : null}
           </h3>
         </div>
         {!project.githubConnection ? (
@@ -169,6 +218,36 @@ export function BuildGithubTracking({ project }: BuildGithubTrackingProps) {
           </Button>
         )}
       </div>
+
+      {showCursorHelp && opportunity && buildTool ? (
+        <details className="mb-4 rounded-lg border border-dashed border-primary/30 bg-primary/5">
+          <summary className="cursor-pointer list-none px-3 py-2.5 text-sm font-medium marker:content-none [&::-webkit-details-marker]:hidden">
+            Pas encore sur GitHub ? Création manuelle ou aide Cursor
+          </summary>
+          <div className="space-y-3 border-t border-primary/20 p-3">
+            <ol className="space-y-1 text-xs leading-relaxed text-muted-foreground">
+              {getGitHubManualSteps(resolveProductName(project, opportunity)).map((line, i) => (
+                <li key={i}>
+                  <span className="font-medium text-primary">{i + 1}. </span>
+                  {line}
+                </li>
+              ))}
+            </ol>
+            <Button variant="outline" size="sm" className="h-8 gap-1.5 text-xs" asChild>
+              <a href="https://github.com/new" target="_blank" rel="noopener noreferrer">
+                <BuildPlatformLogo platform="github" size="sm" variant="inline" />
+                github.com/new
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            </Button>
+            <BuildCopyPrompt
+              label={`Si vous bloquez — prompt ${buildTool.name}`}
+              text={getGitHubCursorPrompt(buildTool, resolveProductName(project, opportunity))}
+              compact
+            />
+          </div>
+        </details>
+      ) : null}
 
       {alert ? (
         <div
@@ -250,11 +329,36 @@ export function BuildGithubTracking({ project }: BuildGithubTrackingProps) {
         </>
       ) : !project.githubConnection ? (
         <p className="text-sm text-muted-foreground">
-          Liez votre repo pour suivre commits, CI, issues et momentum — sans quitter le cockpit.
+          {mode === "required" ? requiredHint : optionalHint}
         </p>
       ) : null}
 
       {error ? <p className="mt-2 text-xs text-destructive">{error}</p> : null}
+    </>
+  );
+
+  const wrappedContent =
+    mode === "optional" && !project.githubConnection ? (
+      <details open className="rounded-lg border border-dashed border-border bg-muted/10">
+        <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium marker:content-none [&::-webkit-details-marker]:hidden">
+          Optionnel — lier GitHub pour suivre le code
+        </summary>
+        <div className="border-t border-border p-4">{content}</div>
+      </details>
+    ) : (
+      content
+    );
+
+  if (embedded) {
+    if (mode === "optional" && !project.githubConnection) {
+      return wrappedContent;
+    }
+    return <div className="rounded-lg border border-border bg-muted/10 p-4">{wrappedContent}</div>;
+  }
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-5 shadow-card">
+      {wrappedContent}
     </section>
   );
 }

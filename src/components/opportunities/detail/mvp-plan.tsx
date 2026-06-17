@@ -1,6 +1,7 @@
 import type { Opportunity } from "@/types/opportunity";
 import { SectionShell } from "@/components/opportunities/detail/section-shell";
 import { PaywallGate } from "@/components/billing/paywall-gate";
+import { StackInline } from "@/components/cockpit/build/build-tool-logo";
 import { totalInfraMonthly } from "@/data/opportunity-enrichment";
 
 export function MvpPlan({ opportunity }: { opportunity: Opportunity }) {
@@ -22,7 +23,9 @@ export function MvpPlan({ opportunity }: { opportunity: Opportunity }) {
         ))}
       </ul>
       <h3 className="mt-6 text-sm font-medium">Stack recommandée</h3>
-      <p className="mt-2 font-data text-sm text-muted-foreground">{opportunity.mvpPlan.stack.join(" · ")}</p>
+      <p className="mt-2 font-data text-sm text-muted-foreground">
+        <StackInline items={opportunity.mvpPlan.stack} />
+      </p>
       <h3 className="mt-6 text-sm font-medium">Roadmap 14 jours</h3>
       <div className="mt-3 space-y-2">
         {opportunity.mvpPlan.roadmap.map((r) => (

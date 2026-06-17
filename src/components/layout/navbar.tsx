@@ -43,6 +43,12 @@ function NavbarContent({
     }
   }, [isAdmin, router]);
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.prefetch("/mes-saas");
+    }
+  }, [isAuthenticated, router]);
+
   return (
     <header
       className={cn(
@@ -119,7 +125,7 @@ function NavbarContent({
                 )}
                 asChild
               >
-                <Link href="/mes-saas">
+                <Link href="/mes-saas" prefetch>
                   <Rocket className="h-4 w-4" />
                   Mes SaaS
                   {hydrated && overdueCheckIns > 0 ? (

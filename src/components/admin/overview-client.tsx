@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { BuildInfraLogo } from "@/components/cockpit/build/build-tool-logo";
 import { Button } from "@/components/ui/button";
 import {
   AdminPageHeader,
@@ -256,6 +257,9 @@ function HealthChecksLine({
               ok ? "bg-emerald-500" : "bg-red-500"
             )}
           />
+          {key === "supabase" ? (
+            <BuildInfraLogo brandId="supabase" size="xs" variant="inline" />
+          ) : null}
           <span className="capitalize">{labels[key] ?? key}</span>
           <span className={ok ? "text-emerald-600" : "text-red-600"}>
             {ok ? "OK" : "Manquant"}

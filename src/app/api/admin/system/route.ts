@@ -18,6 +18,7 @@ export async function GET(request: Request) {
   const checks = {
     supabase: !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.SUPABASE_SERVICE_ROLE_KEY,
     stripe: !!process.env.STRIPE_SECRET_KEY,
+    stripeConnectOAuth: !!process.env.STRIPE_CONNECT_CLIENT_ID?.trim(),
     openrouter: !!process.env.OPENROUTER_API_KEY,
     revalidate: !!process.env.REVALIDATE_SECRET,
   };

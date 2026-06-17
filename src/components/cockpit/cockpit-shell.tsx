@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { Opportunity } from "@/types/opportunity";
 import type { UserProject } from "@/lib/portfolio";
@@ -13,28 +13,19 @@ import { cn } from "@/lib/utils";
 import { DemoModeBanner } from "@/components/cockpit/demo-mode-banner";
 import { CockpitSidebar } from "@/components/cockpit/cockpit-sidebar";
 import { CockpitModuleBar } from "@/components/cockpit/cockpit-module-bar";
+import { CockpitModuleHeader } from "@/components/cockpit/cockpit-module-header";
 import { CockpitNavDrawer } from "@/components/cockpit/cockpit-nav-drawer";
-import { OverviewModule } from "@/components/cockpit/modules/overview-module";
-import { RevenueModule } from "@/components/cockpit/modules/revenue-module";
-import { AcquisitionModule } from "@/components/cockpit/modules/acquisition-module";
-import { ProductModule } from "@/components/cockpit/modules/product-module";
-import { FinanceModule } from "@/components/cockpit/modules/finance-module";
-import { ClientsModule } from "@/components/cockpit/modules/clients-module";
-import { BuildModule } from "@/components/cockpit/modules/build-module";
-import { IntegrationsModule } from "@/components/cockpit/modules/integrations-module";
-import { ReportsModule } from "@/components/cockpit/modules/reports-module";
-import { PlaybookModule } from "@/components/cockpit/modules/playbook-module";
 import type { CockpitModuleProps } from "@/components/cockpit/modules/module-props";
 import type { AdCampaign, ConnectorId, Expense, MetricsSnapshot } from "@/lib/connectors/types";
+import type { ConnectIntegrationOptions } from "@/contexts/portfolio-context";
 import { shouldShowLaunchPad } from "@/lib/build-launch";
-import { LaunchPad } from "@/components/cockpit/launch-pad/launch-pad";
+import { COCKPIT_MODULE_MAP, LaunchPad } from "@/lib/cockpit-module-loader";
 import { useCockpitSidebarCollapsed } from "@/hooks/use-cockpit-sidebar-collapsed";
 
 type CockpitShellProps = {
   project: UserProject;
   opportunity: Opportunity;
   data: import("@/hooks/use-cockpit-data").CockpitData;
-  header?: ReactNode;
   onRecordMrr: (amount: number, note?: string) => void;
   onToggleMilestone: (milestoneId: string) => void;
   onAddCampaign: (campaign: Omit<AdCampaign, "id">) => void;
@@ -42,32 +33,21 @@ type CockpitShellProps = {
   onRemoveCampaign: (id: string) => void;
   onAddExpense: (expense: Omit<Expense, "id">) => void;
   onRemoveExpense: (id: string) => void;
-  onConnectIntegration: (connectorId: ConnectorId) => void;
-  onSyncIntegration: (connectorId: ConnectorId) => void;
-  onDisconnectIntegration: (connectorId: ConnectorId) => void;
+  onConnectIntegration: (
+    connectorId: ConnectorId,
+    options?: ConnectIntegrationOptions,
+  ) => Promise<void>;
+  onSyncIntegration: (connectorId: ConnectorId) => Promise<void>;
+  onDisconnectIntegration: (connectorId: ConnectorId) => Promise<void>;
   onLogMetrics: (partial: Partial<MetricsSnapshot>) => void;
   onSetCashOnHand: (amount: number) => void;
   onCompleteOnboarding: () => void;
-};
-
-const MODULE_MAP: Record<CockpitModuleId, React.ComponentType<CockpitModuleProps>> = {
-  overview: OverviewModule,
-  produit: ProductModule,
-  revenus: RevenueModule,
-  acquisition: AcquisitionModule,
-  finance: FinanceModule,
-  clients: ClientsModule,
-  rapports: ReportsModule,
-  playbook: PlaybookModule,
-  build: BuildModule,
-  integrations: IntegrationsModule,
 };
 
 export function CockpitShell({
   project,
   opportunity,
   data,
-  header,
   onRecordMrr,
   onToggleMilestone,
   onAddCampaign,
@@ -85,7 +65,7 @@ export function CockpitShell({
   const router = useRouter();
   const searchParams = useSearchParams();
   const paramModule = searchParams.get("module");
-  const launchPadMode = shouldShowLaunchPad(project);
+  const launchPadMode = shouldShowLaunchPad(project) && !paramModule;
   const { collapsed, setCollapsed, hydrated } = useCockpitSidebarCollapsed();
   const initialModule = paramModule
     ? normalizeModuleId(paramModule)
@@ -111,6 +91,12 @@ export function CockpitShell({
   }, [paramModule]);
 
   useEffect(() => {
+    if (paramModule === "build" && project.onboardingCompleted !== true) {
+      onCompleteOnboarding();
+    }
+  }, [paramModule, project.onboardingCompleted, onCompleteOnboarding]);
+
+  useEffect(() => {
     if (project.onboardingCompleted && launchPadMode === false) {
       const params = new URLSearchParams(searchParams.toString());
       if (!params.get("module")) {
@@ -120,7 +106,7 @@ export function CockpitShell({
     }
   }, [project.onboardingCompleted, launchPadMode, router, searchParams]);
 
-  const ModuleComponent = MODULE_MAP[activeModule];
+  const ModuleComponent = COCKPIT_MODULE_MAP[activeModule];
 
   const moduleProps: CockpitModuleProps = {
     project,
@@ -170,6 +156,8 @@ export function CockpitShell({
             activeModule={activeModule}
             onModuleChange={handleModuleChange}
             alerts={data.alerts}
+            opportunity={opportunity}
+            project={project}
             collapsed={hydrated && collapsed}
             onCollapsedChange={setCollapsed}
           />
@@ -177,14 +165,15 @@ export function CockpitShell({
       </aside>
 
       <div className="min-w-0 flex-1 px-4 py-10 sm:px-6">
-        {header}
+        <div className="space-y-4">
+          <CockpitModuleHeader activeModule={activeModule} opportunity={opportunity} />
 
-        <div className={cn(header ? "mt-6" : undefined, "space-y-4")}>
           {data.metrics.hasDemoData ? <DemoModeBanner /> : null}
 
           <CockpitModuleBar
             activeModule={activeModule}
             alerts={data.alerts}
+            opportunity={opportunity}
             onOpenNav={() => setNavDrawerOpen(true)}
           />
 
@@ -198,6 +187,8 @@ export function CockpitShell({
         activeModule={activeModule}
         onModuleChange={handleModuleChange}
         alerts={data.alerts}
+        opportunity={opportunity}
+        project={project}
       />
     </div>
   );

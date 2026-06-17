@@ -12,19 +12,27 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { PenLine } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type ManualMetricsDialogProps = {
   onSubmit: (partial: Partial<MetricsSnapshot>) => void;
   /** Champs affichés : overview (défaut) ou produit (engagement). */
   focus?: "overview" | "product";
   trigger?: React.ReactNode;
+  className?: string;
 };
 
 export function ManualMetricsDialog({
   onSubmit,
   focus = "overview",
   trigger,
+  className,
 }: ManualMetricsDialogProps) {
   const [open, setOpen] = useState(false);
   const [mrr, setMrr] = useState("");
@@ -64,10 +72,23 @@ export function ManualMetricsDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger ?? (
-          <Button variant="outline" size="sm">
-            <PenLine className="h-4 w-4" />
-            Saisie manuelle
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "h-7 gap-1.5 px-2 text-xs font-normal text-muted-foreground hover:text-foreground",
+                  className,
+                )}
+              >
+                <PenLine className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Saisie manuelle</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Saisir vos métriques à la main</TooltipContent>
+          </Tooltip>
         )}
       </DialogTrigger>
       <DialogContent>

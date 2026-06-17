@@ -6,6 +6,9 @@ import type {
   MetricsSnapshot,
 } from "@/lib/connectors/types";
 import type { ConnectorStreams } from "@/lib/connectors/streams";
+import type { BuildToolId } from "@/lib/build/tools";
+import { getBuildTool } from "@/lib/build/tools";
+import type { BuildPromptLanguage } from "@/lib/build/prompt-language";
 import type { FinancialScenario, Opportunity } from "@/types/opportunity";
 
 export type { AdCampaign, Expense, Integration, MetricsSnapshot };
@@ -13,6 +16,7 @@ export type { AdCampaign, Expense, Integration, MetricsSnapshot };
 export type ProjectPhase = "build" | "launch" | "revenue" | "paused";
 export type TargetScenario = FinancialScenario["name"];
 export type BuilderStage = "starting" | "building" | "has_mrr";
+export type BuildDevLevel = "nocode" | "intermediate" | "advanced";
 
 export type MrrEntry = {
   date: string;
@@ -34,13 +38,26 @@ export type BuildSetup = {
   toolId: string;
   mvpPrompt: string;
   setupRecipe: string;
-  quickStart: string;
+  /** @deprecated Conservé pour les kits déjà sauvegardés — plus affiché ni généré */
+  quickStart?: string;
   generatedAt: string;
+  language?: BuildPromptLanguage;
+  productName?: string;
+  infraSummary?: string;
+  expectedEnvVars?: Array<{ name: string; role: string; where: string }>;
+  infraServices?: string[];
+  infraSetupSteps?: string[];
 };
 
 export type BuildSetupSnapshot = BuildSetup & {
   savedAt: string;
   label?: string;
+};
+
+export type ProductLogo = {
+  url: string;
+  source: "github" | "host";
+  detectedAt: string;
 };
 
 export type GitHubConnection = {
@@ -50,22 +67,28 @@ export type GitHubConnection = {
 };
 
 export type HostConnection = {
-  provider: "vercel" | "netlify";
+  provider: "vercel" | "netlify" | "custom";
   projectId?: string;
   projectName?: string;
   productionUrl?: string;
   connectedAt: string;
 };
 
+export type BuildKitsByTool = Partial<Record<BuildToolId, BuildSetup>>;
+
 export type ResetBuildOptions = {
   keepRoadmap?: boolean;
   keepHistory?: boolean;
   keepTool?: boolean;
+  /** Si true, efface tous les kits par outil. Sinon, seulement l'outil actif. */
+  clearAllBuildKits?: boolean;
 };
 
 export type UserProject = {
   id: string;
   opportunitySlug: string;
+  productName?: string;
+  productLogo?: ProductLogo;
   startedAt: string;
   phase: ProjectPhase;
   currentMrr: number;
@@ -90,6 +113,10 @@ export type UserProject = {
   launchChecklistDone?: number[];
   buildSetup?: BuildSetup;
   buildSetupHistory?: BuildSetupSnapshot[];
+  buildKitsByTool?: BuildKitsByTool;
+  activeBuildToolId?: BuildToolId;
+  buildPromptLanguage?: BuildPromptLanguage;
+  buildDevLevel?: BuildDevLevel;
   githubConnection?: GitHubConnection;
   hostConnection?: HostConnection;
 };
@@ -101,7 +128,16 @@ export type AddProjectInput = {
   currentMrr: number;
   targetScenario: TargetScenario;
   builderStage?: BuilderStage;
+  productName?: string;
 };
+
+export function resolveProductName(project: UserProject, opportunity: Opportunity): string {
+  return project.productName?.trim() || opportunity.name;
+}
+
+export function hasCustomProductName(project: UserProject): boolean {
+  return Boolean(project.productName?.trim());
+}
 
 export const PORTFOLIO_STORAGE_KEY = "saas-radar:portfolio";
 export const CHECK_IN_OVERDUE_DAYS = 25;
@@ -211,9 +247,12 @@ export function createProjectFromOpportunity(
       ? [{ date: now.slice(0, 10), amount: input.currentMrr, note: "MRR initial" }]
       : [];
 
+  const productName = input.productName?.trim();
+
   return {
     id: generateProjectId(),
     opportunitySlug: opportunity.slug,
+    ...(productName ? { productName } : {}),
     startedAt: input.startedAt,
     phase: opportunity.buildableUnder30Days ? "build" : "launch",
     currentMrr: input.currentMrr,
@@ -475,7 +514,7 @@ export function getCurrentStepTitle(project: UserProject): string {
 
 export function migrateProject(project: UserProject): UserProject {
   const hasLegacyOnboardingFlag = "onboardingCompleted" in project;
-  return {
+  const base: UserProject = {
     ...project,
     metricsHistory: project.metricsHistory ?? [],
     campaigns: project.campaigns ?? [],
@@ -489,6 +528,88 @@ export function migrateProject(project: UserProject): UserProject {
       : true,
     launchChecklistDone: project.launchChecklistDone ?? [],
     buildSetupHistory: project.buildSetupHistory ?? [],
+    buildKitsByTool: project.buildKitsByTool ?? {},
+  };
+  return normalizeBuildKits(base);
+}
+
+export function getActiveBuildToolId(project: UserProject): BuildToolId | undefined {
+  if (project.activeBuildToolId) return project.activeBuildToolId;
+  const fromSetup = project.buildSetup?.toolId;
+  return fromSetup ? (fromSetup as BuildToolId) : undefined;
+}
+
+export function getActiveBuildKit(project: UserProject): BuildSetup | undefined {
+  const toolId = getActiveBuildToolId(project);
+  if (toolId && project.buildKitsByTool?.[toolId]) {
+    return project.buildKitsByTool[toolId];
+  }
+  return project.buildSetup;
+}
+
+function getBuildKitGeneratedAt(
+  project: UserProject,
+  toolId: BuildToolId,
+): string {
+  const kits = project.buildKitsByTool ?? {};
+  const activeId = getActiveBuildToolId(project);
+  const kit = kits[toolId] ?? (toolId === activeId ? getActiveBuildKit(project) : undefined);
+  return kit?.generatedAt ?? "";
+}
+
+function compareBuildToolIdsByGeneration(
+  project: UserProject,
+  a: BuildToolId,
+  b: BuildToolId,
+): number {
+  const timeA = getBuildKitGeneratedAt(project, a);
+  const timeB = getBuildKitGeneratedAt(project, b);
+  if (!timeA && !timeB) return 0;
+  if (!timeA) return 1;
+  if (!timeB) return -1;
+  return timeA.localeCompare(timeB);
+}
+
+export function getSavedBuildToolIds(project: UserProject): BuildToolId[] {
+  const kits = project.buildKitsByTool ?? {};
+  const ids = (Object.keys(kits) as BuildToolId[]).filter((id) =>
+    Boolean(kits[id]?.mvpPrompt),
+  );
+  return ids.sort((a, b) => compareBuildToolIdsByGeneration(project, a, b));
+}
+
+/** Outils affichés dans le switcher, du premier généré au dernier. */
+export function getBuildToolIdsInOrder(project: UserProject): BuildToolId[] {
+  const activeId = getActiveBuildToolId(project);
+  const ids = new Set<BuildToolId>(getSavedBuildToolIds(project));
+  if (activeId) ids.add(activeId);
+  return Array.from(ids).sort((a, b) =>
+    compareBuildToolIdsByGeneration(project, a, b),
+  );
+}
+
+function normalizeBuildKits(project: UserProject): UserProject {
+  const kits: BuildKitsByTool = { ...(project.buildKitsByTool ?? {}) };
+
+  if (project.buildSetup?.toolId) {
+    const id = project.buildSetup.toolId as BuildToolId;
+    if (!kits[id]) kits[id] = project.buildSetup;
+  }
+
+  const activeId =
+    project.activeBuildToolId ??
+    (project.buildSetup?.toolId as BuildToolId | undefined);
+
+  if (!activeId) {
+    return { ...project, buildKitsByTool: kits };
+  }
+
+  const activeKit = kits[activeId] ?? project.buildSetup;
+  return {
+    ...project,
+    buildKitsByTool: kits,
+    activeBuildToolId: activeId,
+    buildSetup: activeKit,
   };
 }
 
@@ -506,8 +627,62 @@ export function pushBuildSetupSnapshot(project: UserProject): UserProject {
 }
 
 export function setBuildSetup(project: UserProject, setup: BuildSetup): UserProject {
-  const withHistory = project.buildSetup ? pushBuildSetupSnapshot(project) : project;
-  return { ...withHistory, buildSetup: setup };
+  const toolId = setup.toolId as BuildToolId;
+  const activeId = getActiveBuildToolId(project);
+  const activeKit = getActiveBuildKit(project);
+
+  let next = project;
+  if (activeKit?.mvpPrompt && activeId === toolId) {
+    next = pushBuildSetupSnapshot(next);
+  }
+
+  const kits: BuildKitsByTool = { ...(next.buildKitsByTool ?? {}) };
+  if (activeKit && activeId && activeId !== toolId) {
+    kits[activeId] = activeKit;
+  }
+
+  kits[toolId] = setup;
+
+  return normalizeBuildKits({
+    ...next,
+    buildKitsByTool: kits,
+    activeBuildToolId: toolId,
+    buildSetup: setup,
+  });
+}
+
+export function switchBuildTool(project: UserProject, toolId: BuildToolId): UserProject {
+  const kits: BuildKitsByTool = { ...(project.buildKitsByTool ?? {}) };
+  const activeId = getActiveBuildToolId(project);
+  const activeKit = getActiveBuildKit(project);
+
+  if (activeKit && activeId) {
+    kits[activeId] = activeKit;
+  }
+
+  const kit = kits[toolId];
+  const tool = getBuildTool(toolId);
+  return normalizeBuildKits({
+    ...project,
+    buildKitsByTool: kits,
+    activeBuildToolId: toolId,
+    buildSetup: kit,
+    buildDevLevel: tool?.level ?? project.buildDevLevel,
+  });
+}
+
+export function setBuildDevLevel(
+  project: UserProject,
+  level: BuildDevLevel,
+): UserProject {
+  return { ...project, buildDevLevel: level };
+}
+
+export function setBuildPromptLanguage(
+  project: UserProject,
+  language: BuildPromptLanguage,
+): UserProject {
+  return { ...project, buildPromptLanguage: language };
 }
 
 export function restoreBuildSetupSnapshot(
@@ -518,11 +693,15 @@ export function restoreBuildSetupSnapshot(
   if (!snapshot) return null;
   const current = project.buildSetup ? pushBuildSetupSnapshot(project) : project;
   const { savedAt: _s, label: _l, ...setup } = snapshot;
-  return {
+  const toolId = setup.toolId as BuildToolId;
+  const kits: BuildKitsByTool = { ...(current.buildKitsByTool ?? {}), [toolId]: setup };
+  return normalizeBuildKits({
     ...current,
     buildSetup: setup,
+    buildKitsByTool: kits,
+    activeBuildToolId: toolId,
     buildSetupHistory: (current.buildSetupHistory ?? []).filter((h) => h.savedAt !== savedAt),
-  };
+  });
 }
 
 export function resetBuildSetup(
@@ -530,11 +709,49 @@ export function resetBuildSetup(
   opts: ResetBuildOptions = {},
 ): UserProject {
   const next: UserProject = { ...project };
+  const clearAll = opts.clearAllBuildKits ?? false;
+
   if (!opts.keepTool) {
-    next.buildSetup = undefined;
+    if (clearAll) {
+      next.buildSetup = undefined;
+      next.buildKitsByTool = {};
+      next.activeBuildToolId = undefined;
+      next.buildDevLevel = undefined;
+    } else {
+      const activeId = getActiveBuildToolId(project);
+      const kits: BuildKitsByTool = { ...(project.buildKitsByTool ?? {}) };
+
+      if (activeId) {
+        delete kits[activeId];
+      }
+
+      const remaining = (Object.keys(kits) as BuildToolId[]).filter((id) =>
+        Boolean(kits[id]?.mvpPrompt),
+      );
+
+      if (remaining.length > 0) {
+        const nextActive = remaining[0];
+        next.activeBuildToolId = nextActive;
+        next.buildSetup = kits[nextActive];
+        next.buildKitsByTool = kits;
+      } else {
+        next.buildSetup = undefined;
+        next.activeBuildToolId = undefined;
+        next.buildDevLevel = undefined;
+        next.buildKitsByTool = {};
+      }
+    }
   }
+
   if (!opts.keepHistory) {
-    next.buildSetupHistory = [];
+    const activeId = getActiveBuildToolId(next);
+    if (clearAll || !activeId) {
+      next.buildSetupHistory = [];
+    } else {
+      next.buildSetupHistory = (next.buildSetupHistory ?? []).filter(
+        (h) => h.toolId !== activeId,
+      );
+    }
   }
   if (!opts.keepRoadmap) {
     next.milestones = project.milestones.map((m) =>

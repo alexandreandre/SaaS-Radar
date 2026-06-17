@@ -3,9 +3,11 @@
 import dynamic from "next/dynamic";
 import { CopyButton } from "@/components/ui/copy-button";
 import { CampaignTable } from "@/components/cockpit/campaigns/campaign-table";
+import { ModuleCalloutsList } from "@/components/cockpit/module-callouts-list";
 import { ChartSection } from "@/components/cockpit/ui/module-primitives";
 import { ChartSkeleton } from "@/components/cockpit/ui/chart-skeleton";
 import type { CockpitModuleProps } from "@/components/cockpit/modules/module-props";
+import { buildModuleCallouts } from "@/lib/cockpit-callouts";
 
 const SpendByChannelChart = dynamic(
   () => import("@/components/cockpit/metrics/spend-by-channel-chart").then((m) => m.SpendByChannelChart),
@@ -27,14 +29,20 @@ export function AcquisitionModule({
   onAddCampaign,
   onUpdateCampaign,
   onRemoveCampaign,
+  onModuleChange,
 }: CockpitModuleProps) {
   const campaigns = project.campaigns ?? [];
   const latest = data.metrics.latest;
   const channel = opportunity.acquisition[0];
   const emailTemplate = opportunity.emailTemplates?.[0];
+  const callouts = buildModuleCallouts("acquisition", project, opportunity, {
+    alerts: data.alerts,
+  });
 
   return (
     <div className="space-y-6">
+      <ModuleCalloutsList callouts={callouts} onModuleChange={onModuleChange} />
+
       <section className="rounded-xl border border-border bg-card p-6 shadow-card">
         <CampaignTable
           campaigns={campaigns}

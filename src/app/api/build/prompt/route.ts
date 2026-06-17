@@ -6,6 +6,12 @@ import {
   buildUserPrompt,
   type BuildPromptContext,
 } from "@/lib/build/prompt-templates";
+import { getInfraProfile, getInfraUiSummary } from "@/lib/build/infra-profile";
+import {
+  buildSetupGuideFromOpportunity,
+  serializeSetupRecipe,
+} from "@/lib/build/setup-guide";
+import { parseBuildPromptLanguage } from "@/lib/build/prompt-language";
 import { getBuildTool, type BuildToolId } from "@/lib/build/tools";
 import { getEnrichedOpportunityBySlug } from "@/lib/opportunities";
 import { hasTier } from "@/lib/tier";
@@ -59,11 +65,21 @@ export async function POST(request: Request) {
   const b = body as Record<string, unknown>;
   const opportunitySlug =
     typeof b.opportunitySlug === "string" ? b.opportunitySlug.trim() : "";
+  const productName =
+    typeof b.productName === "string" ? b.productName.trim() : "";
   const toolId = typeof b.toolId === "string" ? b.toolId.trim() : "";
   const mode = parseMode(b.mode);
+  const language = parseBuildPromptLanguage(b.language);
 
   if (!opportunitySlug || !VALID_TOOL_IDS.has(toolId)) {
     return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
+  }
+
+  if ((mode === "mvp" || mode === "regenerate") && !productName) {
+    return NextResponse.json(
+      { error: "Choisissez un nom de produit avant de générer le kit" },
+      { status: 400 },
+    );
   }
 
   const tool = getBuildTool(toolId);
@@ -79,22 +95,57 @@ export async function POST(request: Request) {
   const featureIndex =
     mode.startsWith("feature:") ? parseInt(mode.slice("feature:".length), 10) : undefined;
 
-  const ctx: BuildPromptContext = { opportunity, tool, featureIndex };
-  const system = buildSystemPrompt();
+  const infraProfile = getInfraProfile(opportunity, tool);
+
+  const ctx: BuildPromptContext = {
+    opportunity,
+    productName,
+    tool,
+    language,
+    featureIndex,
+    infraProfile,
+  };
+  const system = buildSystemPrompt(tool, language, infraProfile);
   const userPrompt = buildUserPrompt(ctx);
 
   try {
-    const generated = await generateBuildPromptJson(system, userPrompt);
+    const generated = await generateBuildPromptJson(system, userPrompt, {
+      language,
+      infraProfile,
+      tool,
+    });
+    const { qualityWarnings, ...promptFields } = generated;
+    const setupGuideSteps = buildSetupGuideFromOpportunity({
+      tool,
+      productName,
+      opportunity,
+      infraProfile,
+      language,
+    });
+    const setupRecipe = serializeSetupRecipe(setupGuideSteps);
+
     return NextResponse.json({
       toolId: tool.id as BuildToolId,
       mode,
-      ...generated,
+      language,
+      ...promptFields,
+      setupRecipe,
       generatedAt: new Date().toISOString(),
+      infra: {
+        summary: getInfraUiSummary(infraProfile, language),
+        envVars: infraProfile.envVars,
+        services: infraProfile.services,
+        setupSteps: infraProfile.setupSteps,
+        recommendedStack: infraProfile.recommendedStack,
+        primaryBackend: infraProfile.primaryBackend,
+        ...(qualityWarnings?.length ? { qualityWarnings } : {}),
+      },
     });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Erreur de génération" },
-      { status: 500 },
-    );
+    const message =
+      err instanceof Error && !err.message.startsWith("[")
+        ? err.message
+        : "La génération a échoué. Réessayez dans quelques instants.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

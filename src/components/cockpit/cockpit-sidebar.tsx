@@ -3,11 +3,14 @@
 import { PanelLeft, PanelLeftClose } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  filterNavGroups,
+  resolveNavForOpportunity,
   type CockpitModuleDef,
   type CockpitModuleId,
 } from "@/lib/cockpit-modules";
+import type { Opportunity } from "@/types/opportunity";
+import type { UserProject } from "@/lib/portfolio";
 import type { CockpitAlert } from "@/lib/cockpit-alerts";
+import { CockpitProjectIdentity } from "@/components/cockpit/cockpit-project-identity";
 import { Separator } from "@/components/ui/separator";
 import {
   Tooltip,
@@ -20,6 +23,8 @@ type CockpitSidebarProps = {
   activeModule: CockpitModuleId;
   onModuleChange: (module: CockpitModuleId) => void;
   alerts: CockpitAlert[];
+  opportunity?: Opportunity;
+  project?: UserProject;
   allowedModules?: CockpitModuleId[];
   collapsed?: boolean;
   onCollapsedChange?: (collapsed: boolean) => void;
@@ -32,12 +37,14 @@ function ModuleButton({
   count,
   onModuleChange,
   collapsed = false,
+  featured = false,
 }: {
   mod: CockpitModuleDef;
   active: boolean;
   count: number;
   onModuleChange: (module: CockpitModuleId) => void;
   collapsed?: boolean;
+  featured?: boolean;
 }) {
   const Icon = mod.icon;
 
@@ -51,8 +58,13 @@ function ModuleButton({
         "flex items-center rounded-lg text-left text-sm transition-colors",
         collapsed ? "w-full justify-center px-2 py-2.5" : "w-full gap-3 px-3 py-2",
         active
-          ? "bg-primary/10 text-primary font-medium"
-          : "text-muted-foreground hover:bg-background/80 hover:text-foreground"
+          ? cn(
+              "bg-primary/10 text-primary",
+              featured ? "font-semibold" : "font-medium"
+            )
+          : featured
+            ? "font-semibold text-foreground hover:bg-background/80"
+            : "text-muted-foreground hover:bg-background/80 hover:text-foreground"
       )}
     >
       <Icon className="h-4 w-4 shrink-0" />
@@ -131,19 +143,21 @@ export function CockpitSidebar({
   activeModule,
   onModuleChange,
   alerts,
+  opportunity,
+  project,
   allowedModules,
   collapsed = false,
   onCollapsedChange,
   showCollapseToggle = true,
 }: CockpitSidebarProps) {
-  const nav = filterNavGroups(allowedModules);
+  const nav = resolveNavForOpportunity(opportunity, allowedModules);
 
   const alertCountByModule = alerts.reduce<Record<string, number>>((acc, alert) => {
     acc[alert.actionModule] = (acc[alert.actionModule] ?? 0) + 1;
     return acc;
   }, {});
 
-  const renderModule = (mod: CockpitModuleDef) => (
+  const renderModule = (mod: CockpitModuleDef, featured = false) => (
     <ModuleButton
       key={mod.id}
       mod={mod}
@@ -151,6 +165,7 @@ export function CockpitSidebar({
       count={alertCountByModule[mod.id] ?? 0}
       onModuleChange={onModuleChange}
       collapsed={collapsed}
+      featured={featured}
     />
   );
 
@@ -164,19 +179,19 @@ export function CockpitSidebar({
               : "rounded-xl border border-border/80 bg-card p-1.5 shadow-sm"
           )}
         >
-          {renderModule(nav.overview)}
+          {renderModule(nav.overview, true)}
         </section>
       ) : null}
 
-      {nav.ressources.modules.length > 0 ? (
-        <NavSection label={nav.ressources.label} collapsed={collapsed}>
-          {nav.ressources.modules.map(renderModule)}
+      {nav.projet.modules.length > 0 ? (
+        <NavSection label={nav.projet.label} collapsed={collapsed}>
+          {nav.projet.modules.map((mod) => renderModule(mod))}
         </NavSection>
       ) : null}
 
       {nav.pilotage.modules.length > 0 ? (
         <NavSection label={nav.pilotage.label} collapsed={collapsed}>
-          {nav.pilotage.modules.map(renderModule)}
+          {nav.pilotage.modules.map((mod) => renderModule(mod))}
         </NavSection>
       ) : null}
     </nav>
@@ -185,6 +200,14 @@ export function CockpitSidebar({
   return (
     <TooltipProvider delayDuration={0}>
       <div className="flex h-full flex-col">
+        {project && opportunity ? (
+          <CockpitProjectIdentity
+            project={project}
+            opportunity={opportunity}
+            collapsed={collapsed}
+          />
+        ) : null}
+
         <div className="min-h-0 flex-1">{navContent}</div>
 
         {showCollapseToggle && onCollapsedChange ? (

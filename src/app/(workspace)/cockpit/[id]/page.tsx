@@ -1,18 +1,23 @@
 "use client";
 
-import { notFound } from "next/navigation";
+import { notFound, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Navbar } from "@/components/layout/navbar";
-import { Footer } from "@/components/layout/footer";
 import { usePortfolio } from "@/contexts/portfolio-context";
 import type { Opportunity } from "@/types/opportunity";
 import type { UserProject } from "@/lib/portfolio";
 import { shouldShowLaunchPad } from "@/lib/build-launch";
 import { syncBuildMilestones } from "@/lib/portfolio";
-import { CockpitHeader } from "@/components/cockpit/cockpit-header";
-import { CockpitShell } from "@/components/cockpit/cockpit-shell";
+import { CockpitProjectIdentity } from "@/components/cockpit/cockpit-project-identity";
+import { CockpitModuleSkeleton } from "@/components/cockpit/cockpit-module-skeleton";
 import { useCockpitData } from "@/hooks/use-cockpit-data";
+
+const CockpitShell = dynamic(
+  () => import("@/components/cockpit/cockpit-shell").then((m) => ({ default: m.CockpitShell })),
+  { loading: () => <CockpitModuleSkeleton /> }
+);
 
 type CockpitLoadedProps = {
   project: UserProject;
@@ -54,8 +59,6 @@ function CockpitLoaded({ project, opportunity, inLaunchPad }: CockpitLoadedProps
     }
   }, [project.id, project.milestones, opportunity.slug, updateProject, opportunity]);
 
-  const header = <CockpitHeader opportunity={opportunity} project={project} />;
-
   const shellProps = {
     project,
     opportunity,
@@ -68,8 +71,10 @@ function CockpitLoaded({ project, opportunity, inLaunchPad }: CockpitLoadedProps
     onRemoveCampaign: (id: string) => removeCampaign(project.id, id),
     onAddExpense: (e: Parameters<typeof addExpense>[1]) => addExpense(project.id, e),
     onRemoveExpense: (id: string) => removeExpense(project.id, id),
-    onConnectIntegration: (cid: Parameters<typeof connectIntegration>[1]) =>
-      connectIntegration(project.id, cid),
+    onConnectIntegration: (
+      cid: Parameters<typeof connectIntegration>[1],
+      options?: Parameters<typeof connectIntegration>[2],
+    ) => connectIntegration(project.id, cid, options),
     onSyncIntegration: (cid: Parameters<typeof syncIntegration>[1]) =>
       syncIntegration(project.id, cid),
     onDisconnectIntegration: (cid: Parameters<typeof disconnectIntegration>[1]) =>
@@ -83,16 +88,21 @@ function CockpitLoaded({ project, opportunity, inLaunchPad }: CockpitLoadedProps
   if (inLaunchPad) {
     return (
       <>
-        {header}
+        <CockpitProjectIdentity
+          project={project}
+          opportunity={opportunity}
+          className="mb-6 border-b-0 pb-0"
+        />
         <CockpitShell {...shellProps} />
       </>
     );
   }
 
-  return <CockpitShell {...shellProps} header={header} />;
+  return <CockpitShell {...shellProps} />;
 }
 
 export default function CockpitPage({ params }: { params: { id: string } }) {
+  const searchParams = useSearchParams();
   const { hydrated, getProjectById, getCatalogOpportunity } = usePortfolio();
   const project = getProjectById(params.id);
   const opportunity = useMemo(
@@ -107,14 +117,14 @@ export default function CockpitPage({ params }: { params: { id: string } }) {
         <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
           <div className="h-96 animate-pulse rounded-xl bg-muted" />
         </main>
-        <Footer />
       </>
     );
   }
 
   if (!project || !opportunity) notFound();
 
-  const inLaunchPad = shouldShowLaunchPad(project);
+  const inLaunchPad =
+    shouldShowLaunchPad(project) && searchParams.get("module") !== "build";
 
   return (
     <>
@@ -122,7 +132,6 @@ export default function CockpitPage({ params }: { params: { id: string } }) {
       <main className={cn(inLaunchPad && "mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:max-w-4xl")}>
         <CockpitLoaded project={project} opportunity={opportunity} inLaunchPad={inLaunchPad} />
       </main>
-      <Footer />
     </>
   );
 }

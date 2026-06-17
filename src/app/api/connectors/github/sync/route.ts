@@ -5,7 +5,9 @@ import {
   fetchRepoMetrics,
   getInstallationAccessToken,
   listInstallationRepos,
+  detectRepoLogo,
 } from "@/lib/github/app";
+import { buildProductLogo } from "@/lib/build/product-logo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -79,6 +81,9 @@ export async function POST(request: Request) {
     const metrics = await fetchRepoMetrics(token, owner, repo);
     const stream = metricsToDevStream(metrics);
 
+    const logoUrl = await detectRepoLogo(token, owner, repo, metrics.defaultBranch);
+    const productLogo = logoUrl ? buildProductLogo(logoUrl, "github") : undefined;
+
     return NextResponse.json({
       connection: {
         repoFullName,
@@ -87,6 +92,7 @@ export async function POST(request: Request) {
       },
       stream,
       metrics,
+      productLogo,
     });
   } catch (err) {
     return NextResponse.json(

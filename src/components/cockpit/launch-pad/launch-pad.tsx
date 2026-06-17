@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BookOpen } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import type { Opportunity } from "@/types/opportunity";
 import type { UserProject } from "@/lib/portfolio";
 import {
@@ -11,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { CelebrationOverlay } from "@/components/cockpit/celebration-overlay";
 import { PlaybookDrawer } from "@/components/cockpit/playbook/playbook-drawer";
+import { isPlaybookTab } from "@/components/cockpit/playbook/playbook-content";
 import { HeroAction } from "@/components/cockpit/launch-pad/hero-action";
 import { LaunchPadProgress } from "@/components/cockpit/launch-pad/launch-pad-progress";
 import { WeekTracker } from "@/components/cockpit/launch-pad/week-tracker";
@@ -35,17 +37,25 @@ export function LaunchPad({
   onCompleteOnboarding,
   onOpenBuild,
 }: LaunchPadProps) {
+  const searchParams = useSearchParams();
   const view = getLaunchPadView(project, opportunity);
   const data = useCockpitData(project, opportunity);
-  const [playbookOpen, setPlaybookOpen] = useState(false);
-  const [playbookTab, setPlaybookTab] = useState<string>("opportunity");
+  const [modelDrawerOpen, setModelDrawerOpen] = useState(false);
+  const [modelTab, setModelTab] = useState<string>("opportunity");
   const [celebration, setCelebration] = useState<string | null>(null);
   const [showCompleteCelebration, setShowCompleteCelebration] = useState(false);
 
-  const openPlaybook = (tab?: string) => {
-    if (tab) setPlaybookTab(tab);
-    setPlaybookOpen(true);
+  const openModel = (tab?: string) => {
+    if (tab) setModelTab(tab);
+    setModelDrawerOpen(true);
   };
+
+  useEffect(() => {
+    if (searchParams.get("module") !== "playbook") return;
+    const tab = searchParams.get("tab");
+    setModelTab(tab && isPlaybookTab(tab) ? tab : "opportunity");
+    setModelDrawerOpen(true);
+  }, [searchParams]);
 
   const handleToggle = (milestoneId: string) => {
     const milestone = project.milestones.find((m) => m.id === milestoneId);
@@ -75,9 +85,9 @@ export function LaunchPad({
           weekGoal={view.weekGoal}
           onCompleteEarly={onCompleteOnboarding}
         />
-        <Button type="button" variant="outline" size="sm" onClick={() => openPlaybook()}>
+        <Button type="button" variant="outline" size="sm" onClick={() => openModel()}>
           <BookOpen className="h-4 w-4" />
-          Playbook
+          Voir la fiche {opportunity.name}
         </Button>
       </div>
 
@@ -110,7 +120,7 @@ export function LaunchPad({
 
       <ResourcesStrip
         opportunity={opportunity}
-        onOpenPlaybook={openPlaybook}
+        onOpenModel={openModel}
         onOpenBuild={onOpenBuild}
       />
 
@@ -120,9 +130,9 @@ export function LaunchPad({
 
       <PlaybookDrawer
         opportunity={opportunity}
-        open={playbookOpen}
-        onOpenChange={setPlaybookOpen}
-        defaultTab={playbookTab}
+        open={modelDrawerOpen}
+        onOpenChange={setModelDrawerOpen}
+        defaultTab={modelTab}
         project={project}
         data={data}
       />
