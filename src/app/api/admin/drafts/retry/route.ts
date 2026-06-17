@@ -11,7 +11,6 @@ import {
   type FactualLead,
 } from "@/lib/sourcing/schema";
 import { loadExistingForDedup, findDedupMatches } from "@/lib/admin/sourcing-dedup";
-import type { Opportunity } from "@/types/opportunity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

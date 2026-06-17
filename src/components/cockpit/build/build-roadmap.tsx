@@ -97,7 +97,6 @@ export function BuildRoadmap({ opportunity, project, onToggle }: BuildRoadmapPro
               const milestone = project.milestones.find((m) => m.id === milestoneId);
               const isDone = milestone?.done ?? false;
               const isCurrent = index === currentIndex && !isDone;
-              const isPast = index < currentIndex || isDone;
               const isFuture = index > currentIndex && !isDone;
               const week = getWeekForRoadmapStep(step, index, totalSteps);
               const prompt = getStepPrompt(step, opportunity);

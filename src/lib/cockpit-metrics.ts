@@ -77,10 +77,7 @@ function buildProductKpi(
   };
 }
 
-export function buildProductKpis(
-  project: UserProject,
-  _opportunity: Opportunity
-): ProductKpis {
+export function buildProductKpis(project: UserProject): ProductKpis {
   const history = getMetricsHistory(project);
   const latest = getLatestSnapshot(history) ?? {
     date: new Date().toISOString().slice(0, 7),
@@ -361,7 +358,7 @@ export function buildCockpitMetrics(
     latest,
     previous,
     kpis,
-    productKpis: buildProductKpis(project, opportunity),
+    productKpis: buildProductKpis(project),
     arr,
     arpu,
     ltvCacRatio,

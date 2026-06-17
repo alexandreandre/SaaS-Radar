@@ -7,7 +7,6 @@ import {
   getStepWeek,
   getTargetClients,
 } from "@/lib/guide-plan";
-import { getLaunchMilestones } from "@/lib/build-launch";
 
 export const BUILD_STEP_PREFIX = "build-step-";
 

@@ -365,7 +365,8 @@ export function OverviewClient({ initialMetrics, initialError }: OverviewClientP
         setError(json.error ?? "Impossible de charger les métriques");
         return;
       }
-      const { ok: _ok, ...data } = json;
+      const data = { ...json };
+      delete (data as { ok?: boolean }).ok;
       setMetrics(data as AdminOverviewMetrics);
       setError(null);
     } catch (err) {

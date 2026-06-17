@@ -1,5 +1,4 @@
 import type { TractionSignal } from "@/types/opportunity";
-import { resolveSignalKind } from "@/lib/traction-signals";
 import type { FactualLead } from "./schema";
 
 export type TractionCategory = "mrr" | "authority" | "community";
@@ -26,10 +25,6 @@ export type TractionQualityReport = {
   extras: TractionSignal[];
   countryMismatch: boolean;
 };
-
-function signalKey(signal: TractionSignal): string {
-  return `${signal.label}|${signal.value}`;
-}
 
 export function classifySignal(signal: TractionSignal): TractionCategory | "extra" {
   const text = `${signal.label} ${signal.value}`;

@@ -201,7 +201,7 @@ export function SourcingConsole() {
 
   const [count, setCount] = useState(3);
   const [sector, setSector] = useState("");
-  const [premium, setPremium] = useState(false);
+  const [premium] = useState(false);
   const [minScore, setMinScore] = useState("");
   const [markets, setMarkets] = useState<MarketOption[]>([]);
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);

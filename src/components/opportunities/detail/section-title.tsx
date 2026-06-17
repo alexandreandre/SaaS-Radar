@@ -1,5 +1,3 @@
-import { cn } from "@/lib/utils";
-
 export function SectionTitle({
   number,
   title,

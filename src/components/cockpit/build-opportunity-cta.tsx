@@ -23,14 +23,10 @@ export function BuildOpportunityCta({
   variant = "header",
   className,
 }: BuildOpportunityCtaProps) {
-  const { hydrated, getProjectBySlug, addProject } = usePortfolio();
+  const { hydrated, getProjectBySlug } = usePortfolio();
   const existing = hydrated ? getProjectBySlug(opportunity.slug) : undefined;
 
   const [open, setOpen] = useState(false);
-
-  const handleLaunch = (_input: Parameters<typeof addProject>[1]) => {
-    // Projet créé et navigation gérés dans QuickLaunchSheet
-  };
 
   if (existing) {
     const progress = getMilestoneProgress(existing);
@@ -94,7 +90,9 @@ export function BuildOpportunityCta({
           opportunity={opportunity}
           open={open}
           onOpenChange={setOpen}
-          onLaunch={handleLaunch}
+          onLaunch={() => {
+            // Projet créé et navigation gérés dans QuickLaunchSheet
+          }}
         />
       </>
     );
@@ -124,7 +122,9 @@ export function BuildOpportunityCta({
         opportunity={opportunity}
         open={open}
         onOpenChange={setOpen}
-        onLaunch={handleLaunch}
+        onLaunch={() => {
+          // Projet créé et navigation gérés dans QuickLaunchSheet
+        }}
       />
     </>
   );

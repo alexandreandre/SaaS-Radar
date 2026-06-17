@@ -18,7 +18,6 @@ export function MesSaasClient() {
     hydrated,
     projects,
     stats,
-    getCatalogOpportunity,
     opportunityCatalog,
     removeProject,
     setProjectPhase,
