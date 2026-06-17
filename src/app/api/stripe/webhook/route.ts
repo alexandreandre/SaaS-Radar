@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
-import { stripe } from "@/lib/stripe/server";
+import { getStripe } from "@/lib/stripe/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { priceIdToPlan } from "@/lib/billing/plans";
 
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
   const payload = await request.text();
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(payload, signature, secret);
+    event = getStripe().webhooks.constructEvent(payload, signature, secret);
   } catch (err) {
     console.error("[stripe/webhook] signature invalide", err);
     return NextResponse.json({ error: "Signature invalide" }, { status: 400 });
@@ -123,7 +123,7 @@ export async function POST(request: Request) {
             typeof session.subscription === "string"
               ? session.subscription
               : session.subscription.id;
-          const sub = await stripe.subscriptions.retrieve(subId);
+          const sub = await getStripe().subscriptions.retrieve(subId);
           await applySubscription(admin, sub, fallbackUid);
         }
         break;

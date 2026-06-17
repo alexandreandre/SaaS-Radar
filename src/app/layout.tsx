@@ -21,6 +21,7 @@ const newsreader = Newsreader({
   variable: "--font-newsreader",
   display: "swap",
   weight: ["400", "500", "600"],
+  adjustFontFallback: false,
 });
 
 const plexMono = IBM_Plex_Mono({

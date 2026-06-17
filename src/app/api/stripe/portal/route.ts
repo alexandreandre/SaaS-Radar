@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe/server";
+import { getStripe } from "@/lib/stripe/server";
 import { getCurrentUser, getProfile } from "@/lib/auth";
 
 export const runtime = "nodejs";
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const session = await stripe.billingPortal.sessions.create({
+    const session = await getStripe().billingPortal.sessions.create({
       customer: customerId,
       return_url: `${resolveOrigin(request)}/account`,
     });

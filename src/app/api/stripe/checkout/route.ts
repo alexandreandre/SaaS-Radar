@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe/server";
+import { getStripe } from "@/lib/stripe/server";
 import { getCurrentUser, getProfile } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     // 1. Customer : reutiliser celui du profil ou en creer un.
     let customerId = profile?.stripe_customer_id ?? null;
     if (!customerId) {
-      const customer = await stripe.customers.create({
+      const customer = await getStripe().customers.create({
         email: user.email ?? undefined,
         metadata: { supabase_uid: user.id },
       });
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
     }
 
     // 2. Session Checkout hebergee (abonnement).
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
