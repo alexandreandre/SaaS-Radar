@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { resolveSignalKind, sortTractionSignals } from "../traction-signals";
-import type { Opportunity, TractionSignal } from "@/types/opportunity";
+import type { Opportunity } from "@/types/opportunity";
 import { CANONICAL_CAC, CANONICAL_STACK, SCORE_WEIGHTS } from "./constants";
 import { normalizeAcquisitionTabs } from "@/lib/acquisition-channels";
 import type { AnalyticalData, FactualLead } from "./schema";
@@ -69,9 +69,11 @@ export type ScoreFactsContext = {
   franceCompetition?: string;
 };
 
-function dedupeTractionSignals(signals: TractionSignal[]): TractionSignal[] {
+type FactualTractionSignal = FactualLead["tractionSignals"][number];
+
+function dedupeTractionSignals(signals: FactualTractionSignal[]): FactualTractionSignal[] {
   const seen = new Set<string>();
-  const out: TractionSignal[] = [];
+  const out: FactualTractionSignal[] = [];
   for (const signal of signals) {
     const key = `${signal.label}|${signal.value}`;
     if (seen.has(key)) continue;

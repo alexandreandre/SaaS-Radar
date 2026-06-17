@@ -41,7 +41,7 @@ function signalCategoryIndex(signal: TractionSignal): number {
 }
 
 /** Tri déterministe : MRR → autorité → communauté → autres. */
-export function sortTractionSignals(signals: TractionSignal[]): TractionSignal[] {
+export function sortTractionSignals<T extends TractionSignal>(signals: T[]): T[] {
   return [...signals].sort((a, b) => {
     const diff = signalCategoryIndex(a) - signalCategoryIndex(b);
     if (diff !== 0) return diff;

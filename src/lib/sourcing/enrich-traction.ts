@@ -1,7 +1,6 @@
 import { MODELS } from "./constants";
 import { callOpenRouter, extractJsonObject, type CostTracker } from "./openrouter";
 import { tractionSignalSchema, type FactualLead } from "./schema";
-import type { TractionSignal } from "@/types/opportunity";
 import { resolveSignalKind } from "@/lib/traction-signals";
 import {
   assessTractionQuality,
@@ -22,9 +21,11 @@ const CATEGORY_LABELS: Record<TractionCategory, string> = {
   community: "communauté / avis / mentions early-adopters sourcées",
 };
 
-function dedupeSignals(signals: TractionSignal[]): TractionSignal[] {
+type FactualTractionSignal = FactualLead["tractionSignals"][number];
+
+function dedupeSignals(signals: FactualTractionSignal[]): FactualTractionSignal[] {
   const seen = new Set<string>();
-  const out: TractionSignal[] = [];
+  const out: FactualTractionSignal[] = [];
   for (const signal of signals) {
     const key = `${signal.label}|${signal.value}`;
     if (seen.has(key)) continue;
@@ -35,9 +36,9 @@ function dedupeSignals(signals: TractionSignal[]): TractionSignal[] {
 }
 
 export function mergeTractionSignals(
-  existing: TractionSignal[],
-  found: TractionSignal[]
-): TractionSignal[] {
+  existing: FactualTractionSignal[],
+  found: FactualTractionSignal[]
+): FactualTractionSignal[] {
   const merged = dedupeSignals([...existing, ...found]);
   return merged.slice(0, 6).map((signal) => ({
     ...signal,
@@ -98,7 +99,7 @@ function buildEnrichPrompt(lead: FactualLead, report: TractionQualityReport): st
 }
 
 function parseEnrichResponse(raw: unknown): {
-  tractionSignals: TractionSignal[];
+  tractionSignals: FactualTractionSignal[];
   foreignInspiration?: string;
 } {
   if (!raw || typeof raw !== "object") {
@@ -106,7 +107,7 @@ function parseEnrichResponse(raw: unknown): {
   }
   const obj = raw as Record<string, unknown>;
   const signalsRaw = Array.isArray(obj.tractionSignals) ? obj.tractionSignals : [];
-  const tractionSignals: TractionSignal[] = [];
+  const tractionSignals: FactualTractionSignal[] = [];
 
   for (const item of signalsRaw) {
     const parsed = tractionSignalSchema.safeParse(item);

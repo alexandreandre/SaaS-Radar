@@ -154,7 +154,7 @@ function mergeActiveRuns(
       ? activeFromApi
       : allRuns.filter((r) => isRunActive(r.status));
   const pendingLaunch = prevIds.filter((id) => !allRuns.some((r) => r.id === id));
-  const ids = [...new Set([...pendingLaunch, ...fromApi.map((r) => r.id)])];
+  const ids = Array.from(new Set([...pendingLaunch, ...fromApi.map((r) => r.id)]));
   const map = Object.fromEntries(fromApi.map((r) => [r.id, r]));
   for (const id of pendingLaunch) {
     const run = allRuns.find((r) => r.id === id);

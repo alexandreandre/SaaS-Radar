@@ -204,7 +204,7 @@ export function ChiffresSection({
           <TractionRow
             key={category.title}
             opportunity={opportunity}
-            signal={primarySignals[index]}
+            signal={primarySignals[index] ?? undefined}
             category={category}
             animateMetric={index === 0}
             grouped={isPlaybook}
