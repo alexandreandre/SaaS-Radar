@@ -19,7 +19,9 @@ export async function GET(request: Request) {
   const checks = {
     supabase: !!getSupabaseUrl() && !!process.env.SUPABASE_SERVICE_ROLE_KEY,
     stripe: !!process.env.STRIPE_SECRET_KEY,
-    stripeAppOAuth: !!process.env.STRIPE_APP_CLIENT_ID?.trim(),
+    stripeAppOAuth:
+      !!process.env.STRIPE_APP_CLIENT_ID?.trim() ||
+      !!process.env.STRIPE_APP_OAUTH_INSTALL_LINK?.trim(),
     openrouter: !!process.env.OPENROUTER_API_KEY,
     revalidate: !!process.env.REVALIDATE_SECRET,
   };

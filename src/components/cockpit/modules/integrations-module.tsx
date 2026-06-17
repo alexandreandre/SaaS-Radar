@@ -9,13 +9,13 @@ import type { CockpitModuleProps } from "@/components/cockpit/modules/module-pro
 function stripeErrorMessage(code: string | null): string | null {
   switch (code) {
     case "oauth_not_configured":
-      return "L'app Stripe SaaS Radar n'est pas configurée sur cette instance (STRIPE_APP_CLIENT_ID manquant). Utilisez une clé restreinte en attendant.";
+      return "L'app Stripe SaaS Radar n'est pas configurée sur cette instance (STRIPE_APP_OAUTH_INSTALL_LINK ou STRIPE_APP_CLIENT_ID manquant). Utilisez une clé restreinte en attendant.";
     case "encryption":
       return "Le chiffrement des credentials n'est pas configuré côté serveur (CREDENTIALS_ENCRYPTION_KEY).";
     case "permissions":
       return "L'app Stripe n'a pas les permissions Analytics suffisantes. Vérifiez le manifest et réinstallez l'app.";
     case "token":
-      return "Échec de l'échange OAuth Stripe. Vérifiez que STRIPE_SECRET_KEY correspond au compte qui possède l'app Stripe.";
+      return "Échec de l'échange OAuth Stripe. Vérifiez que STRIPE_APP_SECRET_KEY (ou STRIPE_SECRET_KEY) correspond au compte qui possède l'app Stripe.";
     case "denied":
       return "Connexion Stripe refusée.";
     case "unauthorized":

@@ -11,14 +11,74 @@ export type StripeOAuthEnv = {
   siteUrl?: string;
 };
 
+export type ParsedStripeOAuthInstallLink = {
+  authorizeBase: string;
+  clientId: string;
+};
+
+/** Retire guillemets et espaces parasites (copier-coller depuis le dashboard). */
+export function sanitizeStripeEnvValue(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim() || undefined;
+  }
+  return trimmed;
+}
+
+/** Parse le lien Test OAuth complet copié depuis Apps → External test / Settings. */
+export function parseStripeOAuthInstallLink(
+  installLink: string,
+): ParsedStripeOAuthInstallLink | null {
+  try {
+    const url = new URL(installLink.trim());
+    const clientId = url.searchParams.get("client_id")?.trim();
+    if (!clientId) return null;
+
+    url.searchParams.delete("client_id");
+    url.searchParams.delete("redirect_uri");
+    url.searchParams.delete("state");
+    const authorizeBase = `${url.origin}${url.pathname}`.replace(/\/$/, "");
+    if (!authorizeBase.includes("/oauth/")) return null;
+
+    return { authorizeBase, clientId };
+  } catch {
+    return null;
+  }
+}
+
+function resolveStripeOAuthFromEnv(
+  env: Record<string, string | undefined>,
+): { clientId?: string; authorizeBaseUrl?: string } {
+  const installLink = sanitizeStripeEnvValue(env.STRIPE_APP_OAUTH_INSTALL_LINK);
+  if (installLink) {
+    const parsed = parseStripeOAuthInstallLink(installLink);
+    if (parsed) {
+      return {
+        clientId: parsed.clientId,
+        authorizeBaseUrl: parsed.authorizeBase,
+      };
+    }
+  }
+
+  return {
+    clientId: sanitizeStripeEnvValue(env.STRIPE_APP_CLIENT_ID),
+    authorizeBaseUrl: sanitizeStripeEnvValue(env.STRIPE_APP_OAUTH_AUTHORIZE_URL),
+  };
+}
+
 export function readStripeOAuthEnv(
   env: Record<string, string | undefined> = process.env,
 ): StripeOAuthEnv {
+  const resolved = resolveStripeOAuthFromEnv(env);
   return {
-    clientId: env.STRIPE_APP_CLIENT_ID?.trim(),
-    authorizeBaseUrl: env.STRIPE_APP_OAUTH_AUTHORIZE_URL?.trim(),
-    redirectUri: env.STRIPE_APP_REDIRECT_URI?.trim(),
-    siteUrl: env.NEXT_PUBLIC_SITE_URL?.trim(),
+    clientId: resolved.clientId,
+    authorizeBaseUrl: resolved.authorizeBaseUrl,
+    redirectUri: sanitizeStripeEnvValue(env.STRIPE_APP_REDIRECT_URI),
+    siteUrl: sanitizeStripeEnvValue(env.NEXT_PUBLIC_SITE_URL),
   };
 }
 
@@ -43,7 +103,9 @@ export function getStripeAppAuthUrl(
 ): string {
   const { clientId, authorizeBaseUrl } = readStripeOAuthEnv(env);
   if (!clientId) {
-    throw new Error("STRIPE_APP_CLIENT_ID non configuré");
+    throw new Error(
+      "OAuth Stripe non configuré — définissez STRIPE_APP_OAUTH_INSTALL_LINK (lien Test OAuth complet) ou STRIPE_APP_CLIENT_ID",
+    );
   }
 
   const params = new URLSearchParams({

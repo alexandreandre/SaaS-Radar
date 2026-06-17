@@ -42,16 +42,17 @@ stripe apps upload
 
 1. Dashboard Stripe → **Applications** → SaaS Radar → **External test**
 2. Activer un test externe sur la version uploadée
-3. Copier le lien **Test OAuth** (mode test) et le `client_id`
-4. Mettre dans `.env.local` :
+3. Copier le lien **Test OAuth** (mode test) en entier → `.env.local` :
    ```env
-   STRIPE_APP_CLIENT_ID=...
+   STRIPE_APP_OAUTH_INSTALL_LINK=https://marketplace.stripe.com/oauth/v2/chnlink_xxx/authorize?client_id=...
    ```
+   (Recommandé — évite de copier un mauvais `client_id`.)
 
-Optionnel si Stripe fournit un lien `chnlink_*` :
-```env
-STRIPE_APP_OAUTH_AUTHORIZE_URL=https://marketplace.stripe.com/oauth/v2/chnlink_xxx/authorize
-```
+   Ou séparément :
+   ```env
+   STRIPE_APP_CLIENT_ID=ca_...
+   STRIPE_APP_OAUTH_AUTHORIZE_URL=https://marketplace.stripe.com/oauth/v2/chnlink_xxx/authorize
+   ```
 
 ## Publication Marketplace
 
@@ -63,10 +64,12 @@ STRIPE_APP_OAUTH_AUTHORIZE_URL=https://marketplace.stripe.com/oauth/v2/chnlink_x
 ## Variables plateforme SaaS Radar
 
 ```env
-STRIPE_APP_CLIENT_ID=...
-STRIPE_SECRET_KEY=sk_...
+STRIPE_APP_OAUTH_INSTALL_LINK=https://marketplace.stripe.com/oauth/v2/chnlink_xxx/authorize?client_id=ca_...
+STRIPE_APP_SECRET_KEY=sk_test_...   # compte qui possède l'app (Alex Intel)
+STRIPE_SECRET_KEY=sk_test_...       # billing SaaS Radar (peut être un autre compte)
 CREDENTIALS_ENCRYPTION_KEY=...
 NEXT_PUBLIC_SITE_URL=https://saasradar.fr
+STRIPE_APP_REDIRECT_URI=https://saasradar.fr/api/connectors/stripe/callback
 ```
 
 ## Redirect URI (obligatoire — HTTPS, pas de localhost)

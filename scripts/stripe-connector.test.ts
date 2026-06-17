@@ -13,6 +13,8 @@ import {
   isStripeOAuthConfigured,
   normalizeStripeAccountId,
   oauthTokenToCredential,
+  parseStripeOAuthInstallLink,
+  sanitizeStripeEnvValue,
   TOKEN_LIFETIME_MS,
   TOKEN_REFRESH_LEAD_MS,
 } from "../src/lib/connectors/stripe/oauth-config.ts";
@@ -20,6 +22,7 @@ import { isOAuthCredentialExpired } from "../src/lib/connectors/stripe/oauth-con
 
 const ENV_KEYS = [
   "STRIPE_APP_CLIENT_ID",
+  "STRIPE_APP_OAUTH_INSTALL_LINK",
   "STRIPE_APP_OAUTH_AUTHORIZE_URL",
   "STRIPE_APP_REDIRECT_URI",
   "NEXT_PUBLIC_SITE_URL",
@@ -91,6 +94,40 @@ describe("stripe connector — Stripe Apps OAuth", () => {
       "https://marketplace.stripe.com/oauth/v2/chnlink_test/authorize";
     const url = getStripeAppAuthUrl("s");
     assert.match(url, /chnlink_test\/authorize/);
+  });
+
+  it("parses full install link from dashboard", () => {
+    const link =
+      "https://marketplace.stripe.com/oauth/v2/chnlink_abc/authorize?client_id=ca_test_from_link&redirect_uri=https://old.example/cb";
+    const parsed = parseStripeOAuthInstallLink(link);
+    assert.ok(parsed);
+    assert.equal(parsed.clientId, "ca_test_from_link");
+    assert.equal(
+      parsed.authorizeBase,
+      "https://marketplace.stripe.com/oauth/v2/chnlink_abc/authorize",
+    );
+  });
+
+  it("builds auth URL from STRIPE_APP_OAUTH_INSTALL_LINK", () => {
+    delete process.env.STRIPE_APP_CLIENT_ID;
+    process.env.STRIPE_APP_OAUTH_INSTALL_LINK =
+      "https://marketplace.stripe.com/oauth/v2/chnlink_xyz/authorize?client_id=from_install_link";
+    process.env.STRIPE_APP_REDIRECT_URI =
+      "https://saa-s-radar.vercel.app/api/connectors/stripe/callback";
+
+    assert.equal(isStripeOAuthConfigured(), true);
+    const url = new URL(getStripeAppAuthUrl("state-1"));
+    assert.match(url.pathname, /chnlink_xyz\/authorize/);
+    assert.equal(url.searchParams.get("client_id"), "from_install_link");
+    assert.equal(
+      url.searchParams.get("redirect_uri"),
+      "https://saa-s-radar.vercel.app/api/connectors/stripe/callback",
+    );
+  });
+
+  it("strips surrounding quotes from env values", () => {
+    assert.equal(sanitizeStripeEnvValue('"ca_quoted"'), "ca_quoted");
+    assert.equal(sanitizeStripeEnvValue("'ca_single'"), "ca_single");
   });
 
   it("normalizes stripe_user_id and account_id", () => {

@@ -18,10 +18,14 @@ export {
 
 const STRIPE_API_TOKEN_URL = "https://api.stripe.com/v1/oauth/token";
 
+/** Clé du compte qui possède l'app Stripe (Alex Intel). Peut différer du billing SaaS Radar. */
 function getPlatformSecretKey(): string {
-  const secret = process.env.STRIPE_SECRET_KEY?.trim();
+  const secret =
+    process.env.STRIPE_APP_SECRET_KEY?.trim() ?? process.env.STRIPE_SECRET_KEY?.trim();
   if (!secret) {
-    throw new Error("STRIPE_SECRET_KEY requis pour OAuth Stripe Apps");
+    throw new Error(
+      "STRIPE_APP_SECRET_KEY ou STRIPE_SECRET_KEY requis pour OAuth Stripe Apps",
+    );
   }
   return secret;
 }
