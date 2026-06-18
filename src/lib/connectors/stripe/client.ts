@@ -17,16 +17,6 @@ export class StripeConnectorError extends Error {
   }
 }
 
-function getBearerToken(credential: StripeCredential): string {
-  return credential.mode === "rak" ? credential.secretKey : credential.accessToken;
-}
-
-function getStripeAccountHeader(credential: StripeCredential): string | undefined {
-  // Stripe Apps OAuth : le Bearer access_token est déjà scoping au compte connecté.
-  if (credential.mode === "oauth") return undefined;
-  return credential.accountId;
-}
-
 export async function stripeConnectorRequest<T>(
   credential: StripeCredential,
   path: string,
@@ -39,12 +29,11 @@ export async function stripeConnectorRequest<T>(
 ): Promise<T> {
   const method = options.method ?? "GET";
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${getBearerToken(credential)}`,
+    Authorization: `Bearer ${credential.secretKey}`,
   };
 
-  const stripeAccount = getStripeAccountHeader(credential);
-  if (stripeAccount) {
-    headers["Stripe-Account"] = stripeAccount;
+  if (credential.accountId) {
+    headers["Stripe-Account"] = credential.accountId;
   }
 
   if (options.apiVersion) {
@@ -108,10 +97,9 @@ export function buildAccountMeta(
 
 export async function validateCredential(credential: StripeCredential): Promise<StripeAccountMeta> {
   const account = await fetchStripeAccount(credential);
-  const enriched: StripeCredential =
-    credential.mode === "rak" && !credential.accountId
-      ? { ...credential, accountId: account.id }
-      : credential;
+  const enriched: StripeCredential = !credential.accountId
+    ? { ...credential, accountId: account.id }
+    : credential;
 
   // Test Analytics access with a minimal query
   const now = new Date();

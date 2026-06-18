@@ -17,7 +17,7 @@ export function parseRakCredential(secretKey: string, currency = "eur"): StripeC
     throw new Error("Format de clé invalide. Attendu : rk_test_… ou rk_live_…");
   }
   const livemode = trimmed.startsWith("rk_live_");
-  return { mode: "rak", secretKey: trimmed, livemode, currency };
+  return { secretKey: trimmed, livemode, currency };
 }
 
 export function centsToEuros(cents: number): number {

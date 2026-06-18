@@ -1,8 +1,0 @@
-{
-  "name": "saas-radar-stripe-app",
-  "version": "0.0.3",
-  "private": true,
-  "dependencies": {
-    "@stripe/ui-extension-sdk": "^8.11.0"
-  }
-}

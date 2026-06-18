@@ -54,8 +54,8 @@ export function StripeRakDialog({ open, onOpenChange, onConnect }: StripeRakDial
         <DialogHeader>
           <DialogTitle>Clé restreinte Stripe</DialogTitle>
           <DialogDescription>
-            Alternative à la connexion OAuth. Accès lecture seule — SaaS Radar ne peut pas modifier
-            vos paiements.
+            Collez une clé restreinte Stripe (rk_test_… ou rk_live_…). Accès lecture seule — SaaS
+            Radar ne peut pas modifier vos paiements.
           </DialogDescription>
         </DialogHeader>
 

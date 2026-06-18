@@ -1,23 +1,9 @@
-export type StripeRakCredential = {
-  mode: "rak";
+export type StripeCredential = {
   secretKey: string;
   livemode: boolean;
   currency: string;
   accountId?: string;
 };
-
-export type StripeOAuthCredential = {
-  mode: "oauth";
-  accessToken: string;
-  refreshToken?: string;
-  stripeAccountId: string;
-  livemode: boolean;
-  currency: string;
-  /** ISO — expiration du access_token (Stripe Apps OAuth, ~1 h). */
-  tokenExpiresAt?: string;
-};
-
-export type StripeCredential = StripeRakCredential | StripeOAuthCredential;
 
 export type StripeAccountMeta = {
   accountLabel: string;
