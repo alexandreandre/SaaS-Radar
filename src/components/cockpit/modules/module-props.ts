@@ -20,6 +20,10 @@ export type CockpitModuleProps = {
   ) => Promise<void>;
   onSyncIntegration: (connectorId: ConnectorId) => Promise<void>;
   onDisconnectIntegration: (connectorId: ConnectorId) => Promise<void>;
+  onPatchIntegration: (
+    connectorId: ConnectorId,
+    patch: Partial<import("@/lib/connectors/types").Integration>,
+  ) => void;
   onLogMetrics: (partial: Partial<MetricsSnapshot>) => void;
   onRecordMrr: (amount: number, note?: string) => void;
   onSetCashOnHand: (amount: number) => void;

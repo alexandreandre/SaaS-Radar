@@ -16,8 +16,7 @@
     "sourcing:worker": "tsx --env-file=.env.local scripts/sourcing-worker.ts",
     "sourcing:premium": "tsx --env-file=.env.local scripts/sourcing.ts --premium",
     "sourcing:test-a": "tsx --env-file=.env.local scripts/test-discover-a.ts",
-    "test": "node --import tsx --test scripts/sourcing.test.ts scripts/build-infra.test.ts scripts/build-journey.test.ts scripts/product-logo.test.ts scripts/stripe-connector.test.ts",
-    "stripe:oauth-doctor": "tsx --env-file=.env.local scripts/stripe-oauth-doctor.ts",
+    "test": "node --import tsx --test scripts/sourcing.test.ts scripts/build-infra.test.ts scripts/build-journey.test.ts scripts/product-logo.test.ts scripts/stripe-connector.test.ts scripts/google-ads-connector.test.ts scripts/meta-ads-connector.test.ts scripts/integration-health.test.ts",
     "db:migrate:015": "bash scripts/apply-migration-015.sh"
   },
   "dependencies": {

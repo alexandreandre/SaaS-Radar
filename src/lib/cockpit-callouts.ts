@@ -18,6 +18,10 @@ import {
 import { hasPaymentConnector } from "@/lib/revenue-helpers";
 import type { StackHealth } from "@/lib/stack-health";
 import { daysSince } from "@/lib/portfolio";
+import {
+  buildIntegrationHealthAlerts,
+  filterIntegrationHealthAlerts,
+} from "@/lib/connectors/integration-health";
 import type { UserProject } from "@/lib/portfolio";
 import type { Opportunity } from "@/types/opportunity";
 
@@ -54,11 +58,51 @@ const ALERT_META: Record<
   "uptime-low": { title: "Disponibilité basse", actionLabel: "Build", variant: "warning" },
   "sentry-spike": { title: "Pic d'erreurs Sentry", actionLabel: "Build", variant: "critical", icon: AlertCircle },
   "crm-stagnant": { title: "Pipeline CRM stagnant", actionLabel: "Clients", icon: Info },
+  "integration-error-google-ads": {
+    title: "Google Ads — action requise",
+    actionLabel: "Connecteurs",
+    variant: "warning",
+    icon: Megaphone,
+  },
+  "integration-error-meta-ads": {
+    title: "Meta Ads — action requise",
+    actionLabel: "Connecteurs",
+    variant: "warning",
+    icon: Megaphone,
+  },
+  "integration-token-google-ads": {
+    title: "Token Google Ads",
+    actionLabel: "Connecteurs",
+    variant: "warning",
+    icon: AlertTriangle,
+  },
+  "integration-token-meta-ads": {
+    title: "Token Meta Ads",
+    actionLabel: "Connecteurs",
+    variant: "warning",
+    icon: AlertTriangle,
+  },
+  "integration-stale-google-ads": {
+    title: "Sync Google Ads obsolète",
+    actionLabel: "Connecteurs",
+    icon: Info,
+  },
+  "integration-stale-meta-ads": {
+    title: "Sync Meta Ads obsolète",
+    actionLabel: "Connecteurs",
+    icon: Info,
+  },
 };
 
 const ACTION_MODULE_OVERRIDE: Record<string, CockpitModuleId> = {
   "missing-product-analytics": "integrations",
   "missing-p0": "integrations",
+  "integration-error-google-ads": "integrations",
+  "integration-error-meta-ads": "integrations",
+  "integration-token-google-ads": "integrations",
+  "integration-token-meta-ads": "integrations",
+  "integration-stale-google-ads": "integrations",
+  "integration-stale-meta-ads": "integrations",
 };
 
 function alertToCallout(alert: CockpitAlert): ModuleCalloutDef {
@@ -243,6 +287,7 @@ export function buildModuleCallouts(
     revenus: ["revenus"],
     produit: ["produit"],
     acquisition: ["acquisition"],
+    integrations: ["integrations"],
     finance: ["finance"],
     build: ["build"],
     clients: ["clients"],
@@ -250,6 +295,14 @@ export function buildModuleCallouts(
 
   const allowedModules = alertModules[moduleId];
   if (allowedModules) {
+    const integrationAlerts = filterIntegrationHealthAlerts(
+      buildIntegrationHealthAlerts(project.integrations),
+      moduleId,
+    );
+    for (const alert of integrationAlerts) {
+      push(alertToCallout(alert));
+    }
+
     for (const alert of alerts) {
       const actionModule = alert.actionModule ?? (alert.actionTab as CockpitModuleId) ?? "overview";
       if (allowedModules.includes(actionModule) || moduleId === "overview") {

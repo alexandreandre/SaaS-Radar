@@ -15,6 +15,7 @@ import {
 } from "@/lib/portfolio";
 import { getProductStream, hasProductAnalyticsConnected } from "@/lib/connectors/streams";
 import { buildStackHealth } from "@/lib/stack-health";
+import { buildIntegrationHealthAlerts } from "@/lib/connectors/integration-health";
 import type { Opportunity } from "@/types/opportunity";
 
 export type CockpitAlert = {
@@ -228,6 +229,8 @@ export function buildCockpitAlerts(
       });
     }
   }
+
+  alerts.push(...buildIntegrationHealthAlerts(project.integrations));
 
   return alerts;
 }

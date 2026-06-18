@@ -19,9 +19,18 @@ export async function GET(request: Request) {
   const checks = {
     supabase: !!getSupabaseUrl() && !!process.env.SUPABASE_SERVICE_ROLE_KEY,
     stripe: !!process.env.STRIPE_SECRET_KEY,
-    stripeAppOAuth:
-      !!process.env.STRIPE_APP_CLIENT_ID?.trim() ||
-      !!process.env.STRIPE_APP_OAUTH_INSTALL_LINK?.trim(),
+    googleAds: !!(
+      process.env.GOOGLE_ADS_CLIENT_ID?.trim() &&
+      process.env.GOOGLE_ADS_CLIENT_SECRET?.trim() &&
+      process.env.GOOGLE_ADS_REDIRECT_URI?.trim() &&
+      process.env.GOOGLE_ADS_DEVELOPER_TOKEN?.trim()
+    ),
+    metaAds: !!(
+      process.env.META_ADS_CLIENT_ID?.trim() &&
+      process.env.META_ADS_CLIENT_SECRET?.trim() &&
+      process.env.META_ADS_REDIRECT_URI?.trim()
+    ),
+    credentialsEncryption: !!process.env.CREDENTIALS_ENCRYPTION_KEY?.trim(),
     openrouter: !!process.env.OPENROUTER_API_KEY,
     revalidate: !!process.env.REVALIDATE_SECRET,
   };

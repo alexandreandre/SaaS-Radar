@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import {
-  SiAnthropic,
+  SiClaude,
   SiCursor,
   SiReplit,
   SiSupabase,
@@ -39,7 +39,7 @@ const SIMPLE_ICON_MAP = {
   SiV0,
   SiReplit,
   SiCursor,
-  SiAnthropic,
+  SiClaude,
   SiWindsurf,
   SiSupabase,
 } as const;

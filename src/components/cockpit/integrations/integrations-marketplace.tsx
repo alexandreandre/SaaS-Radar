@@ -13,6 +13,7 @@ type IntegrationsMarketplaceProps = {
   onConnect: (id: ConnectorId, options?: ConnectIntegrationOptions) => Promise<void>;
   onSync: (id: ConnectorId) => Promise<void>;
   onDisconnect: (id: ConnectorId) => Promise<void>;
+  onPatch: (id: ConnectorId, patch: Partial<Integration>) => void;
 };
 
 export function IntegrationsMarketplace({
@@ -21,6 +22,7 @@ export function IntegrationsMarketplace({
   onConnect,
   onSync,
   onDisconnect,
+  onPatch,
 }: IntegrationsMarketplaceProps) {
   const [search, setSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<"all" | "p0" | "p1" | "p2">("all");
@@ -92,6 +94,7 @@ export function IntegrationsMarketplace({
                     onConnect={onConnect}
                     onSync={onSync}
                     onDisconnect={onDisconnect}
+                    onPatch={onPatch}
                   />
                 );
               })}

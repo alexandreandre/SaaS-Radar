@@ -12,6 +12,7 @@ export type ConnectorSyncApiResponse = {
   snapshots?: MetricsSnapshot[];
   stream?: ConnectorStreamPayload | null;
   syncedAt?: string;
+  tokenExpiresAt?: string;
 };
 
 export function demoteOtherPaymentIntegrations(
@@ -44,14 +45,17 @@ export function applyConnectorSyncToProject(
   const integrations = [...(project.integrations ?? [])];
   const idx = integrations.findIndex((i) => i.connectorId === connectorId);
 
+  const previous = idx >= 0 ? integrations[idx] : undefined;
+
   const entry: Integration = {
     connectorId,
     status,
-    connectedAt: integrations[idx]?.connectedAt ?? now,
+    connectedAt: previous?.connectedAt ?? now,
     lastSyncAt: now,
     accountLabel,
-    syncSchedule: "manual",
+    syncSchedule: previous?.syncSchedule ?? "manual",
     lastError: undefined,
+    tokenExpiresAt: result.tokenExpiresAt ?? previous?.tokenExpiresAt,
   };
 
   if (idx >= 0) integrations[idx] = entry;
@@ -82,6 +86,17 @@ export function setIntegrationError(
 ): UserProject {
   const integrations = (project.integrations ?? []).map((i) =>
     i.connectorId === connectorId ? { ...i, lastError: error } : i,
+  );
+  return { ...project, integrations };
+}
+
+export function patchIntegrationMeta(
+  project: UserProject,
+  connectorId: ConnectorId,
+  patch: Partial<Integration>,
+): UserProject {
+  const integrations = (project.integrations ?? []).map((i) =>
+    i.connectorId === connectorId ? { ...i, ...patch } : i,
   );
   return { ...project, integrations };
 }

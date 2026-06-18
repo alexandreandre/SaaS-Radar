@@ -33,9 +33,9 @@ export const CONNECTORS: ConnectorDefinition[] = [
     category: "payments",
     jobLabel: "Encaisser",
     priority: "p0",
-    cockpitImpact: "MRR réel vs projection fiche",
     recommendedFor: ["stripe"],
-    description: "MRR, churn et clients — installe l'app SaaS Radar sur ton compte Stripe en 1 clic.",
+    description:
+      "Synchronise MRR, churn, expansion et clients actifs depuis ton compte Stripe pour alimenter le cockpit et comparer tes chiffres réels à la projection de ta fiche.",
     provides: ["mrr", "newMrr", "expansionMrr", "churnedMrr", "customers"],
     demoFields: ["mrr", "newMrr", "expansionMrr", "churnedMrr", "customers"],
   }),

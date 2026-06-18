@@ -3,7 +3,7 @@ import type { ConnectorId } from "@/lib/connectors/types";
 
 export type BuildBrandSimpleIcon = {
   source: "simple-icon";
-  icon: "SiV0" | "SiReplit" | "SiCursor" | "SiAnthropic" | "SiWindsurf" | "SiSupabase";
+  icon: "SiV0" | "SiReplit" | "SiCursor" | "SiClaude" | "SiWindsurf" | "SiSupabase";
   color: string;
 };
 
@@ -29,7 +29,7 @@ export const BUILD_TOOL_BRANDS: Record<BuildToolId, BuildBrand> = {
   v0: { source: "simple-icon", icon: "SiV0", color: "#000000" },
   replit: { source: "simple-icon", icon: "SiReplit", color: "#F26207" },
   cursor: { source: "simple-icon", icon: "SiCursor", color: "#000000" },
-  "claude-code": { source: "simple-icon", icon: "SiAnthropic", color: "#191919" },
+  "claude-code": { source: "simple-icon", icon: "SiClaude", color: "#D97757" },
   windsurf: { source: "simple-icon", icon: "SiWindsurf", color: "#0B100F" },
 };
 

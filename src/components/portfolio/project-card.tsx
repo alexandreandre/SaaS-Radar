@@ -17,13 +17,11 @@ import { usePortfolio } from "@/contexts/portfolio-context";
 import type { UserProject } from "@/lib/portfolio";
 import {
   daysSince,
-  getCurrentStepTitle,
-  getMilestoneCounts,
-  getProjectCardActionSummary,
   isCheckInOverdue,
   resolveProductName,
 } from "@/lib/portfolio";
-import { sectorLabels } from "@/data/opportunities";
+import { getProjectCardMetrics, getProjectCardQuip } from "@/lib/portfolio-card-copy";
+import { ProjectCardMetrics } from "@/components/portfolio/project-card-metrics";
 import { getCockpitHref } from "@/lib/cockpit-modules";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -34,7 +32,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PHASE_LABELS, ProjectPhaseBadge } from "@/components/cockpit/project-phase-badge";
 import { ProductLogoImage } from "@/components/cockpit/product-logo";
 import { prefetchCockpitEntry } from "@/lib/cockpit-module-loader";
 
@@ -44,6 +41,11 @@ type ProjectCardProps = {
   onResume: (id: string) => void;
   onRemove: (id: string) => void;
 };
+
+function formatOriginCountryCode(code: string): string {
+  const normalized = code.trim().toUpperCase();
+  return normalized === "GB" ? "UK" : normalized;
+}
 
 export function ProjectCard({ project, onPause, onResume, onRemove }: ProjectCardProps) {
   const router = useRouter();
@@ -62,14 +64,13 @@ export function ProjectCard({ project, onPause, onResume, onRemove }: ProjectCar
 
   if (!opportunity) return null;
 
-  const { done: milestonesDone, total: milestonesTotal } = getMilestoneCounts(project);
-  const stepTitle = getCurrentStepTitle(project);
-  const nextAction = getProjectCardActionSummary(project, opportunity);
-  const phaseLabel = PHASE_LABELS[project.phase];
+  const quip = getProjectCardQuip(project);
+  const metrics = getProjectCardMetrics(project);
   const overdue = isCheckInOverdue(project);
   const paused = project.phase === "paused";
   const daysSinceCheckIn = daysSince(project.lastCheckInAt ?? project.createdAt);
-  const sectorLabel = sectorLabels[opportunity.sector] ?? opportunity.sector;
+  const displayName = resolveProductName(project, opportunity);
+  const originLabel = formatOriginCountryCode(opportunity.originCountryCode);
 
   return (
     <motion.article
@@ -89,26 +90,24 @@ export function ProjectCard({ project, onPause, onResume, onRemove }: ProjectCar
       onFocus={prefetchCockpit}
       className={cn(
         "flex h-full cursor-pointer flex-col rounded-xl border border-border bg-card p-6 shadow-card transition-shadow hover:border-primary/30 hover:shadow-card-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        paused && "opacity-70"
+        paused && "opacity-70",
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2.5">
-          <ProductLogoImage
-            logo={project.productLogo}
-            size="sm"
-            alt={resolveProductName(project, opportunity)}
-          />
-          <h2 className="min-w-0 text-lg font-semibold leading-tight">
-            {resolveProductName(project, opportunity)}
-          </h2>
+          <ProductLogoImage logo={project.productLogo} size="sm" alt={displayName} />
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold leading-tight">{displayName}</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Inspiré de {opportunity.name}, {originLabel}
+            </p>
+          </div>
         </div>
         <div
           className="flex shrink-0 items-center gap-1.5"
           onClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => event.stopPropagation()}
         >
-          <ProjectPhaseBadge phase={project.phase} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -148,38 +147,16 @@ export function ProjectCard({ project, onPause, onResume, onRemove }: ProjectCar
         </div>
       </div>
 
-      <p className="mt-1 font-data text-[10px] font-medium uppercase tracking-data text-muted-foreground">
-        <span className="mr-1">{opportunity.originFlag}</span>
-        {opportunity.originCountry}
-        <span className="mx-1.5">·</span>
-        {sectorLabel}
-      </p>
-
-      <div
+      <p
         className={cn(
-          "mt-5 rounded-lg border border-border/80 bg-muted/30 px-4 py-3",
-          paused && "opacity-60"
+          "mt-6 text-xl font-medium leading-snug tracking-tight text-foreground sm:text-[1.35rem] sm:leading-snug",
+          paused && "opacity-60",
         )}
       >
-        <p className="font-data text-[10px] uppercase tracking-data text-muted-foreground">
-          Étape · {phaseLabel}
-        </p>
-        <p className="mt-1 text-sm font-semibold leading-snug">{stepTitle}</p>
-        {milestonesTotal > 0 ? (
-          <p className="mt-1 text-xs text-muted-foreground">
-            {milestonesDone} / {milestonesTotal} étapes
-          </p>
-        ) : null}
-      </div>
+        {quip}
+      </p>
 
-      {!paused ? (
-        <div className="mt-4">
-          <p className="font-data text-[10px] uppercase tracking-data text-muted-foreground">
-            Prochaine action
-          </p>
-          <p className="mt-1 line-clamp-3 text-sm leading-snug text-foreground/90">{nextAction}</p>
-        </div>
-      ) : null}
+      <ProjectCardMetrics metrics={metrics} muted={paused} />
 
       {overdue && !paused && daysSinceCheckIn !== null ? (
         <p className="mt-3 flex items-center gap-1.5 text-xs text-amber-700">

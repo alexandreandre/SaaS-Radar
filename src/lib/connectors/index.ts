@@ -94,4 +94,23 @@ export function getPreviousSnapshot(history?: MetricsSnapshot[]): MetricsSnapsho
   return history[history.length - 2];
 }
 
+export function stripConnectorMetrics(
+  history: MetricsSnapshot[],
+  connectorId: ConnectorId,
+): MetricsSnapshot[] {
+  const connector = getConnector(connectorId);
+  const fields = connector?.provides ?? [];
+  if (fields.length === 0) return history;
+
+  return history.map((snap) => {
+    if (snap.source !== connectorId) return snap;
+    const next = { ...snap };
+    for (const field of fields) {
+      (next as Record<string, unknown>)[field] = 0;
+    }
+    delete next.source;
+    return next;
+  });
+}
+
 export { removeConnectorStream };

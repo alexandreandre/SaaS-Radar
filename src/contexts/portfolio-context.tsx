@@ -12,15 +12,17 @@ import {
 } from "react";
 import {
   removeConnectorStream,
+  stripConnectorMetrics,
   syncConnectorAllDemo,
   type ConnectorId,
 } from "@/lib/connectors";
 import {
   applyConnectorSyncToProject,
+  patchIntegrationMeta,
   setIntegrationError,
   type ConnectorSyncApiResponse,
 } from "@/lib/connectors/integration-client";
-import type { AdCampaign, Expense, MetricsSnapshot } from "@/lib/connectors/types";
+import type { AdCampaign, Expense, Integration, MetricsSnapshot } from "@/lib/connectors/types";
 import type { Opportunity } from "@/types/opportunity";
 import { useTier } from "@/contexts/tier-context";
 import { useSession } from "@/contexts/session-context";
@@ -67,6 +69,8 @@ export type ConnectIntegrationOptions = {
   mode?: "demo" | "real";
   secretKey?: string;
   currency?: string;
+  customerId?: string;
+  adAccountId?: string;
 };
 
 type PortfolioContextValue = {
@@ -103,6 +107,11 @@ type PortfolioContextValue = {
   ) => Promise<void>;
   disconnectIntegration: (projectId: string, connectorId: ConnectorId) => Promise<void>;
   syncIntegration: (projectId: string, connectorId: ConnectorId) => Promise<void>;
+  patchIntegration: (
+    projectId: string,
+    connectorId: ConnectorId,
+    patch: Partial<Integration>,
+  ) => void;
   addCampaign: (projectId: string, campaign: Omit<AdCampaign, "id">) => void;
   updateCampaign: (projectId: string, campaignId: string, patch: Partial<AdCampaign>) => void;
   removeCampaign: (projectId: string, campaignId: string) => void;
@@ -564,6 +573,14 @@ export function PortfolioProvider({
         throw new Error("La connexion démo Stripe n'est plus disponible. Utilisez OAuth ou une clé restreinte.");
       }
 
+      if (connectorId === "google-ads" && options?.mode === "demo") {
+        throw new Error("La connexion démo Google Ads n'est plus disponible. Connectez votre compte via OAuth.");
+      }
+
+      if (connectorId === "meta-ads" && options?.mode === "demo") {
+        throw new Error("La connexion démo Meta Ads n'est plus disponible. Connectez votre compte via OAuth.");
+      }
+
       if (connectorId === "stripe" && options?.mode !== "real" && !options?.secretKey?.trim()) {
         throw new Error("Connectez Stripe via OAuth ou une clé restreinte.");
       }
@@ -659,6 +676,112 @@ export function PortfolioProvider({
         return;
       }
 
+      const isGoogleAdsReal =
+        connectorId === "google-ads" &&
+        options?.mode === "real" &&
+        Boolean(options.customerId?.trim());
+
+      if (isGoogleAdsReal) {
+        try {
+          const res = await fetch("/api/connectors/google-ads/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectId,
+              customerId: options!.customerId!.trim(),
+            }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion Google Ads échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? "Google Ads",
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion Google Ads échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
+      if (connectorId === "google-ads") {
+        throw new Error("Connectez Google Ads via OAuth.");
+      }
+
+      const isMetaAdsReal =
+        connectorId === "meta-ads" &&
+        options?.mode === "real" &&
+        Boolean(options.adAccountId?.trim());
+
+      if (isMetaAdsReal) {
+        try {
+          const res = await fetch("/api/connectors/meta-ads/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectId,
+              adAccountId: options!.adAccountId!.trim(),
+            }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion Meta Ads échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? "Meta Ads",
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion Meta Ads échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
+      if (connectorId === "meta-ads") {
+        throw new Error("Connectez Meta Ads via OAuth.");
+      }
+
       commit((prev) =>
         prev.map((project) => {
           if (project.id !== projectId) return project;
@@ -703,6 +826,38 @@ export function PortfolioProvider({
         }
       }
 
+      if (connectorId === "google-ads") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find((i) => i.connectorId === "google-ads");
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/google-ads/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
+      if (connectorId === "meta-ads") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find((i) => i.connectorId === "meta-ads");
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/meta-ads/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
       commit((prev) =>
         prev.map((project) => {
           if (project.id !== projectId) return project;
@@ -712,6 +867,7 @@ export function PortfolioProvider({
               i.connectorId === connectorId ? { ...i, status: "disconnected" as const } : i,
             ),
             connectorStreams: removeConnectorStream(project.connectorStreams ?? {}, connectorId),
+            metricsHistory: stripConnectorMetrics(project.metricsHistory ?? [], connectorId),
           };
         }),
       );
@@ -767,9 +923,112 @@ export function PortfolioProvider({
         throw new Error("Connectez Stripe via OAuth ou une clé restreinte.");
       }
 
+      if (connectorId === "google-ads") {
+        if (integration?.status === "connected") {
+          try {
+            const res = await fetch("/api/connectors/google-ads/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation Google Ads échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "Google Ads",
+                );
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Synchronisation Google Ads échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
+          return;
+        }
+
+        throw new Error("Connectez Google Ads via OAuth.");
+      }
+
+      if (connectorId === "meta-ads") {
+        if (integration?.status === "connected") {
+          try {
+            const res = await fetch("/api/connectors/meta-ads/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation Meta Ads échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "Meta Ads",
+                );
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Synchronisation Meta Ads échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
+          return;
+        }
+
+        throw new Error("Connectez Meta Ads via OAuth.");
+      }
+
       await connectIntegration(projectId, connectorId, { mode: "demo" });
     },
     [commit, connectIntegration, projects],
+  );
+
+  const patchIntegration = useCallback(
+    (projectId: string, connectorId: ConnectorId, patch: Partial<Integration>) => {
+      let updated: UserProject | undefined;
+      commit((prev) =>
+        prev.map((project) => {
+          if (project.id !== projectId) return project;
+          updated = patchIntegrationMeta(project, connectorId, patch);
+          return updated;
+        }),
+      );
+      if (updated) queueProjectSync(updated);
+    },
+    [commit],
   );
 
   const addCampaign = useCallback(
@@ -978,6 +1237,7 @@ export function PortfolioProvider({
       connectIntegration,
       disconnectIntegration,
       syncIntegration,
+      patchIntegration,
       addCampaign,
       updateCampaign,
       removeCampaign,
@@ -1018,6 +1278,7 @@ export function PortfolioProvider({
       connectIntegration,
       disconnectIntegration,
       syncIntegration,
+      patchIntegration,
       addCampaign,
       updateCampaign,
       removeCampaign,

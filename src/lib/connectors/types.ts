@@ -131,6 +131,8 @@ export type Integration = {
   accountLabel?: string;
   lastError?: string;
   syncSchedule?: "manual" | "daily";
+  /** ISO — date d'expiration du token OAuth (jamais le token lui-même) */
+  tokenExpiresAt?: string;
 };
 
 export type ConnectorDefinition = {
@@ -165,4 +167,5 @@ export type ConnectorSyncResult = {
   stream?: import("@/lib/connectors/streams").ConnectorStreamPayload;
   accountLabel?: string;
   syncedAt: string;
+  tokenExpiresAt?: string;
 };

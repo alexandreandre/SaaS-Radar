@@ -39,6 +39,10 @@ type CockpitShellProps = {
   ) => Promise<void>;
   onSyncIntegration: (connectorId: ConnectorId) => Promise<void>;
   onDisconnectIntegration: (connectorId: ConnectorId) => Promise<void>;
+  onPatchIntegration: (
+    connectorId: ConnectorId,
+    patch: Partial<import("@/lib/connectors/types").Integration>,
+  ) => void;
   onLogMetrics: (partial: Partial<MetricsSnapshot>) => void;
   onSetCashOnHand: (amount: number) => void;
   onCompleteOnboarding: () => void;
@@ -58,6 +62,7 @@ export function CockpitShell({
   onConnectIntegration,
   onSyncIntegration,
   onDisconnectIntegration,
+  onPatchIntegration,
   onLogMetrics,
   onSetCashOnHand,
   onCompleteOnboarding,
@@ -121,6 +126,7 @@ export function CockpitShell({
     onConnectIntegration,
     onSyncIntegration,
     onDisconnectIntegration,
+    onPatchIntegration,
     onLogMetrics,
     onRecordMrr,
     onSetCashOnHand,

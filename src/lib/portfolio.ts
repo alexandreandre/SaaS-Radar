@@ -6,6 +6,7 @@ import type {
   MetricsSnapshot,
 } from "@/lib/connectors/types";
 import type { ConnectorStreams } from "@/lib/connectors/streams";
+import { removeConnectorStream } from "@/lib/connectors/streams";
 import type { BuildToolId } from "@/lib/build/tools";
 import { getBuildTool } from "@/lib/build/tools";
 import type { BuildPromptLanguage } from "@/lib/build/prompt-language";
@@ -498,8 +499,22 @@ export function getProjectCardActionSummary(
 ): string {
   const raw = getNextActionMessage(project, opportunity);
   const launchAction = raw.match(/^Commencez par : (.+?) — /);
-  if (launchAction) return launchAction[1].trim();
-  if (raw.length > 140) return `${raw.slice(0, 137).trim()}…`;
+  if (launchAction) {
+    const interviewMatch = launchAction[1].match(/^(\d+)\s+entretiens?\b/i);
+    if (interviewMatch) {
+      const duration = launchAction[1].match(/\((\d+\s*min)\)/i)?.[1];
+      return duration
+        ? `${interviewMatch[1]} entretiens terrain (${duration})`
+        : `${interviewMatch[1]} entretiens terrain`;
+    }
+    const trimmed = launchAction[1].trim();
+    if (trimmed.length <= 72) return trimmed;
+    return `${trimmed.slice(0, 69).trim()}…`;
+  }
+  if (/MRR.*mois/i.test(raw)) return "Mettre à jour le MRR du mois";
+  if (/30\s*%/.test(raw)) return "Tester un canal d'acquisition";
+  if (/80\s*%/.test(raw)) return "Passer en phase Revenu";
+  if (raw.length > 72) return `${raw.slice(0, 69).trim()}…`;
   return raw;
 }
 
@@ -530,7 +545,47 @@ export function migrateProject(project: UserProject): UserProject {
     buildSetupHistory: project.buildSetupHistory ?? [],
     buildKitsByTool: project.buildKitsByTool ?? {},
   };
-  return normalizeBuildKits(base);
+  return clearOAuthAdsDemos(normalizeBuildKits(base));
+}
+
+function clearConnectorDemo(project: UserProject, connectorId: ConnectorId): UserProject {
+  const hasDemo = (project.integrations ?? []).some(
+    (i) => i.connectorId === connectorId && i.status === "demo",
+  );
+  if (!hasDemo) return project;
+
+  return {
+    ...project,
+    integrations: (project.integrations ?? []).map((i) =>
+      i.connectorId === connectorId && i.status === "demo"
+        ? {
+            ...i,
+            status: "disconnected" as const,
+            connectedAt: undefined,
+            lastSyncAt: undefined,
+            accountLabel: undefined,
+            lastError: undefined,
+            tokenExpiresAt: undefined,
+          }
+        : i,
+    ),
+    connectorStreams: removeConnectorStream(project.connectorStreams ?? {}, connectorId),
+    metricsHistory: (project.metricsHistory ?? []).map((snap) => {
+      if (snap.source !== connectorId) return snap;
+      return {
+        ...snap,
+        source: undefined,
+        adSpend: 0,
+        impressions: 0,
+        clicks: 0,
+        conversions: 0,
+      };
+    }),
+  };
+}
+
+function clearOAuthAdsDemos(project: UserProject): UserProject {
+  return clearConnectorDemo(clearConnectorDemo(project, "google-ads"), "meta-ads");
 }
 
 export function getActiveBuildToolId(project: UserProject): BuildToolId | undefined {

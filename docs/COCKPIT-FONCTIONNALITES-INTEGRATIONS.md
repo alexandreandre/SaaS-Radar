@@ -584,8 +584,11 @@ Légende :
 #### 6. Meta Ads — `meta-ads`
 
 | Priorité | P1 |
-| Snapshots | adSpend, impressions, clicks, conversions |
-| API future | Meta Marketing API |
+| Statut | **Implémenté** (OAuth + Marketing API v25.0) |
+| Snapshots | adSpend, impressions, clicks, conversions (12 mois) |
+| Routes | `/api/connectors/meta-ads/{oauth,callback,accounts,connect,sync,disconnect,health}` |
+| Alertes | Token expiré / sync en échec / sync obsolète (> 30 j) via `integration-health` |
+| Note token | Long-lived ~60 j ; données conservées si expiration ; reconnecter pour resync |
 
 #### 7. LinkedIn Ads — `linkedin-ads`
 

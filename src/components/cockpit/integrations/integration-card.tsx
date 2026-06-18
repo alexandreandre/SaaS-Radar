@@ -1,11 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2, Plug, RefreshCw, Unplug } from "lucide-react";
 import type { ConnectorDefinition } from "@/lib/connectors/types";
 import type { ConnectorId, Integration } from "@/lib/connectors/types";
+import {
+  getConnectorConnectionProfile,
+  getIntegrationDisplayStatus,
+  isIntegrationActive,
+  type IntegrationDisplayStatus,
+} from "@/lib/connectors/connection-profile";
+import {
+  integrationNeedsAction,
+  isOAuthAdsConnector,
+} from "@/lib/connectors/integration-health";
+import { getMetricChips } from "@/lib/connectors/metric-labels";
 import { ConnectorLogo } from "@/components/cockpit/integrations/connector-logo";
 import { StripeRakDialog } from "@/components/cockpit/integrations/stripe-connect-dialog";
+import { GoogleAdsConnectDialog } from "@/components/cockpit/integrations/google-ads-connect-dialog";
+import { MetaAdsConnectDialog } from "@/components/cockpit/integrations/meta-ads-connect-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -32,7 +46,134 @@ type IntegrationCardProps = {
   onConnect: (id: ConnectorId, options?: ConnectIntegrationOptions) => Promise<void>;
   onSync: (id: ConnectorId) => Promise<void>;
   onDisconnect: (id: ConnectorId) => Promise<void>;
+  onPatch?: (id: ConnectorId, patch: Partial<Integration>) => void;
 };
+
+const OAUTH_ADS_HEALTH_PATH: Partial<Record<ConnectorId, string>> = {
+  "google-ads": "google-ads",
+  "meta-ads": "meta-ads",
+};
+
+function IntegrationStatusBadge({ status }: { status: IntegrationDisplayStatus }) {
+  if (status === "connected") {
+    return (
+      <Badge variant="success" className="shrink-0">
+        Connecté
+      </Badge>
+    );
+  }
+  if (status === "demo") {
+    return (
+      <Badge variant="demo" className="shrink-0">
+        Démo
+      </Badge>
+    );
+  }
+  return null;
+}
+
+function IntegrationMetricChips({ connector }: { connector: ConnectorDefinition }) {
+  const chips =
+    connector.provides.length > 0 ? getMetricChips(connector.provides) : ["Stream cockpit"];
+
+  return (
+    <div className="mt-3 flex flex-wrap gap-1.5">
+      {chips.map((label) => (
+        <Badge key={label} variant="outline" className="text-[10px] font-normal normal-case">
+          {label}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
+type IntegrationCardActionsProps = {
+  connectorId: ConnectorId;
+  profile: ReturnType<typeof getConnectorConnectionProfile>;
+  isActive: boolean;
+  needsAction: boolean;
+  syncing: boolean;
+  disconnecting: boolean;
+  onOpenDialog: () => void;
+  onConnect: (id: ConnectorId, options?: ConnectIntegrationOptions) => Promise<void>;
+  onSync: () => Promise<void>;
+  onDisconnect: () => Promise<void>;
+};
+
+function IntegrationCardActions({
+  connectorId,
+  profile,
+  isActive,
+  needsAction,
+  syncing,
+  disconnecting,
+  onOpenDialog,
+  onConnect,
+  onSync,
+  onDisconnect,
+}: IntegrationCardActionsProps) {
+  if (!isActive) {
+    if (profile.supportsReal && profile.connectDialog) {
+      return (
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" className="w-fit" onClick={onOpenDialog}>
+            <Plug className="h-4 w-4" />
+            Connecter
+          </Button>
+          {profile.supportsDemo ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-fit"
+              onClick={() => void onConnect(connectorId, { mode: "demo" })}
+            >
+              Essayer en démo
+            </Button>
+          ) : null}
+        </div>
+      );
+    }
+
+    return (
+      <Button size="sm" className="w-fit" onClick={() => void onConnect(connectorId)}>
+        Essayer en démo
+      </Button>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {needsAction && profile.connectDialog ? (
+        <Button size="sm" variant="outline" onClick={onOpenDialog} disabled={syncing || disconnecting}>
+          Reconnecter
+        </Button>
+      ) : null}
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => void onSync()}
+        disabled={syncing || disconnecting}
+      >
+        {syncing ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <RefreshCw className="h-4 w-4" />
+        )}
+        Synchroniser
+      </Button>
+      <Button
+        size="sm"
+        variant="ghost"
+        className={cn("text-muted-foreground")}
+        onClick={() => void onDisconnect()}
+        disabled={syncing || disconnecting}
+      >
+        <Unplug className="h-4 w-4" />
+        Déconnecter
+      </Button>
+    </div>
+  );
+}
 
 export function IntegrationCard({
   projectId,
@@ -41,32 +182,61 @@ export function IntegrationCard({
   onConnect,
   onSync,
   onDisconnect,
+  onPatch = () => {},
 }: IntegrationCardProps) {
-  const [rakDialogOpen, setRakDialogOpen] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
-  const [oauthConfigured, setOauthConfigured] = useState(false);
-  const [configLoaded, setConfigLoaded] = useState(false);
 
-  const isStripe = connector.id === "stripe";
-  const isDemo = integration?.status === "demo";
-  const isRealConnected = integration?.status === "connected";
-  const isConnected = isStripe ? isRealConnected : isDemo || isRealConnected;
+  const profile = getConnectorConnectionProfile(connector.id);
+  const displayStatus = getIntegrationDisplayStatus(integration);
+  const isActive = isIntegrationActive(displayStatus);
+  const needsAction = integrationNeedsAction(integration);
+
+  const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (!isStripe) return;
-    void fetch("/api/connectors/stripe/config")
-      .then((res) => res.json())
-      .then((data: { oauthConfigured?: boolean }) => {
-        setOauthConfigured(Boolean(data.oauthConfigured));
-      })
-      .catch(() => setOauthConfigured(false))
-      .finally(() => setConfigLoaded(true));
-  }, [isStripe]);
+    if (profile.connectDialog === "google-ads" && searchParams.get("google_ads_oauth") === "1") {
+      setDialogOpen(true);
+    }
+    if (profile.connectDialog === "meta-ads" && searchParams.get("meta_ads_oauth") === "1") {
+      setDialogOpen(true);
+    }
+  }, [profile.connectDialog, searchParams]);
 
-  function handleStripeOAuth() {
-    window.location.href = `/api/connectors/stripe/oauth?projectId=${encodeURIComponent(projectId)}`;
-  }
+  useEffect(() => {
+    if (integration?.status !== "connected") return;
+    if (integration.tokenExpiresAt) return;
+    if (!isOAuthAdsConnector(connector.id)) return;
+
+    const healthPath = OAUTH_ADS_HEALTH_PATH[connector.id];
+    if (!healthPath) return;
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/connectors/${healthPath}/health?projectId=${encodeURIComponent(projectId)}`,
+        );
+        const data = (await res.json()) as { tokenExpiresAt?: string; error?: string };
+        if (!res.ok || !data.tokenExpiresAt || cancelled) return;
+        onPatch(connector.id, { tokenExpiresAt: data.tokenExpiresAt });
+      } catch {
+        // Prefetch best-effort — sync manuelle reste disponible
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    connector.id,
+    integration?.status,
+    integration?.tokenExpiresAt,
+    onPatch,
+    projectId,
+  ]);
 
   async function handleSync() {
     setSyncing(true);
@@ -86,11 +256,17 @@ export function IntegrationCard({
     }
   }
 
+  const connectDialogId = profile.connectDialog;
+
   return (
     <>
       <div className="rounded-xl border border-border bg-card p-5 shadow-card">
         <div className="flex items-start gap-3">
-          <ConnectorLogo connectorId={connector.id} size="md" showRing={isConnected} />
+          <ConnectorLogo
+            connectorId={connector.id}
+            size="md"
+            showRing={displayStatus === "connected"}
+          />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -106,29 +282,27 @@ export function IntegrationCard({
                   {CATEGORY_LABELS[connector.category]} · {connector.jobLabel}
                 </p>
               </div>
-              {!isStripe && isDemo ? (
-                <Badge variant="outline" className="shrink-0 border-violet-500/40 text-violet-700">
-                  Démo
-                </Badge>
-              ) : isConnected ? (
-                <Badge variant="success" className="shrink-0">
-                  Connecté
+              <IntegrationStatusBadge status={displayStatus} />
+              {needsAction ? (
+                <Badge
+                  variant="outline"
+                  className="shrink-0 border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+                >
+                  Action requise
                 </Badge>
               ) : null}
             </div>
           </div>
         </div>
-        <p className="mt-3 text-sm text-muted-foreground">{connector.description}</p>
+
+        <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">{connector.description}</p>
+
+        <IntegrationMetricChips connector={connector} />
+
         {connector.cockpitImpact ? (
           <p className="mt-2 text-xs text-primary/80">{connector.cockpitImpact}</p>
         ) : null}
-        {connector.provides.length > 0 ? (
-          <p className="mt-2 text-xs text-muted-foreground">
-            Fournit : {connector.provides.join(", ")}
-          </p>
-        ) : (
-          <p className="mt-2 text-xs text-muted-foreground">Streams dédiés (finance, dev, CRM…)</p>
-        )}
+
         {integration?.lastSyncAt ? (
           <p className="mt-2 text-xs text-muted-foreground">
             Dernière sync : {new Date(integration.lastSyncAt).toLocaleDateString("fr-FR")}
@@ -138,79 +312,44 @@ export function IntegrationCard({
         {integration?.lastError ? (
           <p className="mt-2 text-xs text-destructive">{integration.lastError}</p>
         ) : null}
+
         <div className="mt-4 flex flex-col gap-2">
-          {!isConnected ? (
-            isStripe ? (
-              <>
-                <Button
-                  size="sm"
-                  className="w-fit"
-                  onClick={handleStripeOAuth}
-                  disabled={!oauthConfigured || !configLoaded}
-                >
-                  <Plug className="h-4 w-4" />
-                  Connecter avec Stripe
-                </Button>
-                {!configLoaded ? (
-                  <p className="text-xs text-muted-foreground">Vérification OAuth…</p>
-                ) : !oauthConfigured ? (
-                  <p className="text-xs text-muted-foreground">
-                    Connexion en 1 clic indisponible sur cette instance.
-                  </p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Lecture seule · révocable depuis Stripe
-                  </p>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setRakDialogOpen(true)}
-                  className="w-fit text-left text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-                >
-                  Utiliser une clé restreinte
-                </button>
-              </>
-            ) : (
-              <Button size="sm" className="w-fit" onClick={() => void onConnect(connector.id)}>
-                <Plug className="h-4 w-4" />
-                Connecter (démo)
-              </Button>
-            )
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => void handleSync()}
-                disabled={syncing || disconnecting}
-              >
-                {syncing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-                Synchroniser
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className={cn("text-muted-foreground")}
-                onClick={() => void handleDisconnect()}
-                disabled={syncing || disconnecting}
-              >
-                <Unplug className="h-4 w-4" />
-                Déconnecter
-              </Button>
-            </div>
-          )}
+          <IntegrationCardActions
+            connectorId={connector.id}
+            profile={profile}
+            isActive={isActive}
+            needsAction={needsAction}
+            syncing={syncing}
+            disconnecting={disconnecting}
+            onOpenDialog={() => setDialogOpen(true)}
+            onConnect={onConnect}
+            onSync={handleSync}
+            onDisconnect={handleDisconnect}
+          />
         </div>
       </div>
 
-      {isStripe ? (
+      {connectDialogId === "stripe" ? (
         <StripeRakDialog
-          open={rakDialogOpen}
-          onOpenChange={setRakDialogOpen}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
           onConnect={(options) => onConnect("stripe", options)}
+        />
+      ) : null}
+      {connectDialogId === "google-ads" ? (
+        <GoogleAdsConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("google-ads", options)}
+        />
+      ) : null}
+      {connectDialogId === "meta-ads" ? (
+        <MetaAdsConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("meta-ads", options)}
         />
       ) : null}
     </>

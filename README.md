@@ -38,6 +38,7 @@ Voir [`.env.example`](.env.example) pour la liste complète. Essentiel :
 | `ADMIN_SOURCING_SECRET` | Déclenchement protégé via `/api/admin/sourcing` |
 | `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | API Stripe + vérification de signature du webhook |
 | `STRIPE_PRICE_BUILDER_MONTHLY/YEARLY`, `STRIPE_PRICE_PRO_MONTHLY/YEARLY` | Mapping `price_id → plan` |
+| `CREDENTIALS_ENCRYPTION_KEY` | Chiffrement des clés connecteurs cockpit (Stripe, etc.) — serveur uniquement |
 | `NEXT_PUBLIC_SITE_URL` | URL absolue (success/cancel/return Stripe) — optionnel en local |
 
 ## Base de données
@@ -134,6 +135,46 @@ automatiquement les sections premium gated côté serveur.
 
 > `/api/stripe/*` est exclu du middleware d'auth (Stripe n'envoie pas de cookie ; le webhook a
 > besoin du body brut intact). La vente à la carte (paiement unique) est hors périmètre MVP.
+
+### Connecteur Stripe cockpit (MRR utilisateur)
+
+Le connecteur Stripe du cockpit (`/api/connectors/stripe/*`) est **indépendant** du billing
+SaaS Radar ci-dessus. Chaque utilisateur connecte son propre compte en collant une **clé
+restreinte** (`rk_test_…` / `rk_live_…`) dans le cockpit — accès lecture seule, permissions
+Analytics + Subscriptions + Invoices. Aucune variable `STRIPE_APP_*` ni OAuth côté serveur :
+seul `CREDENTIALS_ENCRYPTION_KEY` est requis pour chiffrer la clé en base.
+
+### Connecteur Google Ads cockpit (acquisition)
+
+Le connecteur Google Ads (`/api/connectors/google-ads/*`) synchronise **adSpend**,
+**impressions**, **clics** et **conversions** sur 12 mois via l'API Google Ads v24.
+
+**Prérequis plateforme** (variables dans `.env`) :
+
+1. Projet Google Cloud avec **Google Ads API** activée et écran de consentement OAuth
+2. Client OAuth Web — redirect URI : `https://<domaine>/api/connectors/google-ads/callback`
+3. **Developer token** depuis [API Center](https://ads.google.com/aw/apicenter) (`GOOGLE_ADS_DEVELOPER_TOKEN`)
+4. `CREDENTIALS_ENCRYPTION_KEY` pour chiffrer le refresh token utilisateur
+
+Flux utilisateur : OAuth Google (scope `adwords`) → sélection du compte Ads → sync initiale.
+
+### Connecteur Meta Ads cockpit (acquisition)
+
+Le connecteur Meta Ads (`/api/connectors/meta-ads/*`) synchronise **adSpend**,
+**impressions**, **clics** et **conversions** sur 12 mois via la Marketing API v25.0.
+
+**Prérequis plateforme** (variables dans `.env`) :
+
+1. App Meta « Business » sur [developers.facebook.com](https://developers.facebook.com) avec produit **Marketing API**
+2. Facebook Login configuré — redirect URI : `https://<domaine>/api/connectors/meta-ads/callback`
+3. Scope OAuth : `ads_read` (lecture des insights)
+4. `CREDENTIALS_ENCRYPTION_KEY` pour chiffrer le token utilisateur
+
+Flux utilisateur : OAuth Meta → sélection du compte publicitaire → sync initiale.
+
+**Production multi-utilisateurs** : App Review Meta requis (`ads_read` Full access + Marketing API Access Tier Full access).
+
+**Comportement à l'expiration du token** : les snapshots déjà synchronisés restent dans le cockpit ; une alerte « Action requise » apparaît sur la carte Intégrations et dans le panel alertes. Reconnectez via OAuth pour resynchroniser (token long-lived ~60 jours).
 
 ## Pipeline de sourcing
 

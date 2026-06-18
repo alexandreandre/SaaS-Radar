@@ -38,6 +38,7 @@ function CockpitLoaded({ project, opportunity, inLaunchPad }: CockpitLoadedProps
     connectIntegration,
     syncIntegration,
     disconnectIntegration,
+    patchIntegration,
     logMetricsSnapshot,
     setCashOnHand,
     completeOnboarding,
@@ -79,6 +80,10 @@ function CockpitLoaded({ project, opportunity, inLaunchPad }: CockpitLoadedProps
       syncIntegration(project.id, cid),
     onDisconnectIntegration: (cid: Parameters<typeof disconnectIntegration>[1]) =>
       disconnectIntegration(project.id, cid),
+    onPatchIntegration: (
+      cid: Parameters<typeof patchIntegration>[1],
+      patch: Parameters<typeof patchIntegration>[2],
+    ) => patchIntegration(project.id, cid, patch),
     onLogMetrics: (partial: Parameters<typeof logMetricsSnapshot>[1]) =>
       logMetricsSnapshot(project.id, partial),
     onSetCashOnHand: (amount: number) => setCashOnHand(project.id, amount),
