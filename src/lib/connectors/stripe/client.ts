@@ -1,21 +1,12 @@
 import "server-only";
 
 import type { StripeCredential, StripeAccountMeta, StripeAccountResponse } from "@/lib/connectors/stripe/types";
+import { StripeConnectorError } from "@/lib/connectors/stripe/errors";
 export { isFullSecretKey, isRestrictedKey, parseRakCredential } from "@/lib/connectors/stripe/keys";
+export { StripeConnectorError } from "@/lib/connectors/stripe/errors";
 
 const STRIPE_API_BASE = "https://api.stripe.com";
 export const STRIPE_ANALYTICS_VERSION = "2026-04-22.preview";
-
-export class StripeConnectorError extends Error {
-  constructor(
-    message: string,
-    readonly code?: string,
-    readonly status?: number,
-  ) {
-    super(message);
-    this.name = "StripeConnectorError";
-  }
-}
 
 export async function stripeConnectorRequest<T>(
   credential: StripeCredential,
@@ -95,30 +86,38 @@ export function buildAccountMeta(
   };
 }
 
-export async function validateCredential(credential: StripeCredential): Promise<StripeAccountMeta> {
+async function smokeTestSubscriptionsRead(credential: StripeCredential): Promise<void> {
+  try {
+    await stripeConnectorRequest(credential, "/v1/subscriptions?status=active&limit=1");
+  } catch (err) {
+    if (err instanceof StripeConnectorError) {
+      throw new StripeConnectorError(
+        "Permission Subscriptions — Read requise sur la clé restreinte Stripe.",
+        err.code,
+        err.status,
+      );
+    }
+    throw err;
+  }
+}
+
+export type ValidateCredentialResult = {
+  meta: StripeAccountMeta;
+  credential: StripeCredential;
+};
+
+export async function validateCredential(
+  credential: StripeCredential,
+): Promise<ValidateCredentialResult> {
   const account = await fetchStripeAccount(credential);
   const enriched: StripeCredential = !credential.accountId
     ? { ...credential, accountId: account.id }
     : credential;
 
-  // Test Analytics access with a minimal query
-  const now = new Date();
-  const startsAt = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  await stripeConnectorRequest(
-    enriched,
-    "/v2/data/analytics/metric_query",
-    {
-      method: "POST",
-      apiVersion: STRIPE_ANALYTICS_VERSION,
-      body: {
-        metrics: [{ name: "revenue.mrr" }],
-        starts_at: startsAt.toISOString(),
-        ends_at: now.toISOString(),
-        granularity: "month",
-        currency: enriched.currency,
-      },
-    },
-  );
+  await smokeTestSubscriptionsRead(enriched);
 
-  return buildAccountMeta(account, enriched);
+  return {
+    meta: buildAccountMeta(account, enriched),
+    credential: enriched,
+  };
 }

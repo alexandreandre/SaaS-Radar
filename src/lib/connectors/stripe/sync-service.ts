@@ -10,6 +10,7 @@ import {
   fetchStripeAccount,
   validateCredential,
 } from "@/lib/connectors/stripe/client";
+import { parseLastSnapshot } from "@/lib/connectors/stripe/errors";
 import type { StripeCredential } from "@/lib/connectors/stripe/types";
 import type { ConnectorSyncResult } from "@/lib/connectors/types";
 
@@ -25,14 +26,35 @@ export async function runStripeSync(
   userId: string,
   projectId: string,
 ): Promise<ConnectorSyncResult & { accountLabel: string }> {
-  const credential = await loadStripeCredential(userId, projectId);
-  if (!credential) {
+  const stored = await loadConnectorCredential<StripeCredential>(userId, projectId, "stripe");
+  if (!stored?.data) {
     throw new Error("Stripe non connecté pour ce projet");
   }
 
+  const credential = stored.data;
+  const lastSnapshot = parseLastSnapshot(stored.metadata?.lastSnapshot);
+
   const account = await fetchStripeAccount(credential);
   const meta = buildAccountMeta(account, credential);
-  const result = await fetchStripeConnectorSync(credential);
+  const result = await fetchStripeConnectorSync(credential, { lastSnapshot });
+
+  const latest = result.snapshots?.at(-1);
+  await saveConnectorCredential(userId, projectId, "stripe", credential, {
+    accountLabel: meta.accountLabel,
+    livemode: meta.livemode,
+    currency: meta.currency,
+    analyticsAvailable: result.analyticsAvailable,
+    analyticsProbedAt: result.syncedAt,
+    ...(latest
+      ? {
+          lastSnapshot: {
+            date: latest.date,
+            mrr: latest.mrr,
+            customers: latest.customers,
+          },
+        }
+      : {}),
+  });
 
   return {
     ...result,
@@ -45,10 +67,7 @@ export async function saveStripeCredential(
   projectId: string,
   credential: StripeCredential,
 ): Promise<{ accountLabel: string; credential: StripeCredential }> {
-  const meta = await validateCredential(credential);
-  const enriched = !credential.accountId
-    ? { ...credential, accountId: (await fetchStripeAccount(credential)).id }
-    : credential;
+  const { meta, credential: enriched } = await validateCredential(credential);
 
   await saveConnectorCredential(userId, projectId, "stripe", enriched, {
     accountLabel: meta.accountLabel,

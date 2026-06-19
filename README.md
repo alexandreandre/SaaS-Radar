@@ -140,8 +140,14 @@ automatiquement les sections premium gated côté serveur.
 
 Le connecteur Stripe du cockpit (`/api/connectors/stripe/*`) est **indépendant** du billing
 SaaS Radar ci-dessus. Chaque utilisateur connecte son propre compte en collant une **clé
-restreinte** (`rk_test_…` / `rk_live_…`) dans le cockpit — accès lecture seule, permissions
-Analytics + Subscriptions + Invoices. Aucune variable `STRIPE_APP_*` ni OAuth côté serveur :
+restreinte** (`rk_test_…` / `rk_live_…`) dans le cockpit — accès lecture seule.
+
+**Permissions RAK requises** : Account — Read, Subscriptions — Read, Invoices — Read.
+(Aucune permission Analytics n'est disponible côté Stripe pour les clés restreintes ;
+le MRR est calculé via l'API v1 abonnements/factures, avec bascule automatique sur
+l'Analytics API si Stripe l'ouvre un jour aux RAK.)
+
+Aucune variable `STRIPE_APP_*` ni OAuth côté serveur :
 seul `CREDENTIALS_ENCRYPTION_KEY` est requis pour chiffrer la clé en base.
 
 ### Connecteur Google Ads cockpit (acquisition)

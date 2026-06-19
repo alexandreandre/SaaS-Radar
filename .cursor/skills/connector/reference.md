@@ -368,7 +368,7 @@ Redirect URI commentée : `https://<domaine>/api/connectors/{id}/callback`
 
 | Connecteur | Auth | Fichiers clés |
 |------------|------|---------------|
-| Stripe | Clé restreinte `rk_*` | `keys.ts`, `analytics.ts` (API `2026-04-22.preview`), `metrics.ts` stream |
+| Stripe | Clé restreinte `rk_*` | `keys.ts`, `v1-metrics.ts` (API v1 MRR), `analytics.ts` (probe + bonus `2026-04-22.preview`), `metrics.ts` stream |
 | Google Ads | OAuth + GAQL v24 | `oauth.ts`, `client.ts`, `snapshots.ts` (12 mois) |
 | GitHub | App install | `api/connectors/github/` — build, pas metrics |
 | Vercel | OAuth | `api/connectors/vercel/` — build |

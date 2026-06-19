@@ -20,7 +20,7 @@ type StripeRakDialogProps = {
 };
 
 const RAK_PERMISSIONS = [
-  "Analytics — Read",
+  "Account — Read",
   "Subscriptions — Read",
   "Invoices — Read",
 ];
@@ -79,6 +79,12 @@ export function StripeRakDialog({ open, onOpenChange, onConnect }: StripeRakDial
                 <li key={p}>{p}</li>
               ))}
             </ul>
+            <p className="mt-3">
+              Aucune permission Analytics n&apos;est disponible côté Stripe pour les clés
+              restreintes aujourd&apos;hui. Le MRR est calculé via l&apos;API standard (abonnements
+              et factures). Si Stripe ouvre l&apos;Analytics API aux RAK, SaaS Radar basculera
+              automatiquement sur des métriques plus riches.
+            </p>
             <a
               href="https://dashboard.stripe.com/apikeys/create"
               target="_blank"

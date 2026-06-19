@@ -7,10 +7,21 @@ import {
   fetchGrowthByChangeType,
   fetchMrrSeries,
   getMonthKeys,
+  probeAnalyticsAccess,
 } from "@/lib/connectors/stripe/analytics";
 import { stripeConnectorRequest } from "@/lib/connectors/stripe/client";
-import { buildSnapshotsFromAnalytics } from "@/lib/connectors/stripe/snapshots";
+import type { LastSnapshotMeta } from "@/lib/connectors/stripe/errors";
+import {
+  buildSnapshotsFromAnalytics,
+  buildSnapshotsFromV1,
+} from "@/lib/connectors/stripe/snapshots";
 import type { StripeCredential } from "@/lib/connectors/stripe/types";
+import {
+  countUniqueActiveCustomers,
+  fetchCurrentMrrFromSubscriptions,
+  fetchInvoiceMrrByMonth,
+  fetchSubscriptionGrowthByMonth,
+} from "@/lib/connectors/stripe/v1-metrics";
 
 type StripeListResponse<T> = {
   data: T[];
@@ -25,29 +36,14 @@ type StripeInvoice = {
   paid?: boolean;
 };
 
-export async function countActiveCustomers(credential: StripeCredential): Promise<number> {
-  let count = 0;
-  let startingAfter: string | undefined;
+export type StripeConnectorSyncOptions = {
+  months?: number;
+  lastSnapshot?: LastSnapshotMeta;
+};
 
-  for (let page = 0; page < 50; page++) {
-    const params = new URLSearchParams({
-      status: "active",
-      limit: "100",
-    });
-    if (startingAfter) params.set("starting_after", startingAfter);
-
-    const res = await stripeConnectorRequest<StripeListResponse<StripeSubscription>>(
-      credential,
-      `/v1/subscriptions?${params.toString()}`,
-    );
-
-    count += res.data?.length ?? 0;
-    if (!res.has_more || !res.data?.length) break;
-    startingAfter = res.data[res.data.length - 1]?.id;
-  }
-
-  return count;
-}
+export type StripeConnectorSyncResult = ConnectorSyncResult & {
+  analyticsAvailable: boolean;
+};
 
 async function listSubscriptionsByStatus(
   credential: StripeCredential,
@@ -142,41 +138,38 @@ export async function buildPaymentStream(credential: StripeCredential): Promise<
   };
 }
 
+async function buildSnapshotsFromV1Path(
+  credential: StripeCredential,
+  monthKeys: string[],
+  lastSnapshot?: LastSnapshotMeta,
+): Promise<MetricsSnapshot[]> {
+  const [{ mrr, customers }, invoiceMrrByMonth, subscriptionGrowthByMonth] = await Promise.all([
+    fetchCurrentMrrFromSubscriptions(credential),
+    fetchInvoiceMrrByMonth(credential, monthKeys),
+    fetchSubscriptionGrowthByMonth(credential, monthKeys),
+  ]);
+
+  return buildSnapshotsFromV1({
+    currentMrr: mrr,
+    activeCustomers: customers,
+    monthKeys,
+    invoiceMrrByMonth,
+    subscriptionGrowthByMonth,
+    lastSnapshot,
+  });
+}
+
 export async function fetchStripeConnectorSync(
   credential: StripeCredential,
-  months = 12,
-): Promise<ConnectorSyncResult> {
+  options: StripeConnectorSyncOptions = {},
+): Promise<StripeConnectorSyncResult> {
+  const months = options.months ?? 12;
   const monthKeys = getMonthKeys(months);
-
-  const useFallback = process.env.STRIPE_CONNECTOR_FALLBACK === "1";
+  const analyticsAvailable = await probeAnalyticsAccess(credential);
 
   let snapshots: MetricsSnapshot[];
-  let stream: PaymentStream;
 
-  if (useFallback) {
-    const activeCustomers = await countActiveCustomers(credential);
-    const mrrEuros = activeCustomers > 0 ? 0 : 0;
-    void mrrEuros;
-    snapshots = monthKeys.map((date) => ({
-      date,
-      mrr: 0,
-      newMrr: 0,
-      expansionMrr: 0,
-      churnedMrr: 0,
-      customers: date === monthKeys.at(-1) ? activeCustomers : 0,
-      signups: 0,
-      trials: 0,
-      activeUsers: 0,
-      mau: 0,
-      dau: 0,
-      adSpend: 0,
-      impressions: 0,
-      clicks: 0,
-      conversions: 0,
-      source: "stripe" as const,
-    }));
-    stream = await buildPaymentStream(credential);
-  } else {
+  if (analyticsAvailable) {
     const [mrrSeries, growth, activeCustomers] = await Promise.all([
       fetchMrrSeries(credential, months),
       fetchGrowthByChangeType(
@@ -184,16 +177,24 @@ export async function fetchStripeConnectorSync(
         ["new", "reactivation", "expansion", "churn"],
         months,
       ),
-      countActiveCustomers(credential),
+      countUniqueActiveCustomers(credential),
     ]);
-
     snapshots = buildSnapshotsFromAnalytics(mrrSeries, growth, monthKeys, activeCustomers);
-    stream = await buildPaymentStream(credential);
+  } else {
+    snapshots = await buildSnapshotsFromV1Path(credential, monthKeys, options.lastSnapshot);
   }
+
+  const stream = await buildPaymentStream(credential);
 
   return {
     snapshots,
     stream,
     syncedAt: new Date().toISOString(),
+    analyticsAvailable,
   };
+}
+
+/** @deprecated Utiliser countUniqueActiveCustomers depuis v1-metrics */
+export async function countActiveCustomers(credential: StripeCredential): Promise<number> {
+  return countUniqueActiveCustomers(credential);
 }

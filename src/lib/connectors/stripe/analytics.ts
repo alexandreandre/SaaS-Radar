@@ -1,9 +1,9 @@
 import "server-only";
 
 import { lastNMonths } from "@/lib/connectors/demo/seeded-random";
+import { isAnalyticsNotFoundError, StripeConnectorError } from "@/lib/connectors/stripe/errors";
 import {
   STRIPE_ANALYTICS_VERSION,
-  StripeConnectorError,
   stripeConnectorRequest,
 } from "@/lib/connectors/stripe/client";
 import type {
@@ -11,6 +11,8 @@ import type {
   StripeCredential,
   StripeGrowthChangeType,
 } from "@/lib/connectors/stripe/types";
+
+export { isAnalyticsNotFoundError, StripeConnectorError } from "@/lib/connectors/stripe/errors";
 
 function monthKeyFromTimestamp(timestamp: string): string {
   const d = new Date(timestamp);
@@ -23,6 +25,36 @@ function getAnalyticsRange(months: number): { startsAt: string; endsAt: string }
   const now = new Date();
   const starts = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (months - 1), 1));
   return { startsAt: starts.toISOString(), endsAt: now.toISOString() };
+}
+
+function buildProbeBody(credential: StripeCredential): Record<string, unknown> {
+  const now = new Date();
+  const startsAt = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  return {
+    metrics: [{ name: "revenue.mrr" }],
+    starts_at: startsAt.toISOString(),
+    ends_at: now.toISOString(),
+    granularity: "month",
+    currency: credential.currency,
+  };
+}
+
+/** Probe léger : ne throw jamais. Source de vérité pour le routage sync. */
+export async function probeAnalyticsAccess(credential: StripeCredential): Promise<boolean> {
+  try {
+    await stripeConnectorRequest<AnalyticsQueryResult>(
+      credential,
+      "/v2/data/analytics/metric_query",
+      {
+        method: "POST",
+        apiVersion: STRIPE_ANALYTICS_VERSION,
+        body: buildProbeBody(credential),
+      },
+    );
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function queryMetricWithRetry(
@@ -45,9 +77,16 @@ async function queryMetricWithRetry(
         { method: "POST", apiVersion: STRIPE_ANALYTICS_VERSION, body },
       );
     }
+    if (isAnalyticsNotFoundError(err)) {
+      throw new StripeConnectorError(
+        "Analytics API indisponible pour cette clé.",
+        "not_found",
+        404,
+      );
+    }
     if (err instanceof StripeConnectorError && err.code === "metric_inaccessible") {
       throw new StripeConnectorError(
-        "Permissions Analytics manquantes sur la clé Stripe. Activez la lecture Analytics dans les permissions de votre clé restreinte.",
+        "Permissions Analytics manquantes sur la clé Stripe.",
         err.code,
         err.status,
       );
