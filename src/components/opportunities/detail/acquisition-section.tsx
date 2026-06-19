@@ -9,6 +9,7 @@ import {
   Copy,
   ExternalLink,
   Mail,
+  Megaphone,
   MessageSquare,
   Wand2,
 } from "lucide-react";
@@ -31,6 +32,7 @@ import {
   type GeneratorType,
 } from "@/lib/acquisition-content";
 import { PaywallGate } from "@/components/billing/paywall-gate";
+import { Button } from "@/components/ui/button";
 import { useTier } from "@/contexts/tier-context";
 import { hasTier } from "@/lib/tier";
 
@@ -457,6 +459,19 @@ export function AcquisitionSection({
       </div>
 
       {isPlaybook ? <PremiumExtras opportunity={opportunity} /> : null}
+
+      {isPlaybook && hasCockpitContext && onModuleChange ? (
+        <div className="mt-6 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => onModuleChange("campagne")}
+          >
+            <Megaphone className="h-4 w-4" />
+            Ouvrir Campagne
+          </Button>
+        </div>
+      ) : null}
 
       {isPlaybook && hasCockpitContext && onModuleChange ? (
         <PlaybookClientsBridge onModuleChange={onModuleChange} />

@@ -6,12 +6,16 @@ import {
   FileText,
   Hammer,
   LayoutDashboard,
+  Lightbulb,
   Megaphone,
   Plug,
+  TrendingUp,
   Users,
   Wallet,
 } from "lucide-react";
 import type { Opportunity } from "@/types/opportunity";
+import type { UserProject } from "@/lib/portfolio";
+import { usesIdeaPlaybookModule } from "@/lib/portfolio";
 
 export type CockpitModuleId =
   | "overview"
@@ -23,6 +27,7 @@ export type CockpitModuleId =
   | "rapports"
   | "playbook"
   | "build"
+  | "campagne"
   | "integrations";
 
 export type CockpitModuleDef = {
@@ -68,6 +73,14 @@ export const COCKPIT_BUILD: CockpitModuleDef = {
   description: "Roadmap, prompts IA, stack et suivi build",
 };
 
+export const COCKPIT_CAMPAGNE: CockpitModuleDef = {
+  id: "campagne",
+  label: "Campagne",
+  shortLabel: "Campagne",
+  icon: Megaphone,
+  description: "Stack marketing, kits IA et lancement guidé",
+};
+
 export const COCKPIT_INTEGRATIONS: CockpitModuleDef = {
   id: "integrations",
   label: "Connecteurs",
@@ -76,10 +89,18 @@ export const COCKPIT_INTEGRATIONS: CockpitModuleDef = {
   description: "Stripe, Qonto, CRM — alimente vos KPIs",
 };
 
-/** Build et fiche modèle — ordre sidebar. */
+export const COCKPIT_IDEA: CockpitModuleDef = {
+  id: "playbook",
+  label: "Idée",
+  shortLabel: "Idée",
+  icon: Lightbulb,
+  description: "Votre fiche projet — marché, modèle et plan",
+};
+
+/** Build, Campagne et fiche modèle / idée — ordre sidebar. */
 export const COCKPIT_PROJET: CockpitNavGroup = {
   label: "Projet",
-  modules: [COCKPIT_BUILD, COCKPIT_PLAYBOOK],
+  modules: [COCKPIT_BUILD, COCKPIT_CAMPAGNE, COCKPIT_PLAYBOOK],
 };
 
 export const COCKPIT_PILOTAGE: CockpitNavGroup = {
@@ -104,7 +125,7 @@ export const COCKPIT_PILOTAGE: CockpitNavGroup = {
       id: "acquisition",
       label: "Acquisition",
       shortLabel: "Acquisition",
-      icon: Megaphone,
+      icon: TrendingUp,
       description: "Campagnes, ROAS, funnel",
     },
     {
@@ -162,7 +183,15 @@ export function getCockpitModule(id: CockpitModuleId): CockpitModuleDef {
 export function resolveCockpitModule(
   module: CockpitModuleDef,
   opportunity?: Pick<Opportunity, "name">,
+  project?: Pick<UserProject, "projectSource" | "ideaBrief">,
 ): CockpitModuleDef {
+  if (module.id === "playbook" && project && usesIdeaPlaybookModule(project as UserProject)) {
+    const name = project.ideaBrief?.identity.name ?? opportunity?.name;
+    return {
+      ...COCKPIT_IDEA,
+      ...(name ? { label: `Idée · ${name}`, shortLabel: name } : {}),
+    };
+  }
   if (module.id === "playbook" && opportunity?.name) {
     return {
       ...module,
@@ -177,33 +206,36 @@ export function resolveCockpitModule(
 function resolveNavGroup(
   group: CockpitNavGroup,
   opportunity?: Pick<Opportunity, "name">,
+  project?: Pick<UserProject, "projectSource" | "ideaBrief">,
 ): CockpitNavGroup {
   return {
     ...group,
-    modules: group.modules.map((mod) => resolveCockpitModule(mod, opportunity)),
+    modules: group.modules.map((mod) => resolveCockpitModule(mod, opportunity, project)),
   };
 }
 
 export function resolveNavForOpportunity(
   opportunity?: Pick<Opportunity, "name">,
   allowedModules?: CockpitModuleId[],
+  project?: Pick<UserProject, "projectSource" | "ideaBrief">,
 ): ResolvedCockpitNav {
   const filtered = filterNavGroups(allowedModules);
 
   return {
     overview: filtered.overview
-      ? resolveCockpitModule(filtered.overview, opportunity)
+      ? resolveCockpitModule(filtered.overview, opportunity, project)
       : null,
-    projet: resolveNavGroup(filtered.projet, opportunity),
-    pilotage: resolveNavGroup(filtered.pilotage, opportunity),
+    projet: resolveNavGroup(filtered.projet, opportunity, project),
+    pilotage: resolveNavGroup(filtered.pilotage, opportunity, project),
   };
 }
 
 export function getResolvedCockpitModule(
   id: CockpitModuleId,
   opportunity?: Pick<Opportunity, "name">,
+  project?: Pick<UserProject, "projectSource" | "ideaBrief">,
 ): CockpitModuleDef {
-  return resolveCockpitModule(getCockpitModule(id), opportunity);
+  return resolveCockpitModule(getCockpitModule(id), opportunity, project);
 }
 
 /** Map legacy tab IDs to new module IDs. */

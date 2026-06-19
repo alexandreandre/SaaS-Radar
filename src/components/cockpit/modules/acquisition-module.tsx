@@ -8,6 +8,8 @@ import { ChartSection } from "@/components/cockpit/ui/module-primitives";
 import { ChartSkeleton } from "@/components/cockpit/ui/chart-skeleton";
 import type { CockpitModuleProps } from "@/components/cockpit/modules/module-props";
 import { buildModuleCallouts } from "@/lib/cockpit-callouts";
+import { isCampaignStarted } from "@/lib/campaign/journey";
+import { Button } from "@/components/ui/button";
 
 const SpendByChannelChart = dynamic(
   () => import("@/components/cockpit/metrics/spend-by-channel-chart").then((m) => m.SpendByChannelChart),
@@ -39,8 +41,29 @@ export function AcquisitionModule({
     alerts: data.alerts,
   });
 
+  const hasAdsIntegration = (project.integrations ?? []).some(
+    (i) =>
+      (i.connectorId === "linkedin-ads" ||
+        i.connectorId === "tiktok-ads" ||
+        i.connectorId === "google-ads" ||
+        i.connectorId === "meta-ads") &&
+      (i.status === "connected" || i.status === "demo"),
+  );
+  const showCampaignCta = hasAdsIntegration && !isCampaignStarted(project);
+
   return (
     <div className="space-y-6">
+      {showCampaignCta ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3">
+          <p className="text-sm text-muted-foreground">
+            Connecteur ads actif — créez vos kits créatifs dans Campagne avant de scaler.
+          </p>
+          <Button type="button" size="sm" onClick={() => onModuleChange("campagne")}>
+            Ouvrir Campagne
+          </Button>
+        </div>
+      ) : null}
+
       <ModuleCalloutsList callouts={callouts} onModuleChange={onModuleChange} />
 
       <section className="rounded-xl border border-border bg-card p-6 shadow-card">

@@ -28,6 +28,8 @@ function loadModule(id: CockpitModuleId) {
       return import("@/components/cockpit/modules/playbook-module").then((m) => m.PlaybookModule);
     case "build":
       return import("@/components/cockpit/modules/build-module").then((m) => m.BuildModule);
+    case "campagne":
+      return import("@/components/cockpit/modules/campaign-module").then((m) => m.CampaignModule);
     case "integrations":
       return import("@/components/cockpit/modules/integrations-module").then((m) => m.IntegrationsModule);
   }
@@ -49,6 +51,7 @@ export const COCKPIT_MODULE_MAP: Record<CockpitModuleId, ComponentType<CockpitMo
   rapports: dynamicModule("rapports"),
   playbook: dynamicModule("playbook"),
   build: dynamicModule("build"),
+  campagne: dynamicModule("campagne"),
   integrations: dynamicModule("integrations"),
 };
 

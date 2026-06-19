@@ -18,6 +18,9 @@ import {
 import { hasPaymentConnector } from "@/lib/revenue-helpers";
 import type { StackHealth } from "@/lib/stack-health";
 import { daysSince } from "@/lib/portfolio";
+import { getBuildJourneyState } from "@/lib/build/journey";
+import { getCampaignJourneyState, isCampaignStarted } from "@/lib/campaign/journey";
+import { hasCampaignKit } from "@/lib/campaign/kits";
 import {
   buildIntegrationHealthAlerts,
   filterIntegrationHealthAlerts,
@@ -92,6 +95,40 @@ const ALERT_META: Record<
     actionLabel: "Connecteurs",
     icon: Info,
   },
+  "integration-error-tiktok-ads": {
+    title: "TikTok Ads — action requise",
+    actionLabel: "Connecteurs",
+    variant: "warning",
+    icon: Megaphone,
+  },
+  "integration-token-tiktok-ads": {
+    title: "Token TikTok Ads",
+    actionLabel: "Connecteurs",
+    variant: "warning",
+    icon: AlertTriangle,
+  },
+  "integration-stale-tiktok-ads": {
+    title: "Sync TikTok Ads obsolète",
+    actionLabel: "Connecteurs",
+    icon: Info,
+  },
+  "integration-error-linkedin-ads": {
+    title: "LinkedIn Ads — action requise",
+    actionLabel: "Connecteurs",
+    variant: "warning",
+    icon: Megaphone,
+  },
+  "integration-token-linkedin-ads": {
+    title: "Token LinkedIn Ads",
+    actionLabel: "Connecteurs",
+    variant: "warning",
+    icon: AlertTriangle,
+  },
+  "integration-stale-linkedin-ads": {
+    title: "Sync LinkedIn Ads obsolète",
+    actionLabel: "Connecteurs",
+    icon: Info,
+  },
 };
 
 const ACTION_MODULE_OVERRIDE: Record<string, CockpitModuleId> = {
@@ -103,6 +140,12 @@ const ACTION_MODULE_OVERRIDE: Record<string, CockpitModuleId> = {
   "integration-token-meta-ads": "integrations",
   "integration-stale-google-ads": "integrations",
   "integration-stale-meta-ads": "integrations",
+  "integration-error-tiktok-ads": "integrations",
+  "integration-token-tiktok-ads": "integrations",
+  "integration-stale-tiktok-ads": "integrations",
+  "integration-error-linkedin-ads": "integrations",
+  "integration-token-linkedin-ads": "integrations",
+  "integration-stale-linkedin-ads": "integrations",
 };
 
 function alertToCallout(alert: CockpitAlert): ModuleCalloutDef {
@@ -194,7 +237,10 @@ function qontoCallout(): ModuleCalloutDef {
 function hasAdsConnected(project: UserProject) {
   return (project.integrations ?? []).some(
     (i) =>
-      (i.connectorId === "google-ads" || i.connectorId === "meta-ads") &&
+      (i.connectorId === "google-ads" ||
+        i.connectorId === "meta-ads" ||
+        i.connectorId === "tiktok-ads" ||
+        i.connectorId === "linkedin-ads") &&
       (i.status === "connected" || i.status === "demo"),
   );
 }
@@ -282,14 +328,70 @@ export function buildModuleCallouts(
     });
   }
 
+  const buildLive = getBuildJourneyState(project).displayPhase === "live";
+  if (buildLive && !isCampaignStarted(project)) {
+    if (moduleId === "overview" || moduleId === "build" || moduleId === "campagne") {
+      push({
+        id: "campaign-not-started",
+        title: "Lancez votre campagne",
+        description:
+          "Votre app est en ligne — préparez votre stack marketing et vos premiers kits.",
+        actionModule: "campagne",
+        actionLabel: "Campagne",
+        icon: Megaphone,
+      });
+    }
+  }
+
+  if (isCampaignStarted(project) && !hasCampaignKit(project)) {
+    if (moduleId === "campagne" || moduleId === "overview") {
+      push({
+        id: "campaign-no-kit",
+        title: "Générez votre premier kit",
+        description: "Choisissez un outil et générez un prompt prêt à coller.",
+        actionModule: "campagne",
+        actionLabel: "Campagne",
+        icon: Megaphone,
+      });
+    }
+  }
+
+  const campaignJourney = getCampaignJourneyState(project, opportunity);
+  if (
+    campaignJourney.currentStep >= 3 &&
+    !hasProductAnalyticsConnected(project.integrations) &&
+    !getProductStream(project.connectorStreams)
+  ) {
+    if (moduleId === "campagne" || moduleId === "overview") {
+      push({
+        id: "campaign-measure-missing",
+        title: "Branchez la mesure",
+        description: "Connectez Plausible ou PostHog pour suivre signups et conversions.",
+        actionModule: "integrations",
+        actionLabel: "Connecteurs",
+        icon: BarChart3,
+      });
+    }
+  }
+
   const alertModules: Partial<Record<CockpitModuleId, CockpitModuleId[]>> = {
-    overview: ["overview", "revenus", "produit", "acquisition", "finance", "build", "clients"],
+    overview: [
+      "overview",
+      "revenus",
+      "produit",
+      "acquisition",
+      "finance",
+      "build",
+      "campagne",
+      "clients",
+    ],
     revenus: ["revenus"],
     produit: ["produit"],
     acquisition: ["acquisition"],
     integrations: ["integrations"],
     finance: ["finance"],
     build: ["build"],
+    campagne: ["campagne"],
     clients: ["clients"],
   };
 
