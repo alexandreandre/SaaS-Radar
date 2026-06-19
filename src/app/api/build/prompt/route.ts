@@ -13,6 +13,8 @@ import {
 } from "@/lib/build/setup-guide";
 import { parseBuildPromptLanguage } from "@/lib/build/prompt-language";
 import { getBuildTool, type BuildToolId } from "@/lib/build/tools";
+import { ideaBriefToOpportunity } from "@/lib/idea/to-opportunity";
+import { loadUserProject } from "@/lib/portfolio-sync";
 import { getEnrichedOpportunityBySlug } from "@/lib/opportunities";
 import { hasTier } from "@/lib/tier";
 
@@ -65,13 +67,14 @@ export async function POST(request: Request) {
   const b = body as Record<string, unknown>;
   const opportunitySlug =
     typeof b.opportunitySlug === "string" ? b.opportunitySlug.trim() : "";
+  const projectId = typeof b.projectId === "string" ? b.projectId.trim() : "";
   const productName =
     typeof b.productName === "string" ? b.productName.trim() : "";
   const toolId = typeof b.toolId === "string" ? b.toolId.trim() : "";
   const mode = parseMode(b.mode);
   const language = parseBuildPromptLanguage(b.language);
 
-  if (!opportunitySlug || !VALID_TOOL_IDS.has(toolId)) {
+  if (!VALID_TOOL_IDS.has(toolId)) {
     return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
   }
 
@@ -87,9 +90,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Outil inconnu" }, { status: 400 });
   }
 
-  const opportunity = await getEnrichedOpportunityBySlug(opportunitySlug);
+  let opportunity = opportunitySlug
+    ? await getEnrichedOpportunityBySlug(opportunitySlug)
+    : null;
+
+  if (!opportunity && projectId) {
+    const project = await loadUserProject(user.id, projectId);
+    if (project?.ideaBrief) {
+      opportunity = ideaBriefToOpportunity(project.ideaBrief, project.id);
+    }
+  }
+
   if (!opportunity) {
-    return NextResponse.json({ error: "Opportunité introuvable" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Opportunité ou projet idée introuvable" },
+      { status: 404 },
+    );
   }
 
   const featureIndex =
