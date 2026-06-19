@@ -56,8 +56,9 @@ export async function POST(request: Request) {
       project,
     });
   } catch (err) {
+    console.error("[idea/create]", err);
     const message =
-      err instanceof Error && !err.message.startsWith("[")
+      err instanceof Error && err.message && !err.message.startsWith("[")
         ? err.message
         : "La génération de la fiche a échoué. Réessayez.";
     return NextResponse.json({ error: message }, { status: 500 });

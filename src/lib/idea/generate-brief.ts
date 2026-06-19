@@ -1,8 +1,10 @@
 import "server-only";
 
 import { callOpenRouter, extractJsonObject } from "@/lib/sourcing/openrouter";
+import { formatZodError } from "@/lib/sourcing/schema";
 import { MODELS } from "@/lib/sourcing/constants";
 import type { IdeaClarifyTurn, ProjectIdeaBrief } from "@/types/idea-brief";
+import { normalizeIdeaBriefRaw } from "@/lib/idea/normalize-brief";
 import { ideaBriefSchema } from "@/lib/idea/schema";
 
 export type GenerateBriefInput = {
@@ -51,21 +53,28 @@ Contraintes :
   const user = formatContext(input);
 
   let lastError: unknown;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  let zodFeedback: string | undefined;
+
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const result = await callOpenRouter({
         model: MODELS.structure,
         system,
-        user:
-          attempt === 0
-            ? user
-            : `${user}\n\nRéponds avec un JSON strictement valide, sans markdown.`,
+        user: zodFeedback
+          ? `${user}\n\nTa réponse précédente a échoué la validation. Corrige EXACTEMENT :\n${zodFeedback}`
+          : user,
         responseFormat: { type: "json_object" },
         temperature: 0.35,
       });
-      const parsed = ideaBriefSchema.parse(extractJsonObject(result.content));
+      const raw = normalizeIdeaBriefRaw(extractJsonObject(result.content));
+      const parsed = ideaBriefSchema.safeParse(raw);
+      if (!parsed.success) {
+        zodFeedback = formatZodError(parsed.error);
+        lastError = parsed.error;
+        continue;
+      }
       return {
-        ...parsed,
+        ...parsed.data,
         generatedAt: new Date().toISOString(),
       };
     } catch (err) {
