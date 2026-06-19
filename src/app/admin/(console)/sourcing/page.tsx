@@ -1,5 +1,11 @@
-import { SourcingConsole } from "@/components/admin/sourcing-console";
+import { Suspense } from "react";
+import AdminConsoleLoading from "../loading";
+import { SourcingLoader } from "@/components/admin/sourcing-loader";
 
 export default function AdminSourcingPage() {
-  return <SourcingConsole />;
+  return (
+    <Suspense fallback={<AdminConsoleLoading />}>
+      <SourcingLoader />
+    </Suspense>
+  );
 }

@@ -6,6 +6,28 @@ import { getCampaignTool } from "@/lib/campaign/tools";
 import type { ExtendedChannelKey } from "@/lib/campaign/channels";
 import type { CampaignWorkflowNode } from "@/lib/campaign/workflows";
 import type { UserProject } from "@/lib/portfolio";
+import {
+  type AcquisitionStage,
+  type CampaignActionItem,
+  type CampaignCycleStatus,
+  type CampaignRetrospective,
+  type CampaignSmartGoal,
+  type CampaignTrackingPlan,
+  type CampaignWeeklyCheckIn,
+  profileFromStage,
+  stageFromLegacyProfile,
+} from "@/lib/campaign/stages";
+import { inferAcquisitionStage } from "@/lib/campaign/infer-stage";
+
+export type {
+  AcquisitionStage,
+  CampaignActionItem,
+  CampaignCycleStatus,
+  CampaignRetrospective,
+  CampaignSmartGoal,
+  CampaignTrackingPlan,
+  CampaignWeeklyCheckIn,
+} from "@/lib/campaign/stages";
 
 export type CampaignKit = {
   toolId: CampaignToolId;
@@ -26,18 +48,63 @@ export type CampaignKitSnapshot = CampaignKit & {
 };
 
 export type CampaignSetup = {
-  profile: MarketingProfile;
+  acquisitionStage: AcquisitionStage;
+  stageOverride?: boolean;
+  smartGoal?: CampaignSmartGoal;
+  icpSummary?: string;
+  positioning?: string;
   primaryChannel: ExtendedChannelKey;
   activeToolIds: CampaignToolId[];
   workflow: CampaignWorkflowNode[];
   strategyBrief?: string;
   kitsByTool: Partial<Record<CampaignToolId, CampaignKit>>;
+  actionItems: CampaignActionItem[];
+  trackingPlan?: CampaignTrackingPlan;
+  weeklyCheckIns: CampaignWeeklyCheckIn[];
+  retrospective?: CampaignRetrospective;
+  cycleStartedAt?: string;
+  cycleStatus: CampaignCycleStatus;
   generatedAt?: string;
+  /** @deprecated dérivé du stade — conservé pour compat API kit */
+  profile?: MarketingProfile;
   distributionAcknowledgedAt?: string;
   measureAcknowledgedAt?: string;
 };
 
 export type CampaignKitsByTool = Partial<Record<CampaignToolId, CampaignKit>>;
+
+function migrateLegacySetup(setup: Partial<CampaignSetup>, project: UserProject): CampaignSetup {
+  const channel = setup.primaryChannel ?? "linkedin";
+  const legacyProfile = setup.profile ?? project.marketingProfile;
+  const stage: AcquisitionStage =
+    setup.acquisitionStage ??
+    (legacyProfile
+      ? stageFromLegacyProfile(legacyProfile, channel)
+      : inferAcquisitionStage(project, channel));
+
+  return {
+    acquisitionStage: stage,
+    stageOverride: setup.stageOverride,
+    smartGoal: setup.smartGoal,
+    icpSummary: setup.icpSummary,
+    positioning: setup.positioning,
+    primaryChannel: channel,
+    activeToolIds: setup.activeToolIds ?? [],
+    workflow: setup.workflow ?? [],
+    strategyBrief: setup.strategyBrief,
+    kitsByTool: setup.kitsByTool ?? {},
+    actionItems: setup.actionItems ?? [],
+    trackingPlan: setup.trackingPlan,
+    weeklyCheckIns: setup.weeklyCheckIns ?? [],
+    retrospective: setup.retrospective,
+    cycleStartedAt: setup.cycleStartedAt,
+    cycleStatus: setup.cycleStatus ?? (setup.strategyBrief ? "active" : "draft"),
+    generatedAt: setup.generatedAt,
+    profile: setup.profile ?? profileFromStage(stage),
+    distributionAcknowledgedAt: setup.distributionAcknowledgedAt,
+    measureAcknowledgedAt: setup.measureAcknowledgedAt,
+  };
+}
 
 export function getActiveCampaignToolId(project: UserProject): CampaignToolId | undefined {
   const ids = project.activeCampaignToolIds ?? [];
@@ -90,21 +157,25 @@ export function getCampaignToolIdsInOrder(project: UserProject): CampaignToolId[
 }
 
 export function normalizeCampaignSetup(project: UserProject): UserProject {
-  const setup = project.campaignSetup;
-  if (!setup) return project;
+  const raw = project.campaignSetup;
+  if (!raw) return project;
 
-  const kits: CampaignKitsByTool = { ...setup.kitsByTool };
+  const setup = migrateLegacySetup(raw, project);
   const activeIds = setup.activeToolIds.length > 0 ? setup.activeToolIds : [];
+  const profile = setup.profile ?? profileFromStage(setup.acquisitionStage);
 
   return {
     ...project,
     campaignSetup: {
       ...setup,
-      kitsByTool: kits,
+      profile,
       activeToolIds: activeIds,
+      actionItems: setup.actionItems,
+      weeklyCheckIns: setup.weeklyCheckIns,
+      cycleStatus: setup.cycleStatus,
     },
     activeCampaignToolIds: activeIds,
-    marketingProfile: setup.profile ?? project.marketingProfile,
+    marketingProfile: profile,
   };
 }
 
@@ -115,4 +186,45 @@ export function hasCampaignKit(project: UserProject): boolean {
 
 export function getCampaignToolName(toolId: CampaignToolId): string {
   return getCampaignTool(toolId)?.name ?? toolId;
+}
+
+export function getCampaignStage(project: UserProject): AcquisitionStage {
+  return (
+    project.campaignSetup?.acquisitionStage ??
+    inferAcquisitionStage(project, project.campaignSetup?.primaryChannel)
+  );
+}
+
+export function isStep1Complete(setup: CampaignSetup | undefined): boolean {
+  if (!setup) return false;
+  return Boolean(setup.smartGoal && setup.primaryChannel && setup.icpSummary?.trim());
+}
+
+export function isStep2Complete(setup: CampaignSetup | undefined): boolean {
+  if (!setup) return false;
+  return Boolean(setup.strategyBrief?.trim() || setup.positioning?.trim());
+}
+
+export function isStep3Complete(setup: CampaignSetup | undefined): boolean {
+  if (!setup) return false;
+  const hasKit = Object.values(setup.kitsByTool).some((k) => k?.primaryPrompt);
+  const prepareItems = setup.actionItems.filter((a) => a.phase === "prepare");
+  const prepareDone =
+    prepareItems.length === 0 ||
+    prepareItems.filter((a) => a.done).length / prepareItems.length >= 0.8;
+  return hasKit || prepareDone;
+}
+
+export function isStep4Complete(setup: CampaignSetup | undefined): boolean {
+  if (!setup) return false;
+  return setup.actionItems.some((a) => a.phase === "execute" && a.done);
+}
+
+export function isStep5Unlocked(setup: CampaignSetup | undefined): boolean {
+  return isStep4Complete(setup);
+}
+
+export function isTrackingConfigured(setup: CampaignSetup | undefined): boolean {
+  if (!setup) return false;
+  return Boolean(setup.trackingPlan?.configuredAt || setup.measureAcknowledgedAt);
 }

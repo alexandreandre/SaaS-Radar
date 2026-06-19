@@ -53,7 +53,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ConnectIntegrationOptions } from "@/contexts/portfolio-context";
-import { usePortfolio } from "@/contexts/portfolio-context";
+import { usePortfolioConnectors } from "@/contexts/portfolio/use-portfolio";
 
 const CATEGORY_LABELS: Record<ConnectorDefinition["category"], string> = {
   payments: "Paiements",
@@ -209,7 +209,7 @@ export function IntegrationCard({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [oauthSyncing, setOauthSyncing] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
-  const { autoSyncingProjectId, autoSyncingConnectors } = usePortfolio();
+  const { autoSyncingProjectId, autoSyncingConnectors } = usePortfolioConnectors(projectId);
 
   const autoSyncing =
     autoSyncingProjectId === projectId && autoSyncingConnectors.includes(connector.id);

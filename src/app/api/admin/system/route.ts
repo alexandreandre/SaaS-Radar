@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { getSupabaseUrl } from "@/lib/supabase/env";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdminApi, withAdminAudit } from "@/lib/admin/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { OPPORTUNITIES_CACHE_TAG } from "@/lib/opportunities";
-import { recoverStaleRuns } from "@/lib/admin/sourcing-jobs";
+import { getAdminSystemData } from "@/lib/admin/system";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,44 +11,15 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const auth = await requireAdminApi(request, { minimumRole: "viewer" });
   if (auth instanceof NextResponse) return auth;
-
-  const admin = createAdminClient();
-  const recovered = await recoverStaleRuns();
-
-  const checks = {
-    supabase: !!getSupabaseUrl() && !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-    stripe: !!process.env.STRIPE_SECRET_KEY,
-    googleAds: !!(
-      process.env.GOOGLE_ADS_CLIENT_ID?.trim() &&
-      process.env.GOOGLE_ADS_CLIENT_SECRET?.trim() &&
-      process.env.GOOGLE_ADS_REDIRECT_URI?.trim() &&
-      process.env.GOOGLE_ADS_DEVELOPER_TOKEN?.trim()
-    ),
-    metaAds: !!(
-      process.env.META_ADS_CLIENT_ID?.trim() &&
-      process.env.META_ADS_CLIENT_SECRET?.trim() &&
-      process.env.META_ADS_REDIRECT_URI?.trim()
-    ),
-    credentialsEncryption: !!process.env.CREDENTIALS_ENCRYPTION_KEY?.trim(),
-    openrouter: !!process.env.OPENROUTER_API_KEY,
-    revalidate: !!process.env.REVALIDATE_SECRET,
-  };
-
-  const { data: recentErrors } = await admin
-    .from("sourcing_runs")
-    .select("id, started_at, error")
-    .eq("status", "error")
-    .order("started_at", { ascending: false })
-    .limit(5);
-
-  const { data: schedules } = await admin.from("sourcing_schedules").select("*").limit(5);
-
-  return NextResponse.json({
-    checks,
-    recoveredStaleRuns: recovered,
-    recentErrors: recentErrors ?? [],
-    schedules: schedules ?? [],
-  });
+  try {
+    const payload = await getAdminSystemData();
+    return NextResponse.json(payload);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: Request) {

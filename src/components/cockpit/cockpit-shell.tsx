@@ -22,7 +22,7 @@ import { shouldShowLaunchPad } from "@/lib/build-launch";
 import { COCKPIT_MODULE_MAP, LaunchPad } from "@/lib/cockpit-module-loader";
 import { useCockpitSidebarCollapsed } from "@/hooks/use-cockpit-sidebar-collapsed";
 import { CockpitWelcomeBanner } from "@/components/cockpit/cockpit-welcome-banner";
-import { usePortfolio } from "@/contexts/portfolio-context";
+import { usePortfolioConnectors } from "@/contexts/portfolio/use-portfolio";
 import { Loader2 } from "lucide-react";
 
 type CockpitShellProps = {
@@ -76,7 +76,7 @@ export function CockpitShell({
   const welcomeIdea = searchParams.get("welcome") === "idea";
   const launchPadMode = shouldShowLaunchPad(project) && !paramModule && !welcomeIdea;
   const { collapsed, setCollapsed, hydrated } = useCockpitSidebarCollapsed();
-  const { autoSyncingProjectId, autoSyncingConnectors } = usePortfolio();
+  const { autoSyncingProjectId, autoSyncingConnectors } = usePortfolioConnectors(projectId);
   const isAutoSyncing =
     autoSyncingProjectId === project.id && autoSyncingConnectors.length > 0;
   const initialModule = paramModule

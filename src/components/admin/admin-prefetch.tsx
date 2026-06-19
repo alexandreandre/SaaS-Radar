@@ -1,19 +1,25 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { ADMIN_NAV_HREFS, prefetchAllAdminRoutes } from "@/lib/admin/route-prefetch";
+import { usePathname, useRouter } from "next/navigation";
+import { ADMIN_NAV_HREFS, prefetchAdminRoute } from "@/lib/admin/route-prefetch";
 
-/** Précharge toutes les pages et APIs admin en arrière-plan. */
+/** Précharge uniquement la route admin courante (+ overview). */
 export function AdminPrefetch() {
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
-    for (const href of ADMIN_NAV_HREFS) {
-      router.prefetch(href);
+    const current =
+      ADMIN_NAV_HREFS.find((href) => pathname === href || pathname.startsWith(`${href}/`)) ??
+      "/admin";
+    router.prefetch(current);
+    prefetchAdminRoute(current);
+    if (current !== "/admin") {
+      router.prefetch("/admin");
+      prefetchAdminRoute("/admin");
     }
-    prefetchAllAdminRoutes();
-  }, [router]);
+  }, [router, pathname]);
 
   return null;
 }

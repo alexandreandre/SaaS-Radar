@@ -1,5 +1,13 @@
-import { AdminAuditClient } from "@/components/admin/audit-client";
+import { Suspense } from "react";
+import AdminConsoleLoading from "../loading";
+import { AdminAuditLoader } from "@/components/admin/audit-loader";
 
-export default function AdminAuditPage() {
-  return <AdminAuditClient />;
+type SearchParamsInput = Record<string, string | string[] | undefined>;
+
+export default function AdminAuditPage({ searchParams }: { searchParams?: SearchParamsInput }) {
+  return (
+    <Suspense fallback={<AdminConsoleLoading />}>
+      <AdminAuditLoader searchParams={searchParams} />
+    </Suspense>
+  );
 }

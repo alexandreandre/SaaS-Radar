@@ -1,44 +1,18 @@
 "use client";
 
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import type { AccountingStream } from "@/lib/connectors/streams";
-import { formatCurrency } from "@/lib/utils";
+import dynamic from "next/dynamic";
+import type { ComponentProps } from "react";
 
-export function AccountingVsMrrChart({
-  mrr,
-  accounting,
-}: {
-  mrr: number;
-  accounting: AccountingStream;
-}) {
-  const data = [
-    {
-      name: "Ce mois",
-      mrr,
-      comptable: accounting.revenueBooked,
-    },
-  ];
+const AccountingVsMrrChartInner = dynamic(
+  () => import("./accounting-vs-mrr-chart-inner").then((m) => ({ default: m.AccountingVsMrrChartInner })),
+  { ssr: false, loading: () => <ChartSkeleton /> },
+);
 
-  return (
-    <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-        <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-        <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
-        <Tooltip formatter={(v) => formatCurrency(Number(v))} />
-        <Legend />
-        <Bar dataKey="mrr" name="MRR Stripe" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-        <Bar dataKey="comptable" name="CA comptable" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} />
-      </BarChart>
-    </ResponsiveContainer>
-  );
+function ChartSkeleton() {
+  return <div className="h-64 w-full animate-pulse rounded-lg bg-muted/50" aria-hidden />;
+}
+
+
+export function AccountingVsMrrChart(props: ComponentProps<typeof AccountingVsMrrChartInner>) {
+  return <AccountingVsMrrChartInner {...props} />;
 }

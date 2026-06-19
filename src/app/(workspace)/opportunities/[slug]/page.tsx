@@ -1,22 +1,30 @@
 import { notFound } from "next/navigation";
 import { getEnrichedOpportunityBySlug } from "@/lib/opportunities";
-import { getTier } from "@/lib/auth";
+import { getCurrentUser, getTier } from "@/lib/auth";
 import { gateOpportunityForTier } from "@/lib/opportunity-access";
+import { loadUserProjects } from "@/lib/portfolio-sync";
 import { OpportunityDetail } from "@/components/opportunities/opportunity-detail";
 
-// Le contenu depend du tier de l'utilisateur (strip premium serveur, lecture cookies)
-// -> rendu dynamique par requete. Pas de prerendu statique possible.
 export const dynamic = "force-dynamic";
 
 export default async function OpportunityPage({ params }: { params: { slug: string } }) {
-  const [opportunity, tier] = await Promise.all([
+  const [opportunity, tier, user] = await Promise.all([
     getEnrichedOpportunityBySlug(params.slug),
     getTier(),
+    getCurrentUser(),
   ]);
   if (!opportunity) notFound();
-  // SECURITE : on retire les champs premium hors tier AVANT de serialiser vers le client.
+
+  let existingProjectId: string | null = null;
+  if (user) {
+    const projects = await loadUserProjects(user.id);
+    existingProjectId = projects.find((p) => p.opportunitySlug === params.slug)?.id ?? null;
+  }
+
   const gated = gateOpportunityForTier(opportunity, tier);
-  return <OpportunityDetail opportunity={gated} />;
+  return (
+    <OpportunityDetail opportunity={gated} existingProjectId={existingProjectId} />
+  );
 }
 
 export async function generateMetadata({ params }: { params: { slug: string } }) {

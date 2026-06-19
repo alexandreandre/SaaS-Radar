@@ -2,12 +2,10 @@ import { NextResponse } from "next/server";
 import { requireAdminApi, withAdminAudit } from "@/lib/admin/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { promoteWeeklyPick, revalidateOpportunitiesCache } from "@/lib/admin/weekly-pick";
+import { listAdminOpportunities } from "@/lib/admin/opportunities";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const LIST_COLUMNS =
-  "slug, name, sector, origin_country_code, origin_flag, status, weekly_pick, created_at, published_at, buildable_under_30_days, ai_powered, scores";
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
@@ -30,51 +28,24 @@ export async function GET(request: Request) {
   const offset = Math.max(parseInt(url.searchParams.get("offset") ?? "0", 10) || 0, 0);
   const minScore = minScoreRaw ? parseInt(minScoreRaw, 10) : null;
 
-  const admin = createAdminClient();
-  let query = admin
-    .from("opportunities")
-    .select(LIST_COLUMNS, { count: "exact" })
-    .eq("status", status);
-
-  if (sector) query = query.eq("sector", sector);
-  if (country) query = query.eq("origin_country_code", country.toUpperCase());
-  if (q) {
-    const safe = q.replace(/[%_,"()]/g, "").slice(0, 80);
-    if (safe) {
-      query = query.or(`name.ilike.%${safe}%,slug.ilike.%${safe}%,pitch.ilike.%${safe}%`);
-    }
+  try {
+    const payload = await listAdminOpportunities({
+      status,
+      q,
+      sector,
+      country,
+      minScore,
+      sort,
+      limit,
+      offset,
+    });
+    return NextResponse.json(payload);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 500 }
+    );
   }
-  if (minScore != null && !Number.isNaN(minScore)) {
-    query = query.gte("scores->>opportunity", String(minScore));
-  }
-
-  switch (sort) {
-    case "name":
-      query = query.order("name", { ascending: true });
-      break;
-    case "opportunity":
-      query = query.order("scores->>opportunity", { ascending: false, nullsFirst: false });
-      break;
-    case "newest":
-    default:
-      query = query.order("created_at", { ascending: false });
-      break;
-  }
-
-  query = query.range(offset, offset + limit - 1);
-
-  const { data, error, count } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  const opportunities = data ?? [];
-
-  return NextResponse.json({
-    opportunities,
-    total: count ?? opportunities.length,
-    limit,
-    offset,
-    truncated: (count ?? 0) > offset + opportunities.length,
-  });
 }
 
 export async function PATCH(request: Request) {

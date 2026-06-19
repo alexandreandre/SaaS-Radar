@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdminApi, withAdminAudit } from "@/lib/admin/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AdminRole } from "@/lib/admin/rbac";
+import { getAdminUsersList } from "@/lib/admin/users";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,39 +22,22 @@ export async function GET(request: Request) {
   const limit = Math.min(Math.max(Number.parseInt(url.searchParams.get("limit") ?? "50", 10), 1), 100);
   const offset = Math.max(Number.parseInt(url.searchParams.get("offset") ?? "0", 10), 0);
 
-  const admin = createAdminClient();
-
-  let query = admin
-    .from("profiles")
-    .select("*", { count: "exact" })
-    .order("created_at", { ascending: false });
-
-  if (q) {
-    query = query.or(`email.ilike.%${q}%,full_name.ilike.%${q}%`);
+  try {
+    const payload = await getAdminUsersList({
+      q,
+      plan,
+      adminRole,
+      subscriptionStatus,
+      limit,
+      offset,
+    });
+    return NextResponse.json(payload);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 500 }
+    );
   }
-  if (plan && VALID_PLANS.has(plan)) {
-    query = query.eq("plan", plan);
-  }
-  if (adminRole && VALID_ADMIN_ROLES.has(adminRole)) {
-    query = query.eq("admin_role", adminRole);
-  }
-  if (subscriptionStatus === "none") {
-    query = query.is("subscription_status", null);
-  } else if (subscriptionStatus) {
-    query = query.eq("subscription_status", subscriptionStatus);
-  }
-
-  const { data, error, count } = await query.range(offset, offset + limit - 1);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-
-  const total = count ?? 0;
-  return NextResponse.json({
-    users: data ?? [],
-    total,
-    hasMore: offset + limit < total,
-    limit,
-    offset,
-  });
 }
 
 export async function PATCH(request: Request) {

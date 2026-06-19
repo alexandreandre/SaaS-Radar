@@ -173,3 +173,91 @@ test("parseSetupSteps classe les étapes infra et test", () => {
   assert.equal(steps[1]?.kind, "env");
   assert.equal(steps[2]?.kind, "test");
 });
+
+test("getInfraProfile emergent → interface-native avec auth et BDD", () => {
+  const emergent = getBuildTool("emergent")!;
+  const profile = getInfraProfile(btpOpportunity, emergent);
+
+  assert.equal(profile.mode, "interface-native");
+  assert.ok(profile.services.includes("auth"));
+  assert.ok(profile.services.includes("database"));
+});
+
+test("getInfraProfile codex → recommended-stack avec env Supabase", () => {
+  const codex = getBuildTool("codex")!;
+  const profile = getInfraProfile(btpOpportunity, codex);
+
+  assert.equal(profile.mode, "recommended-stack");
+  assert.equal(profile.primaryBackend, "supabase");
+  assert.ok(profile.envVars.some((v) => v.name === "SUPABASE_URL"));
+});
+
+test("buildSetupGuideSteps emergent — plan, prompt et deploy", () => {
+  const emergent = getBuildTool("emergent")!;
+  const profile = getInfraProfile(btpOpportunity, emergent);
+  const steps = buildSetupGuideSteps({
+    tool: emergent,
+    productName: "SubbieRates",
+    features: collectProductFeatures(btpOpportunity),
+    infraProfile: profile,
+    language: "fr",
+  });
+
+  assert.ok(steps.length >= 6);
+  assert.equal(steps[0]?.kind, "plan_mode");
+  assert.ok(steps.some((s) => s.kind === "paste_prompt"));
+  assert.ok(steps.some((s) => s.title === "Mettre en ligne"));
+});
+
+test("buildSetupGuideSteps codex — Supabase, prompt et variables d'environnement", () => {
+  const codex = getBuildTool("codex")!;
+  const profile = getInfraProfile(btpOpportunity, codex);
+  const steps = buildSetupGuideSteps({
+    tool: codex,
+    productName: "SubbieRates",
+    features: collectProductFeatures(btpOpportunity),
+    infraProfile: profile,
+    language: "fr",
+  });
+
+  assert.ok(steps.some((s) => s.kind === "plan_mode"));
+  assert.ok(steps.some((s) => s.kind === "infra"));
+  assert.ok(steps.some((s) => s.kind === "paste_prompt"));
+  assert.ok(steps.some((s) => s.kind === "env"));
+});
+
+test("validateBuildPrompt emergent rejette un prompt sans auth ni persistance", () => {
+  const emergent = getBuildTool("emergent")!;
+  const profile = getInfraProfile(btpOpportunity, emergent);
+  const weakPrompt =
+    "Construisez SubbieRates pour les sous-traitants BTP. " +
+    "Interface simple avec calculateur de tarif et export PDF. " +
+    "MVP testable en preview Emergent avec parcours utilisateur clair. ".repeat(20);
+
+  const result = validateBuildPrompt(weakPrompt, profile, emergent);
+  assert.equal(result.ok, false);
+  assert.ok(result.missing.some((m) => /authentification|supabase|persistance/i.test(m)));
+});
+
+test("validateBuildPrompt codex rejette sans Supabase ni .env.example", () => {
+  const codex = getBuildTool("codex")!;
+  const profile = getInfraProfile(btpOpportunity, codex);
+  const weakPrompt =
+    "Créez AGENTS.md et un MVP Next.js pour SubbieRates avec authentification email. ".repeat(25);
+
+  const result = validateBuildPrompt(weakPrompt, profile, codex);
+  assert.equal(result.ok, false);
+  assert.ok(result.missing.some((m) => /supabase|\.env/i.test(m)));
+});
+
+test("parseSetupStep reconnaît les hints codex et emergent", () => {
+  const codexStep = parseSetupStep(
+    "Coller le prompt : installez Codex CLI puis exécutez codex login avant de coller le prompt",
+  );
+  assert.equal(codexStep.kind, "paste_prompt");
+
+  const emergentStep = parseSetupStep(
+    "Coller le prompt : ouvrir emergent.sh et démarrer un nouveau projet full-stack",
+  );
+  assert.equal(emergentStep.kind, "paste_prompt");
+});

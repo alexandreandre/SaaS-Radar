@@ -1,5 +1,11 @@
-import { AdminMarketsClient } from "@/components/admin/markets-client";
+import { Suspense } from "react";
+import AdminConsoleLoading from "../loading";
+import { AdminMarketsLoader } from "@/components/admin/markets-loader";
 
 export default function AdminMarketsPage() {
-  return <AdminMarketsClient />;
+  return (
+    <Suspense fallback={<AdminConsoleLoading />}>
+      <AdminMarketsLoader />
+    </Suspense>
+  );
 }

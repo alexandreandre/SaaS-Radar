@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { assertProjectOwnedByUser } from "@/lib/connectors/project-access";
 import { saveGitHubInstallation } from "@/lib/connectors/github/sync-service";
 import { isCredentialsEncryptionConfigured } from "@/lib/crypto/credentials";
+import { logApiError } from "@/lib/api-error-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,7 +53,12 @@ export async function GET(request: Request) {
   if (Number.isFinite(installationIdNum) && isCredentialsEncryptionConfigured()) {
     try {
       await saveGitHubInstallation(user.id, projectId, installationIdNum);
-    } catch {
+    } catch (err) {
+      logApiError(
+        "/api/connectors/github/callback",
+        500,
+        err instanceof Error ? err.message : "saveGitHubInstallation failed",
+      );
       return NextResponse.redirect(
         new URL(`/cockpit/${projectId}?github_oauth=encryption_error`, request.url),
       );

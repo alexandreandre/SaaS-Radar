@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminPageHeader, AdminTable } from "@/components/admin/admin-ui";
 import { AdminPageSkeleton } from "@/components/admin/admin-page-skeleton";
 import { adminFetchJson } from "@/lib/admin/client-fetch";
@@ -14,9 +14,23 @@ type LogRow = {
   created_at: string;
 };
 
-export function AdminAuditClient() {
-  const [logs, setLogs] = useState<LogRow[]>([]);
-  const [loading, setLoading] = useState(true);
+type AuditInitialData = {
+  logs: Record<string, unknown>[];
+  total: number;
+};
+
+export function AdminAuditClient({
+  initialData = null,
+  initialError = null,
+}: {
+  initialData?: AuditInitialData | null;
+  initialError?: string | null;
+}) {
+  const skipFetch = useRef(initialData != null || initialError != null);
+  const [logs, setLogs] = useState<LogRow[]>(
+    () => (initialData?.logs as LogRow[] | undefined) ?? [],
+  );
+  const [loading, setLoading] = useState(!initialData && !initialError);
 
   const load = useCallback(async () => {
     const { ok, data: json } = await adminFetchJson<{ logs?: LogRow[] }>("/api/admin/audit");
@@ -25,11 +39,23 @@ export function AdminAuditClient() {
   }, []);
 
   useEffect(() => {
+    if (skipFetch.current) {
+      skipFetch.current = false;
+      return;
+    }
     void load();
   }, [load]);
 
   if (loading) {
     return <AdminPageSkeleton kpiCount={0} />;
+  }
+
+  if (initialError) {
+    return (
+      <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+        {initialError}
+      </div>
+    );
   }
 
   return (

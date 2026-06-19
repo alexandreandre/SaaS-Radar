@@ -32,7 +32,7 @@ jobs:
         run: npm run lint
 
       - name: Build
-        run: npm run build
+        run: npm run build 2>&1 | tee /tmp/next-build.log
         env:
           # Valeurs factices : le build (prebuild world-markets + next build) ne doit pas
           # dépendre de secrets. La lecture Supabase runtime tolère l'absence en build.
@@ -40,3 +40,6 @@ jobs:
           SUPABASE_ANON_KEY: placeholder-anon-key
           STRIPE_SECRET_KEY: sk_test_ci_placeholder
           STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+
+      - name: Bundle budgets
+        run: npm run check:bundles -- /tmp/next-build.log

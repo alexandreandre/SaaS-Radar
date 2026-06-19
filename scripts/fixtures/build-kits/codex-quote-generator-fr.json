@@ -1,0 +1,8 @@
+{
+  "toolId": "codex",
+  "opportunitySlug": "quote-generator-contractors",
+  "language": "fr",
+  "requiredSetupKinds": ["plan_mode", "infra", "paste_prompt", "env"],
+  "requiredKeywords": ["AGENTS.md", "supabase", ".env.example"],
+  "sampleMvpPrompt": "## Contexte produit\nSubbieRates pour sous-traitants BTP.\n\n## Fichier AGENTS.md\nCréer AGENTS.md à la racine : stack Next.js 14 + Supabase, commandes npm, périmètre MVP.\n\n## Architecture & stack\nNext.js 14 App Router + Supabase (auth email/password + PostgreSQL + RLS).\n\n## Authentification\nInscription et connexion email/mot de passe via Supabase Auth.\n\n## Configuration & secrets\nCréer .env.example avec SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY en placeholders.\nCréer .env.local pour le dev local.\n\n## Fonctionnalités\n1. Calculateur de tarif journalier\n2. Sauvegarde des profils tarifaires\n3. Génération de devis PDF\n4. Tableau de bord historique\n\n## Validation locale\nLancer npm install && npm run dev pour valider le parcours complet."
+}

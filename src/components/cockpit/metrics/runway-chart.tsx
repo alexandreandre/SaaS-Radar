@@ -1,35 +1,18 @@
 "use client";
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import dynamic from "next/dynamic";
+import type { ComponentProps } from "react";
 
-export function RunwayChart({
-  cashOnHand,
-  burnRate,
-  months = 12,
-}: {
-  cashOnHand: number;
-  burnRate: number;
-  months?: number;
-}) {
-  const data = Array.from({ length: months + 1 }, (_, i) => ({
-    month: i,
-    cash: Math.max(0, cashOnHand - burnRate * i),
-  }));
+const RunwayChartInner = dynamic(
+  () => import("./runway-chart-inner").then((m) => ({ default: m.RunwayChartInner })),
+  { ssr: false, loading: () => <ChartSkeleton /> },
+);
 
-  const zeroMonth = data.findIndex((d) => d.cash <= 0);
+function ChartSkeleton() {
+  return <div className="h-64 w-full animate-pulse rounded-lg bg-muted/50" aria-hidden />;
+}
 
-  return (
-    <ResponsiveContainer width="100%" height={240}>
-      <LineChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#E4E4E7" />
-        <XAxis dataKey="month" tickFormatter={(v) => `M${v}`} tick={{ fontSize: 11 }} />
-        <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-        <Tooltip formatter={(v) => `${Number(v).toLocaleString("fr-FR")} €`} labelFormatter={(l) => `Mois ${l}`} />
-        {zeroMonth > 0 ? (
-          <ReferenceLine x={zeroMonth} stroke="#ef4444" strokeDasharray="4 4" label="Runway" />
-        ) : null}
-        <Line type="monotone" dataKey="cash" stroke="#4a6f9a" strokeWidth={2} dot={false} />
-      </LineChart>
-    </ResponsiveContainer>
-  );
+
+export function RunwayChart(props: ComponentProps<typeof RunwayChartInner>) {
+  return <RunwayChartInner {...props} />;
 }

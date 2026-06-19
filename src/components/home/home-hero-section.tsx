@@ -1,15 +1,25 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowUp, Github } from "lucide-react";
 import { Navbar } from "@/components/layout/navbar";
-import { HomeMapGateway } from "@/components/world/home-map-gateway";
 import { MAP_EXPLORE_QUERY, MAP_EXPLORE_VALUE } from "@/lib/map-routes";
 import type { MapCatalogOpportunity } from "@/context/map-catalog-context";
 import type { UserProject } from "@/lib/portfolio";
 import { PENDING_PROJECT_STORAGE_KEY } from "@/lib/portfolio";
 import { cn } from "@/lib/utils";
+
+const HomeMapGateway = dynamic(
+  () => import("@/components/world/home-map-gateway").then((m) => ({ default: m.HomeMapGateway })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="aspect-[16/10] w-full animate-pulse rounded-xl bg-muted/40" aria-hidden />
+    ),
+  },
+);
 
 const IDEA_PLACEHOLDERS = [
   "Un CRM pour coachs sportifs indépendants…",

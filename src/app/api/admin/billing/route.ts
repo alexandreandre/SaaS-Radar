@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminApi, withAdminAudit } from "@/lib/admin/guard";
-import {
-  computeBillingMetrics,
-  createBillingSnapshot,
-} from "@/lib/admin/metrics";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createBillingSnapshot } from "@/lib/admin/metrics";
+import { getAdminBillingData } from "@/lib/admin/billing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,22 +11,8 @@ export async function GET(request: Request) {
   if (auth instanceof NextResponse) return auth;
 
   try {
-    const metrics = await computeBillingMetrics();
-    const admin = createAdminClient();
-    const { data: snapshots } = await admin
-      .from("billing_snapshots")
-      .select("*")
-      .order("snapshot_date", { ascending: false })
-      .limit(30);
-
-    const { data: subscribers } = await admin
-      .from("profiles")
-      .select("id, email, plan, subscription_status, billing_interval, current_period_end, stripe_customer_id, created_at")
-      .neq("plan", "free")
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    return NextResponse.json({ metrics, snapshots: snapshots ?? [], subscribers: subscribers ?? [] });
+    const payload = await getAdminBillingData();
+    return NextResponse.json(payload);
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : String(err) },

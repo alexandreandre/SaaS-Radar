@@ -1,5 +1,11 @@
-import { AdminCockpitClient } from "@/components/admin/cockpit-client";
+import { Suspense } from "react";
+import AdminConsoleLoading from "../loading";
+import { AdminCockpitLoader } from "@/components/admin/cockpit-loader";
 
 export default function AdminCockpitPage() {
-  return <AdminCockpitClient />;
+  return (
+    <Suspense fallback={<AdminConsoleLoading />}>
+      <AdminCockpitLoader />
+    </Suspense>
+  );
 }

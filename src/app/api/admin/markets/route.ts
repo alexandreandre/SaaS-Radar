@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminApi, withAdminAudit } from "@/lib/admin/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { listAdminMarkets } from "@/lib/admin/markets";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,15 +9,15 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const auth = await requireAdminApi(request, { minimumRole: "viewer" });
   if (auth instanceof NextResponse) return auth;
-
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("world_markets")
-    .select("code, name, flag, heat_score")
-    .order("heat_score", { ascending: false });
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ markets: data ?? [] });
+  try {
+    const markets = await listAdminMarkets();
+    return NextResponse.json({ markets });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 500 }
+    );
+  }
 }
 
 export async function PATCH(request: Request) {

@@ -60,6 +60,18 @@ Accessible depuis le **module Build** et le **marketplace Intégrations** (même
       "addedAt": "2026-06-18T10:00:00.000Z"
     },
     {
+      "repoFullName": "acme/emergent-export",
+      "linkedToolId": "emergent",
+      "isPrimary": false,
+      "addedAt": "2026-06-18T10:30:00.000Z"
+    },
+    {
+      "repoFullName": "acme/codex-mvp",
+      "linkedToolId": "codex",
+      "isPrimary": false,
+      "addedAt": "2026-06-18T10:45:00.000Z"
+    },
+    {
       "repoFullName": "acme/saas-radar",
       "linkedToolId": "cursor",
       "isPrimary": true,

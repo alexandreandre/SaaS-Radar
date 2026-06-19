@@ -6,7 +6,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { getBuildJourneyState } from "../src/lib/build/journey";
-import type { UserProject } from "../src/lib/portfolio";
+import { migrateProject, type UserProject } from "../src/lib/portfolio";
 
 function baseProject(overrides: Partial<UserProject> = {}): UserProject {
   return {
@@ -116,4 +116,38 @@ test("secondaryDetail conservé en state mais hors stepper deploy", () => {
   );
   assert.match(state.secondaryDetail ?? "", /Lovable/i);
   assert.equal(state.displayPhase, "deploy");
+});
+
+test("migrateProject remappe windsurf → codex sur tous les champs", () => {
+  const windsurfKit = {
+    toolId: "windsurf",
+    mvpPrompt: "Utilisez Windsurf pour construire le MVP avec authentification Supabase.",
+    setupRecipe: "Ouvrir Windsurf et coller le prompt.",
+    generatedAt: "2025-06-01",
+  };
+
+  const migrated = migrateProject({
+    ...baseProject(),
+    activeBuildToolId: "windsurf" as never,
+    buildKitsByTool: { windsurf: windsurfKit } as never,
+    buildSetup: windsurfKit as never,
+    buildSetupHistory: [{ ...windsurfKit, label: "windsurf" }] as never,
+    githubTrackedRepos: [
+      {
+        repoFullName: "acme/windsurf-app",
+        linkedToolId: "windsurf" as never,
+        isPrimary: true,
+        addedAt: "2025-06-01",
+      },
+    ],
+  });
+
+  assert.equal(migrated.activeBuildToolId, "codex");
+  assert.ok(migrated.buildKitsByTool?.codex);
+  assert.equal(migrated.buildKitsByTool?.codex?.toolId, "codex");
+  assert.match(migrated.buildKitsByTool?.codex?.mvpPrompt ?? "", /Codex/i);
+  assert.doesNotMatch(migrated.buildKitsByTool?.codex?.mvpPrompt ?? "", /Windsurf/i);
+  assert.equal(migrated.buildSetup?.toolId, "codex");
+  assert.equal(migrated.buildSetupHistory?.[0]?.toolId, "codex");
+  assert.equal(migrated.githubTrackedRepos?.[0]?.linkedToolId, "codex");
 });

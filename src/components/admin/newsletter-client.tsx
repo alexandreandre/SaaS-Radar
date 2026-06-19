@@ -1,20 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminPageHeader, AdminTable, KpiCard } from "@/components/admin/admin-ui";
 import { AdminPageSkeleton } from "@/components/admin/admin-page-skeleton";
 import { adminFetchJson } from "@/lib/admin/client-fetch";
+import type { AdminNewsletterData } from "@/lib/admin/newsletter";
 
-export function AdminNewsletterClient() {
-  const [stats, setStats] = useState({ total: 0, active: 0, pending: 0 });
-  const [subscribers, setSubscribers] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
+export function AdminNewsletterClient({
+  initialData = null,
+  initialError = null,
+}: {
+  initialData?: AdminNewsletterData | null;
+  initialError?: string | null;
+}) {
+  const skipFetch = useRef(initialData != null || initialError != null);
+  const [stats, setStats] = useState(initialData?.stats ?? { total: 0, active: 0, pending: 0 });
+  const [subscribers, setSubscribers] = useState<Record<string, unknown>[]>(
+    initialData?.subscribers ?? [],
+  );
+  const [loading, setLoading] = useState(!initialData && !initialError);
 
   const load = useCallback(async () => {
-    const { ok, data: json } = await adminFetchJson<{
-      stats?: { total: number; active: number; pending: number };
-      subscribers?: Record<string, unknown>[];
-    }>("/api/admin/newsletter");
+    const { ok, data: json } = await adminFetchJson<AdminNewsletterData>("/api/admin/newsletter");
     if (ok) {
       setStats(json.stats ?? { total: 0, active: 0, pending: 0 });
       setSubscribers(json.subscribers ?? []);
@@ -23,11 +30,23 @@ export function AdminNewsletterClient() {
   }, []);
 
   useEffect(() => {
+    if (skipFetch.current) {
+      skipFetch.current = false;
+      return;
+    }
     void load();
   }, [load]);
 
   if (loading) {
     return <AdminPageSkeleton kpiCount={3} />;
+  }
+
+  if (initialError) {
+    return (
+      <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+        {initialError}
+      </div>
+    );
   }
 
   return (

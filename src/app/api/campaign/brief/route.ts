@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser, getTier } from "@/lib/auth";
 import { hasTier } from "@/lib/tier";
 import type { ExtendedChannelKey } from "@/lib/campaign/channels";
+import type { AcquisitionStage } from "@/lib/campaign/stages";
 import { getCampaignTool, type MarketingProfile } from "@/lib/campaign/tools";
 import {
   buildStrategySystemPrompt,
@@ -35,6 +36,20 @@ function parseChannel(raw: unknown): ExtendedChannelKey | null {
     return raw as ExtendedChannelKey;
   }
   return null;
+}
+
+function parseStage(raw: unknown): AcquisitionStage | undefined {
+  const valid: AcquisitionStage[] = [
+    "network",
+    "outreach",
+    "content",
+    "amplification",
+    "scale",
+  ];
+  if (typeof raw === "string" && valid.includes(raw as AcquisitionStage)) {
+    return raw as AcquisitionStage;
+  }
+  return undefined;
 }
 
 function parseLanguage(raw: unknown): "fr" | "en" {
@@ -79,6 +94,7 @@ export async function POST(request: Request) {
   const profile = parseProfile(b.profile);
   const channel = parseChannel(b.channelKey);
   const language = parseLanguage(b.language);
+  const acquisitionStage = parseStage(b.acquisitionStage);
 
   if (!profile || !channel || !productName) {
     return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
@@ -115,6 +131,7 @@ export async function POST(request: Request) {
       strategyBrief: generated.strategyBrief,
       channelKey: channel,
       profile,
+      acquisitionStage,
       generatedAt: new Date().toISOString(),
     });
   } catch (err) {

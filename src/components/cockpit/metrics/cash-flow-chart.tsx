@@ -1,33 +1,18 @@
 "use client";
 
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import type { FinanceStream } from "@/lib/connectors/streams";
-import { formatCurrency } from "@/lib/utils";
+import dynamic from "next/dynamic";
+import type { ComponentProps } from "react";
 
-export function CashFlowChart({ stream }: { stream: FinanceStream }) {
-  const data = [
-    { name: "Entrées", value: stream.monthlyInflow },
-    { name: "Sorties", value: stream.monthlyOutflow },
-    { name: "Solde", value: stream.cashBalance },
-  ];
+const CashFlowChartInner = dynamic(
+  () => import("./cash-flow-chart-inner").then((m) => ({ default: m.CashFlowChartInner })),
+  { ssr: false, loading: () => <ChartSkeleton /> },
+);
 
-  return (
-    <ResponsiveContainer width="100%" height={220}>
-      <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-        <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-        <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
-        <Tooltip formatter={(v) => formatCurrency(Number(v))} />
-        <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-      </BarChart>
-    </ResponsiveContainer>
-  );
+function ChartSkeleton() {
+  return <div className="h-64 w-full animate-pulse rounded-lg bg-muted/50" aria-hidden />;
+}
+
+
+export function CashFlowChart(props: ComponentProps<typeof CashFlowChartInner>) {
+  return <CashFlowChartInner {...props} />;
 }

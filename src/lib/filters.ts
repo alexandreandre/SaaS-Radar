@@ -1,4 +1,13 @@
-import type { Opportunity, Sector, ClientType, TechComplexity, FranceCompetition } from "@/types/opportunity";
+import type {
+  Opportunity,
+  OpportunityListItem,
+  Sector,
+  ClientType,
+  TechComplexity,
+  FranceCompetition,
+} from "@/types/opportunity";
+
+type FilterableOpportunity = Opportunity | OpportunityListItem;
 
 export type SortOption = "opportunity" | "newest" | "buildability" | "margin";
 
@@ -32,10 +41,10 @@ export const defaultFilters: FilterState = {
   favoritesOnly: false,
 };
 
-export function filterOpportunities(
-  items: Opportunity[],
+export function filterOpportunities<T extends FilterableOpportunity>(
+  items: T[],
   filters: FilterState
-): Opportunity[] {
+): T[] {
   let result = [...items];
 
   if (filters.countryCode) {

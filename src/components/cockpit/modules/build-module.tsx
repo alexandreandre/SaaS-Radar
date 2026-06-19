@@ -9,7 +9,7 @@ import { BuildToolPicker } from "@/components/cockpit/build/build-tool-picker";
 import { BuildToolPickerDialog } from "@/components/cockpit/build/build-tool-picker-dialog";
 import { BuildToolSwitcher } from "@/components/cockpit/build/build-tool-switcher";
 import type { CockpitModuleProps } from "@/components/cockpit/modules/module-props";
-import { usePortfolio } from "@/contexts/portfolio-context";
+import { usePortfolioBuild } from "@/contexts/portfolio/use-portfolio";
 import { getActiveBuildKit, getActiveBuildToolId, hasCustomProductName, resolveProductName } from "@/lib/portfolio";
 import {
   detectBrowserBuildPromptLanguage,
@@ -32,7 +32,7 @@ export function BuildModule({
     restoreBuildVersion,
     resetBuild,
     setProductName,
-  } = usePortfolio();
+  } = usePortfolioBuild(project.id);
   const [toolDialogOpen, setToolDialogOpen] = useState(false);
 
   const activeToolId = getActiveBuildToolId(project);

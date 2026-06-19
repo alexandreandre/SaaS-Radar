@@ -27,9 +27,10 @@ const VALID_TOOL_IDS = new Set<string>([
   "bolt",
   "v0",
   "replit",
+  "emergent",
   "cursor",
   "claude-code",
-  "windsurf",
+  "codex",
 ]);
 
 type PromptMode = "mvp" | `feature:${number}` | "regenerate";

@@ -53,25 +53,43 @@ const TIPS: Partial<Record<BuildToolId, PlatformTips>> = {
     },
     shortcuts: CURSOR_SHORTCUTS,
   },
-  windsurf: {
+  emergent: {
     iterationHint:
-      "Le premier prompt n'est qu'un départ — enchaînez avec de nouveaux messages pour itérer sur votre app.",
+      "Le premier prompt pose les fondations — enchaînez dans le chat Emergent pour affiner écran par écran et feature par feature.",
     iteratePrompt:
-      "Ajoute [votre demande]. Ne casse pas ce qui fonctionne déjà.",
+      "Ajoute [votre demande]. Ne casse pas le parcours principal.",
     planMode: {
       lead:
-        "À privilégier quand le changement est conséquent — pas seulement au démarrage. Windsurf peut planifier l'architecture avant d'exécuter le code.",
+        "Recommandé avant un gros build — Emergent propose un plan d'architecture (écrans, BDD, auth) que vous validez avant la génération.",
       steps: [
-        "Décrivez la feature ou la refonte visée et demandez un plan d'implémentation détaillé.",
-        "Relisez et ajustez le plan (fichiers, schéma, écrans) avant d'autoriser l'exécution.",
-        "Lancez le build une fois le plan validé.",
+        "Décrivez l'objectif produit complet et les intégrations nécessaires (auth, BDD, paiement).",
+        "Relisez le plan proposé par les agents Emergent et ajustez si besoin.",
+        "Autorisez le build une fois le plan validé.",
+      ],
+    },
+  },
+  codex: {
+    iterationHint:
+      "Construisez feature par feature dans le terminal Codex — un message = une amélioration ciblée.",
+    iteratePrompt:
+      "Implémente [feature ou correction]. Vérifie que le parcours principal fonctionne toujours.",
+    planMode: {
+      lead:
+        "Recommandé pour les évolutions lourdes — demandez un plan d'implémentation détaillé avant d'écrire le code.",
+      steps: [
+        "Décrivez l'objectif et demandez un plan (fichiers, schéma BDD, écrans).",
+        "Validez ou ajustez le plan proposé.",
+        "Autorisez l'implémentation selon ce plan.",
       ],
     },
     localRun: {
-      lead: "Demandez à Windsurf comment lancer le projet sur votre machine.",
+      lead: "Codex travaille dans le terminal — demandez-lui de lancer le serveur de dev.",
       askPrompt:
-        "Comment démarrer ce projet en local ? Prérequis et commandes terminal, étape par étape.",
-      prerequisites: ["Node.js 18+ installé"],
+        "Lance ce projet en local (npm install puis npm run dev) et dis-moi sur quelle URL je peux le tester.",
+      prerequisites: [
+        "Node.js 18+ installé",
+        "Codex CLI installé (npm install -g @openai/codex) et codex login effectué",
+      ],
       commands: ["npm install", "npm run dev"],
     },
   },

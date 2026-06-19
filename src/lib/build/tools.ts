@@ -10,9 +10,10 @@ export type BuildToolId =
   | "bolt"
   | "v0"
   | "replit"
+  | "emergent"
   | "cursor"
   | "claude-code"
-  | "windsurf";
+  | "codex";
 
 export type BuildTool = {
   id: BuildToolId;
@@ -95,6 +96,16 @@ export const BUILD_TOOLS: BuildTool[] = [
     publishLabel: "Déployer sur Replit",
   },
   {
+    id: "emergent",
+    name: "Emergent",
+    level: "intermediate",
+    pitch: "Agents IA full-stack — architecture, backend, auth et deploy dans le navigateur.",
+    ownsCode: true,
+    deployModel: "builtin",
+    deepLink: "https://emergent.sh",
+    publishLabel: "Publier sur Emergent",
+  },
+  {
     id: "cursor",
     name: "Cursor",
     level: "advanced",
@@ -115,13 +126,13 @@ export const BUILD_TOOLS: BuildTool[] = [
     publishLabel: "Pousser sur GitHub",
   },
   {
-    id: "windsurf",
-    name: "Windsurf",
+    id: "codex",
+    name: "Codex",
     level: "advanced",
-    pitch: "Éditeur IA avec flow agentique. Alternative à Cursor.",
+    pitch: "Agent OpenAI en terminal — idéal si vous avez ChatGPT Plus/Pro.",
     ownsCode: true,
     deployModel: "github-vercel",
-    deepLink: "https://codeium.com/windsurf",
+    deepLink: "https://developers.openai.com/codex/cli",
     publishLabel: "Pousser sur GitHub",
   },
 ];
@@ -156,7 +167,6 @@ export function recommendTool(
   level?: BuildToolLevel,
 ): BuildToolId {
   const resolvedLevel = level ?? recommendLevel(project, opportunity);
-  const tools = getToolsByLevel(resolvedLevel);
 
   if (resolvedLevel === "nocode") {
     if (project.builderStage === "building" || project.builderStage === "has_mrr") {
@@ -165,8 +175,9 @@ export function recommendTool(
     return "base44";
   }
   if (resolvedLevel === "intermediate") {
-    return opportunity.techComplexity === "high" ? "replit" : "v0";
+    if (opportunity.techComplexity === "high") return "replit";
+    return "emergent";
   }
   if (project.builderStage === "has_mrr") return "cursor";
-  return tools[0]?.id ?? "cursor";
+  return "codex";
 }

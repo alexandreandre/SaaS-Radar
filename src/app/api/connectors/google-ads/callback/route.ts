@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { isCredentialsEncryptionConfigured } from "@/lib/crypto/credentials";
 import { exchangeAndStoreGoogleAdsOAuth } from "@/lib/connectors/google-ads/sync-service";
+import { logApiError } from "@/lib/api-error-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,7 +53,12 @@ export async function GET(request: Request) {
 
   try {
     await exchangeAndStoreGoogleAdsOAuth(user.id, projectId, code);
-  } catch {
+  } catch (err) {
+    logApiError(
+      "/api/connectors/google-ads/callback",
+      500,
+      err instanceof Error ? err.message : "exchangeAndStoreGoogleAdsOAuth failed",
+    );
     const cockpitUrl = new URL(`/cockpit/${projectId}`, request.url);
     cockpitUrl.searchParams.set("module", "integrations");
     cockpitUrl.searchParams.set("google_ads_oauth", "token_error");

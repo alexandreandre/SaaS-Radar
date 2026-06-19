@@ -214,6 +214,30 @@ export interface ForeignMarketProfile {
   franceAdaptation?: string[];
 }
 
+/** Projection catalogue liste — champs nécessaires aux cartes et au filtrage client. */
+export type OpportunityListItem = Pick<
+  Opportunity,
+  | "id"
+  | "slug"
+  | "name"
+  | "pitch"
+  | "originCountry"
+  | "originCountryCode"
+  | "originFlag"
+  | "sector"
+  | "targetClient"
+  | "clientType"
+  | "techComplexity"
+  | "franceCompetition"
+  | "revenueMin"
+  | "revenueMax"
+  | "buildableUnder30Days"
+  | "weeklyPick"
+  | "publishedAt"
+  | "createdAt"
+  | "scores"
+>;
+
 export interface Opportunity {
   id: string;
   slug: string;

@@ -13,6 +13,128 @@ export function formatCurrency(value: number): string {
   }).format(value);
 }
 
+const CARD_DANGLING_WORDS = new Set([
+  "a",
+  "à",
+  "au",
+  "aux",
+  "ce",
+  "ces",
+  "cette",
+  "d",
+  "de",
+  "des",
+  "du",
+  "en",
+  "et",
+  "l",
+  "la",
+  "le",
+  "les",
+  "ou",
+  "pour",
+  "que",
+  "qui",
+  "un",
+  "une",
+  "avec",
+  "sans",
+  "afin",
+  "font",
+  "sont",
+  "est",
+]);
+
+const CARD_DANGLING_PHRASES = [
+  "afin de",
+  "afin d'",
+  "qui font des",
+  "qui font",
+  "qui est",
+  "qui sont",
+  "pour les",
+  "pour le",
+  "pour la",
+  "pour un",
+  "pour une",
+  "avec des",
+  "avec les",
+  "avec un",
+  "au royaume-uni qui",
+];
+
+function normalizeCardWord(word: string): string {
+  return word.toLowerCase().replace(/[''‑—–-]/g, "");
+}
+
+function trimRelativeClauseIfTruncated(original: string, excerpt: string): string {
+  if (excerpt.length >= original.length) return excerpt;
+  const match = excerpt.match(/^(.*?)\s+qui\s/i);
+  if (match && match[1].length >= 20) return match[1].trim();
+  return excerpt;
+}
+
+/** Retire les fins de phrase coupées au milieu d'une proposition. */
+function trimCardDanglingEnding(text: string): string {
+  let result = text.trim();
+  if (!result) return result;
+
+  for (const phrase of CARD_DANGLING_PHRASES) {
+    const suffix = ` ${phrase}`;
+    if (result.toLowerCase().endsWith(suffix)) {
+      result = result.slice(0, -suffix.length).trim();
+    }
+  }
+
+  const words = result.split(/\s+/);
+  while (words.length > 3) {
+    const last = normalizeCardWord(words[words.length - 1] ?? "");
+    if (CARD_DANGLING_WORDS.has(last)) {
+      words.pop();
+      continue;
+    }
+    break;
+  }
+
+  return words.join(" ").trim();
+}
+
+/** Coupe un texte carte au mot ou à la ponctuation — sans « … », phrase naturelle. */
+export function excerptForCard(text: string, maxLength = 110): string {
+  const trimmed = text.trim();
+  if (!trimmed) return trimmed;
+  if (trimmed.length <= maxLength) return trimCardDanglingEnding(trimmed);
+
+  const firstSentence = trimmed.match(/^(.+?[.!?])(?:\s|$)/);
+  if (firstSentence && firstSentence[1].length <= maxLength) {
+    return trimCardDanglingEnding(firstSentence[1].replace(/[.!?]$/, "").trim());
+  }
+
+  const window = trimmed.slice(0, maxLength);
+  const punctBreak = Math.max(
+    window.lastIndexOf(". "),
+    window.lastIndexOf("! "),
+    window.lastIndexOf("? "),
+    window.lastIndexOf(" — "),
+    window.lastIndexOf(" - "),
+    window.lastIndexOf(", ")
+  );
+  if (punctBreak >= maxLength * 0.4) {
+    const end = trimmed[punctBreak] === "," ? punctBreak : punctBreak + 1;
+    return trimRelativeClauseIfTruncated(
+      trimmed,
+      trimCardDanglingEnding(trimmed.slice(0, end).trim())
+    );
+  }
+
+  const lastSpace = window.lastIndexOf(" ");
+  const cut = (lastSpace > 0 ? window.slice(0, lastSpace) : window).trim();
+  return trimRelativeClauseIfTruncated(
+    trimmed,
+    trimCardDanglingEnding(cut)
+  );
+}
+
 export function getMidnightCountdown(): { hours: number; minutes: number; seconds: number } {
   const now = new Date();
   const midnight = new Date(now);

@@ -10,17 +10,33 @@ import { removeConnectorStream } from "@/lib/connectors/streams";
 import { normalizeProjectGitHub } from "@/lib/connectors/github/normalize";
 import type { BuildToolId } from "@/lib/build/tools";
 import { getBuildTool } from "@/lib/build/tools";
+import {
+  remapBuildToolId,
+  replaceLegacyToolNamesInText,
+} from "@/lib/build/tool-constants";
 import type { BuildPromptLanguage } from "@/lib/build/prompt-language";
 import { getBuildJourneyState } from "@/lib/build/journey";
-import type { CampaignKit, CampaignKitSnapshot, CampaignSetup } from "@/lib/campaign/kits";
+import type {
+  AcquisitionStage,
+  CampaignActionItem,
+  CampaignKit,
+  CampaignKitSnapshot,
+  CampaignRetrospective,
+  CampaignSetup,
+  CampaignSmartGoal,
+  CampaignTrackingPlan,
+  CampaignWeeklyCheckIn,
+} from "@/lib/campaign/kits";
 import {
   getActiveCampaignKit,
   getActiveCampaignToolId,
   normalizeCampaignSetup,
 } from "@/lib/campaign/kits";
+import { profileFromStage } from "@/lib/campaign/stages";
 import type { CampaignToolId, MarketingProfile } from "@/lib/campaign/tools";
 import type { ExtendedChannelKey } from "@/lib/campaign/channels";
 import { buildWorkflowForStack } from "@/lib/campaign/workflows";
+import { buildActionItemsForStage } from "@/lib/campaign/actions";
 import type { FinancialScenario, Opportunity } from "@/types/opportunity";
 import type { ProjectIdeaBrief } from "@/types/idea-brief";
 
@@ -688,8 +704,80 @@ export function migrateProject(project: UserProject): UserProject {
     activeCampaignToolIds: project.activeCampaignToolIds ?? [],
   };
   return clearOAuthAdsDemos(
-    normalizeProjectGitHub(normalizeBuildKits(normalizeCampaignSetup(base))),
+    normalizeProjectGitHub(
+      normalizeBuildKits(remapLegacyBuildTools(normalizeCampaignSetup(base))),
+    ),
   );
+}
+
+function remapBuildKitContent(kit: BuildSetup): BuildSetup {
+  const toolId = remapBuildToolId(kit.toolId) ?? kit.toolId;
+  return {
+    ...kit,
+    toolId,
+    mvpPrompt: replaceLegacyToolNamesInText(kit.mvpPrompt),
+    setupRecipe: replaceLegacyToolNamesInText(kit.setupRecipe),
+    quickStart: kit.quickStart
+      ? replaceLegacyToolNamesInText(kit.quickStart)
+      : undefined,
+  };
+}
+
+function remapLegacyBuildTools(project: UserProject): UserProject {
+  const kits = project.buildKitsByTool ?? {};
+  const remappedKits: BuildKitsByTool = {};
+
+  for (const [key, kit] of Object.entries(kits)) {
+    if (!kit) continue;
+    const newId = (remapBuildToolId(key) ?? key) as BuildToolId;
+    const remappedKit = remapBuildKitContent(kit);
+    const existing = remappedKits[newId];
+    if (
+      !existing ||
+      remappedKit.generatedAt.localeCompare(existing.generatedAt) >= 0
+    ) {
+      remappedKits[newId] = remappedKit;
+    }
+  }
+
+  let next: UserProject = { ...project, buildKitsByTool: remappedKits };
+
+  if (next.activeBuildToolId) {
+    const remapped = remapBuildToolId(next.activeBuildToolId);
+    if (remapped) next = { ...next, activeBuildToolId: remapped };
+  }
+
+  if (next.buildSetup) {
+    next = { ...next, buildSetup: remapBuildKitContent(next.buildSetup) };
+  }
+
+  if (next.buildSetupHistory?.length) {
+    next = {
+      ...next,
+      buildSetupHistory: next.buildSetupHistory.map((snapshot) => ({
+        ...remapBuildKitContent(snapshot),
+        savedAt: snapshot.savedAt,
+        label: snapshot.label
+          ? (remapBuildToolId(snapshot.label) ??
+            replaceLegacyToolNamesInText(snapshot.label))
+          : snapshot.label,
+      })),
+    };
+  }
+
+  if (next.githubTrackedRepos?.length) {
+    next = {
+      ...next,
+      githubTrackedRepos: next.githubTrackedRepos.map((repo) => ({
+        ...repo,
+        linkedToolId: repo.linkedToolId
+          ? remapBuildToolId(repo.linkedToolId)
+          : undefined,
+      })),
+    };
+  }
+
+  return next;
 }
 
 function clearConnectorDemo(project: UserProject, connectorId: ConnectorId): UserProject {
@@ -1015,22 +1103,31 @@ export function setStrategyBrief(
   channel: ExtendedChannelKey,
   profile: MarketingProfile,
 ): UserProject {
-  const existing = project.campaignSetup;
+  const existing = normalizeCampaignSetup(project).campaignSetup;
+  const stage = existing?.acquisitionStage ?? "network";
   const toolIds =
     existing?.activeToolIds?.length
       ? existing.activeToolIds
       : buildWorkflowForStack(channel, []).map((n) => n.toolId);
 
   const setup: CampaignSetup = {
+    ...(existing ?? {
+      acquisitionStage: stage,
+      primaryChannel: channel,
+      activeToolIds: [],
+      workflow: [],
+      kitsByTool: {},
+      actionItems: [],
+      weeklyCheckIns: [],
+      cycleStatus: "draft" as const,
+    }),
     profile,
     primaryChannel: channel,
     activeToolIds: toolIds,
     workflow: buildWorkflowForStack(channel, toolIds),
     strategyBrief: brief,
-    kitsByTool: existing?.kitsByTool ?? {},
+    cycleStatus: existing?.cycleStatus === "draft" ? "active" : (existing?.cycleStatus ?? "active"),
     generatedAt: existing?.generatedAt ?? new Date().toISOString(),
-    distributionAcknowledgedAt: existing?.distributionAcknowledgedAt,
-    measureAcknowledgedAt: existing?.measureAcknowledgedAt,
   };
 
   return normalizeCampaignSetup({
@@ -1045,15 +1142,17 @@ export function setCampaignChannel(
   project: UserProject,
   channel: ExtendedChannelKey,
 ): UserProject {
-  const setup = project.campaignSetup;
+  const setup = normalizeCampaignSetup(project).campaignSetup;
   if (!setup) return project;
   const toolIds = setup.activeToolIds.length > 0 ? setup.activeToolIds : buildWorkflowForStack(channel, []).map((n) => n.toolId);
+  const actionItems = buildActionItemsForStage(setup.acquisitionStage, channel);
   return normalizeCampaignSetup({
     ...project,
     campaignSetup: {
       ...setup,
       primaryChannel: channel,
       workflow: buildWorkflowForStack(channel, toolIds),
+      actionItems,
     },
   });
 }
@@ -1097,13 +1196,25 @@ export function setCampaignKit(project: UserProject, kit: CampaignKit): UserProj
   const channel = setup?.primaryChannel ?? kit.channelKey;
   const profile = setup?.profile ?? kit.profile;
 
+  const stage = setup?.acquisitionStage ?? "network";
   const campaignSetup: CampaignSetup = {
+    acquisitionStage: stage,
+    stageOverride: setup?.stageOverride,
+    smartGoal: setup?.smartGoal,
+    icpSummary: setup?.icpSummary,
+    positioning: setup?.positioning,
     profile,
     primaryChannel: channel,
     activeToolIds,
     workflow: buildWorkflowForStack(channel, activeToolIds),
     strategyBrief: setup?.strategyBrief,
     kitsByTool: kits,
+    actionItems: setup?.actionItems ?? [],
+    trackingPlan: setup?.trackingPlan,
+    weeklyCheckIns: setup?.weeklyCheckIns ?? [],
+    retrospective: setup?.retrospective,
+    cycleStartedAt: setup?.cycleStartedAt,
+    cycleStatus: setup?.cycleStatus ?? "active",
     generatedAt: new Date().toISOString(),
     distributionAcknowledgedAt: setup?.distributionAcknowledgedAt,
     measureAcknowledgedAt: setup?.measureAcknowledgedAt,
@@ -1209,13 +1320,187 @@ export function acknowledgeCampaignDistribution(project: UserProject): UserProje
 export function acknowledgeCampaignMeasure(project: UserProject): UserProject {
   const setup = project.campaignSetup;
   if (!setup) return project;
-  return {
+  return normalizeCampaignSetup({
     ...project,
     campaignSetup: {
       ...setup,
       measureAcknowledgedAt: new Date().toISOString(),
+      trackingPlan: {
+        utmBase: setup.trackingPlan?.utmBase ?? "",
+        requiredConnectors: setup.trackingPlan?.requiredConnectors ?? [],
+        configuredAt: new Date().toISOString(),
+      },
     },
-  };
+  });
+}
+
+export function setAcquisitionStage(
+  project: UserProject,
+  stage: AcquisitionStage,
+  override = true,
+): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+  const profile = profileFromStage(stage);
+  const actionItems = buildActionItemsForStage(stage, setup.primaryChannel);
+  return normalizeCampaignSetup({
+    ...project,
+    marketingProfile: profile,
+    campaignSetup: {
+      ...setup,
+      acquisitionStage: stage,
+      stageOverride: override,
+      profile,
+      actionItems,
+    },
+  });
+}
+
+export function setCampaignSmartGoal(
+  project: UserProject,
+  smartGoal: CampaignSmartGoal,
+): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+  return normalizeCampaignSetup({
+    ...project,
+    campaignSetup: { ...setup, smartGoal, cycleStatus: "active" },
+  });
+}
+
+export function setCampaignIcp(project: UserProject, icpSummary: string): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+  return normalizeCampaignSetup({
+    ...project,
+    campaignSetup: { ...setup, icpSummary },
+  });
+}
+
+export function setCampaignPositioning(
+  project: UserProject,
+  positioning: string,
+): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+  return normalizeCampaignSetup({
+    ...project,
+    campaignSetup: { ...setup, positioning },
+  });
+}
+
+export function setCampaignActionItems(
+  project: UserProject,
+  actionItems: CampaignActionItem[],
+): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+  return normalizeCampaignSetup({
+    ...project,
+    campaignSetup: { ...setup, actionItems },
+  });
+}
+
+export function toggleCampaignAction(
+  project: UserProject,
+  actionId: string,
+): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+  const now = new Date().toISOString();
+  const actionItems = setup.actionItems.map((item) =>
+    item.id === actionId
+      ? {
+          ...item,
+          done: !item.done,
+          doneAt: !item.done ? now : undefined,
+        }
+      : item,
+  );
+  return normalizeCampaignSetup({
+    ...project,
+    campaignSetup: { ...setup, actionItems },
+  });
+}
+
+export function setCampaignTrackingPlan(
+  project: UserProject,
+  trackingPlan: CampaignTrackingPlan,
+): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+  return normalizeCampaignSetup({
+    ...project,
+    campaignSetup: { ...setup, trackingPlan },
+  });
+}
+
+export function addCampaignWeeklyCheckIn(
+  project: UserProject,
+  checkIn: CampaignWeeklyCheckIn,
+): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+  return normalizeCampaignSetup({
+    ...project,
+    campaignSetup: {
+      ...setup,
+      weeklyCheckIns: [...setup.weeklyCheckIns, checkIn],
+    },
+  });
+}
+
+export function completeCampaignRetrospective(
+  project: UserProject,
+  retrospective: Omit<CampaignRetrospective, "completedAt">,
+): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+  return normalizeCampaignSetup({
+    ...project,
+    campaignSetup: {
+      ...setup,
+      retrospective: {
+        ...retrospective,
+        completedAt: new Date().toISOString(),
+      },
+      cycleStatus: "completed",
+    },
+  });
+}
+
+export function startNewCampaignCycle(project: UserProject): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+
+  const snapshotKit = getActiveCampaignKit(project);
+  let next = project;
+  if (snapshotKit) {
+    next = pushCampaignKitSnapshot(next);
+  }
+
+  return normalizeCampaignSetup({
+    ...next,
+    campaignSetup: {
+      ...setup,
+      strategyBrief: undefined,
+      positioning: undefined,
+      kitsByTool: {},
+      activeToolIds: [],
+      workflow: buildWorkflowForStack(setup.primaryChannel, []),
+      actionItems: [],
+      weeklyCheckIns: [],
+      retrospective: undefined,
+      cycleStartedAt: new Date().toISOString(),
+      cycleStatus: "draft",
+      distributionAcknowledgedAt: undefined,
+      measureAcknowledgedAt: undefined,
+      trackingPlan: setup.trackingPlan
+        ? { ...setup.trackingPlan, configuredAt: undefined }
+        : undefined,
+    },
+    activeCampaignToolIds: [],
+  });
 }
 
 export function restoreCampaignKitSnapshot(

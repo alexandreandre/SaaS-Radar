@@ -9,10 +9,15 @@ import { isCampaignToolId } from "@/lib/campaign/tools";
 import {
   buildKitSystemPrompt,
   buildKitUserPrompt,
+  buildStrategySystemPrompt,
+  buildStrategyUserPrompt,
   getStaticPromptForTool,
   type CampaignPromptContext,
 } from "@/lib/campaign/prompts";
-import { generateCampaignKitJson } from "@/lib/campaign/generate-kit";
+import {
+  generateCampaignKitJson,
+  generateStrategyBriefJson,
+} from "@/lib/campaign/generate-kit";
 import { checkCampaignRateLimit } from "@/lib/campaign/rate-limit";
 import { resolveCampaignOpportunity } from "@/lib/campaign/resolve-opportunity";
 import { loadUserProject } from "@/lib/portfolio-sync";
@@ -109,18 +114,37 @@ export async function POST(request: Request) {
   const project = projectId ? await loadUserProject(user.id, projectId) : null;
   const productionUrl = project?.hostConnection?.productionUrl;
 
-  const ctx: CampaignPromptContext = {
+  let resolvedStrategyBrief =
+    strategyBrief ?? project?.campaignSetup?.strategyBrief?.trim();
+
+  const baseCtx: CampaignPromptContext = {
     opportunity,
     productName,
     tool,
     channel,
     profile,
-    strategyBrief: strategyBrief ?? project?.campaignSetup?.strategyBrief,
+    strategyBrief: resolvedStrategyBrief,
     productionUrl,
     language,
   };
 
   try {
+    if (!resolvedStrategyBrief) {
+      const strategyGenerated = await generateStrategyBriefJson(
+        buildStrategySystemPrompt(language),
+        buildStrategyUserPrompt({
+          ...baseCtx,
+          tool: getCampaignTool("claude")!,
+        }),
+      );
+      resolvedStrategyBrief = strategyGenerated.strategyBrief;
+    }
+
+    const ctx: CampaignPromptContext = {
+      ...baseCtx,
+      strategyBrief: resolvedStrategyBrief,
+    };
+
     const generated = await generateCampaignKitJson(
       buildKitSystemPrompt(language),
       buildKitUserPrompt(ctx),
@@ -139,8 +163,15 @@ export async function POST(request: Request) {
       productName,
     };
 
-    return NextResponse.json(kit);
+    return NextResponse.json({
+      ...kit,
+      strategyBrief: resolvedStrategyBrief,
+    });
   } catch {
+    const ctx: CampaignPromptContext = {
+      ...baseCtx,
+      strategyBrief: resolvedStrategyBrief,
+    };
     const staticPrompt = getStaticPromptForTool(ctx);
     if (staticPrompt) {
       const kit: CampaignKit = {
@@ -153,7 +184,10 @@ export async function POST(request: Request) {
         language,
         productName,
       };
-      return NextResponse.json(kit);
+      return NextResponse.json({
+        ...kit,
+        strategyBrief: resolvedStrategyBrief,
+      });
     }
     return NextResponse.json(
       { error: "La génération a échoué. Réessayez dans quelques instants." },

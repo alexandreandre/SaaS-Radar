@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AdminPageHeader, AdminTable } from "@/components/admin/admin-ui";
 import { AdminPageSkeleton } from "@/components/admin/admin-page-skeleton";
@@ -15,9 +15,16 @@ type Market = {
   is_manual_override: boolean;
 };
 
-export function AdminMarketsClient() {
-  const [markets, setMarkets] = useState<Market[]>([]);
-  const [loading, setLoading] = useState(true);
+export function AdminMarketsClient({
+  initialMarkets = null,
+  initialError = null,
+}: {
+  initialMarkets?: Market[] | null;
+  initialError?: string | null;
+}) {
+  const skipFetch = useRef(initialMarkets != null || initialError != null);
+  const [markets, setMarkets] = useState<Market[]>(initialMarkets ?? []);
+  const [loading, setLoading] = useState(!initialMarkets && !initialError);
 
   const load = useCallback(async () => {
     const { ok, data: json } = await adminFetchJson<{ markets?: Market[] }>(
@@ -28,6 +35,10 @@ export function AdminMarketsClient() {
   }, []);
 
   useEffect(() => {
+    if (skipFetch.current) {
+      skipFetch.current = false;
+      return;
+    }
     void load();
   }, [load]);
 
@@ -43,6 +54,14 @@ export function AdminMarketsClient() {
 
   if (loading) {
     return <AdminPageSkeleton kpiCount={0} />;
+  }
+
+  if (initialError) {
+    return (
+      <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+        {initialError}
+      </div>
+    );
   }
 
   return (

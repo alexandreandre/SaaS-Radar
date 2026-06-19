@@ -1,8 +1,15 @@
 # Cadrage produit — Module Campagne (cockpit)
 
 > Document de travail — juin 2026  
-> Statut : implémenté (module cockpit Campagne)  
-> Objectif : définir un onglet cockpit « Campagne » calqué sur Build, sans polluer l'existant.
+> Statut : **refonte stade-aware (juin 2026)** — voir implémentation `src/lib/campaign/stages.ts`  
+> Objectif : co-pilote d'acquisition founder-led (0→100), 5 étapes : Cible → Message → Préparer → Agir → Suivre.
+
+## Refonte juin 2026 (résumé)
+
+- **Stades** (`network` → `scale`) remplacent les profils budget comme pilote principal.
+- **Parcours 5 phases** avec objectif SMART, plan d'actions cochable, check-ins hebdo, rétrospective.
+- **Acquisition** reste le dashboard ROAS/funnel (stade `scale`).
+- Ancien modèle 3 étapes / `MarketingProfile` conservé en compat migration JSON.
 
 ---
 

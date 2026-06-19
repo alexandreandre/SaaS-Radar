@@ -1,5 +1,17 @@
-import { AdminOpportunitiesClient } from "@/components/admin/opportunities-client";
+import { Suspense } from "react";
+import AdminConsoleLoading from "../loading";
+import { AdminOpportunitiesLoader } from "@/components/admin/opportunities-loader";
 
-export default function AdminOpportunitiesPage() {
-  return <AdminOpportunitiesClient />;
+type SearchParamsInput = Record<string, string | string[] | undefined>;
+
+export default function AdminOpportunitiesPage({
+  searchParams,
+}: {
+  searchParams?: SearchParamsInput;
+}) {
+  return (
+    <Suspense fallback={<AdminConsoleLoading />}>
+      <AdminOpportunitiesLoader searchParams={searchParams} />
+    </Suspense>
+  );
 }

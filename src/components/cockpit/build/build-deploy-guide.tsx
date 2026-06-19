@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import type { EnvVarSpec } from "@/lib/build/infra-profile";
+import { BUILTIN_DEPLOY_STEPS } from "@/lib/build/tool-content";
 
 type BuildDeployGuideProps = {
   tool: BuildTool;
@@ -20,31 +21,7 @@ type BuildDeployGuideProps = {
   expectedEnvVars?: EnvVarSpec[];
 };
 
-const BUILTIN_STEPS: Record<string, string[]> = {
-  base44: [
-    "Ouvrez votre projet dans Base44.",
-    "Vérifiez que le MVP fonctionne en preview.",
-    "Cliquez sur Publish en haut à droite.",
-    "Choisissez un sous-domaine gratuit ou votre domaine.",
-    "Partagez l'URL à vos premiers bêta-testeurs.",
-  ],
-  lovable: [
-    "Ouvrez votre projet Lovable.",
-    "Testez le parcours principal (inscription → action clé).",
-    "Cliquez sur Publish pour mettre en ligne.",
-    "Vérifiez l'URL sur mobile.",
-  ],
-  v0: [
-    "Dans v0, cliquez sur Deploy.",
-    "Connectez Vercel si demandé.",
-    "Votre URL de production est prête en quelques secondes.",
-  ],
-  replit: [
-    "Ouvrez l'onglet Deployments dans Replit.",
-    "Cliquez sur Deploy (Autoscale recommandé).",
-    "Testez l'URL .replit.app — parcours inscription.",
-  ],
-};
+const BUILTIN_STEPS: Record<string, string[]> = BUILTIN_DEPLOY_STEPS;
 
 export function BuildDeployGuide({
   tool,

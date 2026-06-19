@@ -329,6 +329,20 @@ export function buildModuleCallouts(
   }
 
   const buildLive = getBuildJourneyState(project).displayPhase === "live";
+  if (buildLive && !project.campaignSetup?.smartGoal) {
+    if (moduleId === "overview" || moduleId === "build" || moduleId === "campagne") {
+      push({
+        id: "campaign-no-goal",
+        title: "Définissez votre objectif d'acquisition",
+        description:
+          "Votre app est en ligne — fixez une cible SMART et un ICP dans Campagne.",
+        actionModule: "campagne",
+        actionLabel: "Campagne",
+        icon: Megaphone,
+      });
+    }
+  }
+
   if (buildLive && !isCampaignStarted(project)) {
     if (moduleId === "overview" || moduleId === "build" || moduleId === "campagne") {
       push({
@@ -357,6 +371,24 @@ export function buildModuleCallouts(
   }
 
   const campaignJourney = getCampaignJourneyState(project, opportunity);
+  if (
+    campaignJourney.currentStep >= 5 &&
+    (project.campaignSetup?.weeklyCheckIns?.length ?? 0) === 0 &&
+    project.campaignSetup?.cycleStatus === "active"
+  ) {
+    if (moduleId === "campagne") {
+      push({
+        id: "campaign-stuck",
+        title: "Check-in hebdo manquant",
+        description: "7 jours sans point — notez votre progression vers l'objectif.",
+        actionModule: "campagne",
+        actionLabel: "Check-in",
+        icon: Megaphone,
+        variant: "warning",
+      });
+    }
+  }
+
   if (
     campaignJourney.currentStep >= 3 &&
     !hasProductAnalyticsConnected(project.integrations) &&

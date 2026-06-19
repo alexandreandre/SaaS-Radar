@@ -7,7 +7,8 @@ import { LogOut, Radar, Rocket, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { usePortfolio } from "@/contexts/portfolio-context";
+import { useOptionalPortfolio } from "@/contexts/portfolio-context";
+import { usePortfolioSummary } from "@/hooks/use-portfolio-summary";
 import { useSession } from "@/contexts/session-context";
 import {
   MAP_EXPLORE_HREF,
@@ -33,7 +34,14 @@ function NavbarContent({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { hydrated, overdueCheckIns } = usePortfolio();
+  const portfolio = useOptionalPortfolio();
+  const summary = usePortfolioSummary(!portfolio);
+  const overdueCheckIns = portfolio?.hydrated
+    ? portfolio.overdueCheckIns
+    : summary.hydrated
+      ? summary.overdueCheckIns
+      : 0;
+  const portfolioHydrated = portfolio?.hydrated ?? summary.hydrated;
   const { isAuthenticated, isAdmin } = useSession();
 
   useEffect(() => {
@@ -128,7 +136,7 @@ function NavbarContent({
                 <Link href="/mes-saas" prefetch>
                   <Rocket className="h-4 w-4" />
                   Mes SaaS
-                  {hydrated && overdueCheckIns > 0 ? (
+                  {portfolioHydrated && overdueCheckIns > 0 ? (
                     <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-background" />
                   ) : null}
                 </Link>

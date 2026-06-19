@@ -3,7 +3,7 @@
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useMemo, useState } from "react";
-import { usePortfolio } from "@/contexts/portfolio-context";
+import { usePortfolioProjects } from "@/contexts/portfolio/use-portfolio";
 import { useFavorites } from "@/contexts/favorites-context";
 import { CheckInBanner, PortfolioStatsBar } from "@/components/portfolio/portfolio-stats";
 import { EmptyPortfolio } from "@/components/portfolio/empty-portfolio";
@@ -22,19 +22,19 @@ export function MesSaasContent() {
     hydrated,
     projects,
     stats,
-    opportunityCatalog,
+    catalogIndex,
     removeProject,
     setProjectPhase,
-  } = usePortfolio();
+  } = usePortfolioProjects();
   const { favoriteSlugs, hydrated: favoritesHydrated } = useFavorites();
   const [sort, setSort] = useState<SortKey>("recent");
 
   const favorites = useMemo(() => {
-    const bySlug = new Map(opportunityCatalog.map((o) => [o.slug, o]));
+    const bySlug = new Map(catalogIndex.map((o) => [o.slug, o]));
     return favoriteSlugs
       .map((slug) => bySlug.get(slug))
       .filter((o): o is NonNullable<typeof o> => o != null);
-  }, [opportunityCatalog, favoriteSlugs]);
+  }, [catalogIndex, favoriteSlugs]);
 
   const sorted = useMemo(() => {
     const list = [...projects];

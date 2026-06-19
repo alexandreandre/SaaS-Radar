@@ -25,6 +25,7 @@ import {
 } from "@/lib/admin/sourcing-actions";
 import { canEditAdmin } from "@/lib/admin/rbac";
 import { useAdminRole } from "@/contexts/admin-role-context";
+import type { AdminSourcingConsoleData } from "@/lib/admin/sourcing-page";
 import { adminFetchJson } from "@/lib/admin/client-fetch";
 import { CountryMultiSelect, type CountryOption } from "@/components/admin/country-multi-select";
 import { cn } from "@/lib/utils";
@@ -194,7 +195,14 @@ function FeedbackBanner({
 
 type MarketOption = CountryOption;
 
-export function SourcingConsole() {
+export function SourcingConsole({
+  initialData = null,
+  initialError = null,
+}: {
+  initialData?: AdminSourcingConsoleData | null;
+  initialError?: string | null;
+} = {}) {
+  const skipInitialLoad = useRef(initialData != null || initialError != null);
   const role = useAdminRole();
   const canEdit = canEditAdmin(role);
   const defaultMinScore = process.env.NEXT_PUBLIC_SOURCING_MIN_SCORE ?? "65";
@@ -203,15 +211,31 @@ export function SourcingConsole() {
   const [sector, setSector] = useState("");
   const [premium] = useState(false);
   const [minScore, setMinScore] = useState("");
-  const [markets, setMarkets] = useState<MarketOption[]>([]);
+  const [markets, setMarkets] = useState<MarketOption[]>(() =>
+    ((initialData?.markets as MarketOption[] | undefined) ?? []).map((m) => ({
+      code: m.code,
+      name: m.name,
+      flag: m.flag,
+    })),
+  );
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
-  const [runs, setRuns] = useState<Run[]>([]);
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [activeRunIds, setActiveRunIds] = useState<string[]>([]);
-  const [activeRunsMap, setActiveRunsMap] = useState<Record<string, Run>>({});
+  const [runs, setRuns] = useState<Run[]>(() => (initialData?.runs as Run[] | undefined) ?? []);
+  const [summary, setSummary] = useState<Summary | null>(
+    () => (initialData?.summary as Summary | undefined) ?? null,
+  );
+  const [activeRunIds, setActiveRunIds] = useState<string[]>(() =>
+    ((initialData?.activeRuns as Run[] | undefined) ?? []).map((r) => r.id),
+  );
+  const [activeRunsMap, setActiveRunsMap] = useState<Record<string, Run>>(() => {
+    const map: Record<string, Run> = {};
+    for (const run of (initialData?.activeRuns as Run[] | undefined) ?? []) {
+      map[run.id] = run;
+    }
+    return map;
+  });
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [initialLoading, setInitialLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(initialError);
+  const [initialLoading, setInitialLoading] = useState(!initialData && !initialError);
   const [loading, setLoading] = useState(false);
   const [queueProcessing, setQueueProcessing] = useState(false);
   const [relaunchingRunId, setRelaunchingRunId] = useState<string | null>(null);
@@ -223,8 +247,12 @@ export function SourcingConsole() {
   const [policyFeedback, setPolicyFeedback] = useState<string | null>(null);
   const [policyError, setPolicyError] = useState<string | null>(null);
 
-  const [policy, setPolicy] = useState<SourcingSettings | null>(null);
-  const [rules, setRules] = useState<AutoPublishRule[]>([]);
+  const [policy, setPolicy] = useState<SourcingSettings | null>(
+    () => initialData?.settings ?? null,
+  );
+  const [rules, setRules] = useState<AutoPublishRule[]>(
+    () => initialData?.settings?.auto_publish_rules ?? [],
+  );
   const [policyOpen, setPolicyOpen] = useState(false);
   const [simulation, setSimulation] = useState<{ total: number; wouldPublish: number } | null>(
     null
@@ -276,6 +304,10 @@ export function SourcingConsole() {
   }, []);
 
   useEffect(() => {
+    if (skipInitialLoad.current) {
+      skipInitialLoad.current = false;
+      return;
+    }
     void load();
   }, [load]);
 

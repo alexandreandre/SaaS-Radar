@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { useAdminRole } from "@/contexts/admin-role-context";
 import { adminFetchJson } from "@/lib/admin/client-fetch";
 import { cn } from "@/lib/utils";
 import type { CatalogueStats } from "@/lib/admin/catalogue-stats.shared";
+import type { AdminOpportunitiesPageData } from "@/lib/admin/opportunities";
 
 type OpportunityRow = {
   slug: string;
@@ -51,14 +52,24 @@ function parseApiError(json: { error?: string }): string {
   return json.error ?? "Erreur inconnue";
 }
 
-export function AdminOpportunitiesClient() {
+export function AdminOpportunitiesClient({
+  initialData = null,
+  initialError = null,
+}: {
+  initialData?: AdminOpportunitiesPageData | null;
+  initialError?: string | null;
+}) {
+  const skipListFetch = useRef(initialData != null || initialError != null);
+  const skipStatsFetch = useRef(initialData?.stats != null);
   const role = useAdminRole();
   const canEdit = canEditAdmin(role);
 
-  const [items, setItems] = useState<OpportunityRow[]>([]);
-  const [stats, setStats] = useState<CatalogueStats | null>(null);
-  const [total, setTotal] = useState(0);
-  const [offset, setOffset] = useState(0);
+  const [items, setItems] = useState<OpportunityRow[]>(
+    () => (initialData?.list.opportunities as OpportunityRow[] | undefined) ?? [],
+  );
+  const [stats, setStats] = useState<CatalogueStats | null>(initialData?.stats ?? null);
+  const [total, setTotal] = useState(initialData?.list.total ?? 0);
+  const [offset, setOffset] = useState(initialData?.list.offset ?? 0);
 
   const [status, setStatus] = useState("published");
   const [q, setQ] = useState("");
@@ -67,9 +78,9 @@ export function AdminOpportunitiesClient() {
   const [minScore, setMinScore] = useState("");
   const [sort, setSort] = useState("newest");
 
-  const [loading, setLoading] = useState(true);
-  const [statsLoading, setStatsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(!initialData && !initialError);
+  const [statsLoading, setStatsLoading] = useState(!initialData?.stats && !initialError);
+  const [error, setError] = useState<string | null>(initialError);
   const [message, setMessage] = useState<string | null>(null);
   const [actionSlug, setActionSlug] = useState<string | null>(null);
 
@@ -117,10 +128,18 @@ export function AdminOpportunitiesClient() {
   }, [queryString]);
 
   useEffect(() => {
+    if (skipStatsFetch.current) {
+      skipStatsFetch.current = false;
+      return;
+    }
     void loadStats();
   }, [loadStats]);
 
   useEffect(() => {
+    if (skipListFetch.current) {
+      skipListFetch.current = false;
+      return;
+    }
     void load();
   }, [load]);
 

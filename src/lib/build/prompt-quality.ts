@@ -28,7 +28,8 @@ export function validateBuildPrompt(
 ): PromptQualityResult {
   const missing: string[] = [];
   const needsInfraChecks =
-    tool.level === "advanced" &&
+    (tool.level === "advanced" ||
+      tool.id === "emergent") &&
     (infraProfile.services.includes("auth") || infraProfile.services.includes("database"));
 
   if (wordCount(mvpPrompt) < 400) {
@@ -46,7 +47,7 @@ export function validateBuildPrompt(
     if (!BAAS_PATTERN.test(mvpPrompt)) {
       missing.push("mention de Supabase, Firebase ou backend de persistance");
     }
-    if (!ENV_PATTERN.test(mvpPrompt)) {
+    if (!ENV_PATTERN.test(mvpPrompt) && tool.level === "advanced") {
       missing.push("section .env.example ou variables d'environnement");
     }
 

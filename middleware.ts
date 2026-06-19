@@ -15,6 +15,6 @@ export const config = {
      * - api/stripe (webhook/checkout/portal : Stripe n'envoie pas de cookie ;
      *   le webhook a besoin du body brut intact, pas de refresh de session)
      */
-    '/((?!_next/static|_next/image|favicon.ico|geo/|api/revalidate|api/admin|api/stripe|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|geo/|api/revalidate|api/admin|api/stripe|api/metrics/web-vitals|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 }

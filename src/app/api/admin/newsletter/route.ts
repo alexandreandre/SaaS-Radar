@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdminApi, withAdminAudit } from "@/lib/admin/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAdminNewsletterData } from "@/lib/admin/newsletter";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,29 +9,15 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const auth = await requireAdminApi(request, { minimumRole: "viewer" });
   if (auth instanceof NextResponse) return auth;
-
-  const admin = createAdminClient();
-  const [subs, campaigns] = await Promise.all([
-    admin
-      .from("newsletter_subscribers")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(100),
-    admin
-      .from("newsletter_campaigns")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(20),
-  ]);
-
-  const active = (subs.data ?? []).filter((s) => s.status === "active").length;
-  const pending = (subs.data ?? []).filter((s) => s.status === "pending").length;
-
-  return NextResponse.json({
-    stats: { total: subs.data?.length ?? 0, active, pending },
-    subscribers: subs.data ?? [],
-    campaigns: campaigns.data ?? [],
-  });
+  try {
+    const payload = await getAdminNewsletterData();
+    return NextResponse.json(payload);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: Request) {

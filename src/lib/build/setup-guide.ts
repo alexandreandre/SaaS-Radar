@@ -4,6 +4,11 @@ import type { BuildPromptLanguage } from "@/lib/build/prompt-language";
 import { collectProductFeatures } from "@/lib/build/infra-profile";
 import type { Opportunity } from "@/types/opportunity";
 import type { SetupStepKind } from "@/lib/build/kit-content";
+import { TOOLS_WITH_PLAN_MODE } from "@/lib/build/tool-constants";
+import {
+  BUILD_TOOL_OPEN_HINTS,
+  BUILD_TOOL_PLAN_MODE_HINTS,
+} from "@/lib/build/tool-content";
 
 export type SetupGuideStep = {
   kind: SetupStepKind;
@@ -11,14 +16,6 @@ export type SetupGuideStep = {
   body: string;
   recommended?: boolean;
 };
-
-const TOOLS_WITH_PLAN_MODE = new Set([
-  "cursor",
-  "claude-code",
-  "windsurf",
-  "replit",
-  "bolt",
-]);
 
 function envKeyNames(infraProfile: InfraProfile): string {
   const names = infraProfile.envVars.map((v) => v.name);
@@ -53,21 +50,8 @@ function formatTestFlows(features: string[], language: BuildPromptLanguage): str
 }
 
 function planModeStep(tool: BuildTool, language: BuildPromptLanguage): SetupGuideStep {
-  const hints: Partial<Record<string, string>> = {
-    cursor:
-      "Shift+Tab dans le chat Agent pour le mode Plan — surtout utile pour les gros changements (nouvelle feature, refonte). Décrivez l'objectif, validez le plan proposé, puis lancez.",
-    windsurf:
-      "Demandez d'abord un plan d'implémentation détaillé (fichiers, schéma BDD, écrans) avant d'autoriser le code.",
-    "claude-code":
-      "Demandez un plan complet (structure, dépendances, schéma) dans le terminal avant l'implémentation.",
-    replit:
-      "Avec l'Agent Replit, demandez un plan (composants, auth, BDD) et validez-le avant le build.",
-    bolt:
-      "Décrivez l'architecture dans le chat et affinez la structure avant de lancer la génération.",
-  };
-
   const body =
-    hints[tool.id] ??
+    BUILD_TOOL_PLAN_MODE_HINTS[tool.id] ??
     (language === "en"
       ? `Use ${tool.name}'s planning mode to review architecture before building.`
       : `Utilisez le mode plan de ${tool.name} pour valider l'architecture avant de construire.`);
@@ -92,19 +76,8 @@ function supabaseStep(language: BuildPromptLanguage): SetupGuideStep {
 }
 
 function pastePromptStep(tool: BuildTool, language: BuildPromptLanguage): SetupGuideStep {
-  const openHints: Partial<Record<string, string>> = {
-    cursor: "Ouvrez Cursor, créez ou ouvrez un dossier projet, puis ouvrez le chat Agent.",
-    lovable: "Ouvrez votre projet dans Lovable (ou créez-en un nouveau).",
-    base44: "Ouvrez Base44 et démarrez un nouveau projet.",
-    bolt: "Ouvrez bolt.new et créez un nouveau projet.",
-    v0: "Ouvrez v0 et démarrez un nouveau chat/projet.",
-    replit: "Ouvrez Replit et créez un Repl pour votre app.",
-    windsurf: "Ouvrez Windsurf dans le dossier où le code sera généré.",
-    "claude-code": "Placez-vous dans le dossier projet dans votre terminal avec Claude Code.",
-  };
-
   const open =
-    openHints[tool.id] ??
+    BUILD_TOOL_OPEN_HINTS[tool.id] ??
     (language === "en" ? `Open ${tool.name}.` : `Ouvrez ${tool.name}.`);
 
   const paste =

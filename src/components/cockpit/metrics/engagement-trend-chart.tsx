@@ -1,41 +1,18 @@
 "use client";
 
-import {
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import type { MetricsSnapshot } from "@/lib/connectors/types";
-import { getEngagementSeries } from "@/lib/portfolio";
+import dynamic from "next/dynamic";
+import type { ComponentProps } from "react";
 
-export function EngagementTrendChart({ history }: { history: MetricsSnapshot[] }) {
-  const data = getEngagementSeries(history);
+const EngagementTrendChartInner = dynamic(
+  () => import("./engagement-trend-chart-inner").then((m) => ({ default: m.EngagementTrendChartInner })),
+  { ssr: false, loading: () => <ChartSkeleton /> },
+);
 
-  if (data.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Pas encore de données d&apos;engagement — saisissez vos métriques ou connectez un analytics.
-      </p>
-    );
-  }
+function ChartSkeleton() {
+  return <div className="h-64 w-full animate-pulse rounded-lg bg-muted/50" aria-hidden />;
+}
 
-  return (
-    <ResponsiveContainer width="100%" height={260}>
-      <LineChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#E4E4E7" />
-        <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-        <YAxis tick={{ fontSize: 11 }} />
-        <Tooltip />
-        <Legend />
-        <Line type="monotone" dataKey="signups" name="Signups" stroke="#64748b" strokeWidth={2} dot={false} />
-        <Line type="monotone" dataKey="mau" name="MAU" stroke="#4a6f9a" strokeWidth={2} dot={false} />
-        <Line type="monotone" dataKey="dau" name="DAU" stroke="#10b981" strokeWidth={2} dot={false} />
-      </LineChart>
-    </ResponsiveContainer>
-  );
+
+export function EngagementTrendChart(props: ComponentProps<typeof EngagementTrendChartInner>) {
+  return <EngagementTrendChartInner {...props} />;
 }

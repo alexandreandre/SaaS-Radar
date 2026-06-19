@@ -10,7 +10,13 @@ import { DetailHeader } from "@/components/opportunities/detail/detail-header";
 import { DetailContent } from "@/components/opportunities/detail/detail-content";
 import { BuildOpportunityStickyCta } from "@/components/cockpit/build-opportunity-sticky";
 
-export function OpportunityDetail({ opportunity }: { opportunity: Opportunity }) {
+export function OpportunityDetail({
+  opportunity,
+  existingProjectId = null,
+}: {
+  opportunity: Opportunity;
+  existingProjectId?: string | null;
+}) {
   const sector = sectorLabels[opportunity.sector] ?? opportunity.sector;
 
   return (
@@ -38,6 +44,7 @@ export function OpportunityDetail({ opportunity }: { opportunity: Opportunity })
 
         <DetailHeader
           opportunity={opportunity}
+          existingProjectId={existingProjectId}
           meta={{
             publishedAt: opportunity.publishedAt,
             sourceVerified: opportunity.sourceVerified,
@@ -47,7 +54,10 @@ export function OpportunityDetail({ opportunity }: { opportunity: Opportunity })
 
         <DetailContent opportunity={opportunity} />
       </main>
-      <BuildOpportunityStickyCta opportunity={opportunity} />
+      <BuildOpportunityStickyCta
+        opportunity={opportunity}
+        existingProjectId={existingProjectId}
+      />
       <Footer />
     </>
   );

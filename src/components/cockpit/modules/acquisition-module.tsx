@@ -8,7 +8,7 @@ import { ChartSection } from "@/components/cockpit/ui/module-primitives";
 import { ChartSkeleton } from "@/components/cockpit/ui/chart-skeleton";
 import type { CockpitModuleProps } from "@/components/cockpit/modules/module-props";
 import { buildModuleCallouts } from "@/lib/cockpit-callouts";
-import { isCampaignStarted } from "@/lib/campaign/journey";
+import { recommendStageForProject } from "@/lib/campaign/recommend";
 import { Button } from "@/components/ui/button";
 
 const SpendByChannelChart = dynamic(
@@ -49,17 +49,48 @@ export function AcquisitionModule({
         i.connectorId === "meta-ads") &&
       (i.status === "connected" || i.status === "demo"),
   );
-  const showCampaignCta = hasAdsIntegration && !isCampaignStarted(project);
+  const stage = recommendStageForProject(project, opportunity);
+  const showCampaignCta = hasAdsIntegration && stage !== "scale";
+  const showScaleBanner =
+    stage === "scale" && campaigns.length === 0 && hasAdsIntegration;
 
   return (
     <div className="space-y-6">
       {showCampaignCta ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3">
           <p className="text-sm text-muted-foreground">
-            Connecteur ads actif — créez vos kits créatifs dans Campagne avant de scaler.
+            Votre plan d&apos;action est prêt dans Campagne — exécutez-le avant de scaler ici.
           </p>
           <Button type="button" size="sm" onClick={() => onModuleChange("campagne")}>
             Ouvrir Campagne
+          </Button>
+        </div>
+      ) : null}
+
+      {showScaleBanner ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3">
+          <p className="text-sm text-muted-foreground">
+            Stade scale — saisissez vos dépenses pub pour suivre le ROAS.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              onAddCampaign({
+                channel: "meta",
+                name: "Nouvelle campagne",
+                status: "active",
+                dailyBudget: 0,
+                totalSpend: 0,
+                impressions: 0,
+                clicks: 0,
+                conversions: 0,
+                startedAt: new Date().toISOString().slice(0, 10),
+              })
+            }
+          >
+            Ajouter une campagne
           </Button>
         </div>
       ) : null}

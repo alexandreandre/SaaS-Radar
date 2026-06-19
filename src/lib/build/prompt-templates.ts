@@ -9,6 +9,7 @@ import {
   getInfraPromptBlock,
   type InfraProfile,
 } from "@/lib/build/infra-profile";
+import { TOOLS_WITH_PLAN_MODE } from "@/lib/build/tool-constants";
 
 export type BuildPromptContext = {
   opportunity: Opportunity;
@@ -19,13 +20,50 @@ export type BuildPromptContext = {
   infraProfile: InfraProfile;
 };
 
-const TOOLS_WITH_PLAN_MODE = new Set([
-  "cursor",
-  "claude-code",
-  "windsurf",
-  "replit",
-  "bolt",
-]);
+function toolSpecificRules(
+  tool: BuildTool,
+  language: BuildPromptLanguage,
+  infraProfile: InfraProfile,
+): string {
+  if (tool.id === "emergent") {
+    const stripeHint = infraProfile.services.includes("payments")
+      ? language === "en"
+        ? "- Mention Stripe setup in section 6 if monetization is required"
+        : "- Mentionner Stripe en section 6 si monétisation requise"
+      : "";
+    if (language === "en") {
+      return `- Describe the app in natural language; let Emergent's agents (architect, frontend, backend) coordinate the build
+- Explicitly require: email/password auth, data persistence, signup → core action journey
+- Prefer Supabase for auth/database if Emergent offers the integration; otherwise configure via Emergent interface
+${stripeHint}
+- Delivery: build a testable MVP in preview — not a skeleton
+- Keep iterating in Emergent chat feature by feature`;
+    }
+    return `- Décrivez l'app en langage naturel ; laissez les agents Emergent (architecte, frontend, backend) coordonner le build
+- Exiger explicitement : auth email/mot de passe, persistance des données, parcours inscription → action clé
+- Préférer Supabase pour auth/BDD si Emergent propose l'intégration ; sinon configurer via l'interface Emergent
+${stripeHint}
+- Livraison : MVP testable en preview — pas un squelette
+- Itérer dans le chat Emergent feature par feature`;
+  }
+
+  if (tool.id === "codex") {
+    if (language === "en") {
+      return `- Create a root \`AGENTS.md\` file (stack, conventions, npm commands, MVP scope) — Codex reads it for context
+- Initialize git, make atomic commits, push to GitHub when the MVP runs locally
+- Run \`npm install && npm run dev\` to validate before deploying
+- Use Codex approval modes — confirm before destructive shell commands
+- Mention \`/model\` if the founder needs to switch models`;
+    }
+    return `- Créer un fichier \`AGENTS.md\` à la racine (stack, conventions, commandes npm, périmètre MVP) — Codex s'en sert comme contexte
+- Initialiser git, commits atomiques, push GitHub quand le MVP tourne en local
+- Lancer \`npm install && npm run dev\` pour valider avant déploiement
+- Utiliser les modes d'approbation Codex — confirmer avant les commandes shell destructives
+- Mentionner \`/model\` si le fondateur doit changer de modèle`;
+  }
+
+  return "";
+}
 
 function languageRules(language: BuildPromptLanguage): string {
   if (language === "en") {
@@ -98,32 +136,49 @@ function toolLevelRules(
 - ${iterateHint}`;
   }
   if (tool.level === "intermediate") {
-    return `- mvpPrompt : guidé mais complet — parcours utilisateur + écrans clés + comportements attendus + finitions
-- ${getInfraPromptBlock(infraProfile, language)}
-- ${tool.name} gère la technique : restez produit mais mentionnez auth et persistance explicitement
-- ${secretsSectionRules(tool, language, infraProfile)}
-- ${iterateHint}`;
+    const lines = [
+      `- mvpPrompt : guidé mais complet — parcours utilisateur + écrans clés + comportements attendus + finitions`,
+      `- ${getInfraPromptBlock(infraProfile, language)}`,
+      `- ${tool.name} gère la technique : restez produit mais mentionnez auth et persistance explicitement`,
+      `- ${secretsSectionRules(tool, language, infraProfile)}`,
+    ];
+    const specific = toolSpecificRules(tool, language, infraProfile);
+    if (specific) lines.push(...specific.split("\n").filter(Boolean));
+    lines.push(`- ${iterateHint}`);
+    if (planModeHint) lines.push(`- ${planModeHint}`);
+    return lines.join("\n");
   }
 
   const stackLine = infraProfile.recommendedStack.join(", ");
+  const specific = toolSpecificRules(tool, language, infraProfile);
   if (language === "en") {
-    return `- mvpPrompt : full product + architecture prompt for ${tool.name}
-- Mandatory section 5b "Recommended architecture & stack" — use stack: ${stackLine}
-- Describe minimal database schema (tables, relations, Supabase RLS policies)
-- Acceptable alternative: Firebase Auth + Firestore — one sentence only if justified
-- Forbidden: localStorage-only persistence, hardcoded data, TODOs left behind
-- ${getInfraPromptBlock(infraProfile, language)}
-- ${secretsSectionRules(tool, language, infraProfile)}
-- ${planModeHint ? `${planModeHint}\n- ` : ""}${iterateHint}`;
+    const lines = [
+      `- mvpPrompt : full product + architecture prompt for ${tool.name}`,
+      `- Mandatory section 5b "Recommended architecture & stack" — use stack: ${stackLine}`,
+      `- Describe minimal database schema (tables, relations, Supabase RLS policies)`,
+      `- Acceptable alternative: Firebase Auth + Firestore — one sentence only if justified`,
+      `- Forbidden: localStorage-only persistence, hardcoded data, TODOs left behind`,
+      `- ${getInfraPromptBlock(infraProfile, language)}`,
+      `- ${secretsSectionRules(tool, language, infraProfile)}`,
+    ];
+    if (specific) lines.push(...specific.split("\n").filter(Boolean));
+    if (planModeHint) lines.push(`- ${planModeHint}`);
+    lines.push(`- ${iterateHint}`);
+    return lines.join("\n");
   }
-  return `- mvpPrompt : prompt PRODUIT + architecture prêt à coller dans ${tool.name}
-- Section 5 bis « Architecture & stack recommandée » OBLIGATOIRE — stack : ${stackLine}
-- Décrire le schéma BDD minimal (tables, relations, politiques RLS Supabase)
-- Alternative acceptable : Firebase Auth + Firestore — une phrase si justifié
-- Interdit : localStorage seul, données en dur, TODO laissés
-- ${getInfraPromptBlock(infraProfile, language)}
-- ${secretsSectionRules(tool, language, infraProfile)}
-- ${planModeHint ? `${planModeHint}\n- ` : ""}${iterateHint}`;
+  const lines = [
+    `- mvpPrompt : prompt PRODUIT + architecture prêt à coller dans ${tool.name}`,
+    `- Section 5 bis « Architecture & stack recommandée » OBLIGATOIRE — stack : ${stackLine}`,
+    `- Décrire le schéma BDD minimal (tables, relations, politiques RLS Supabase)`,
+    `- Alternative acceptable : Firebase Auth + Firestore — une phrase si justifié`,
+    `- Interdit : localStorage seul, données en dur, TODO laissés`,
+    `- ${getInfraPromptBlock(infraProfile, language)}`,
+    `- ${secretsSectionRules(tool, language, infraProfile)}`,
+  ];
+  if (specific) lines.push(...specific.split("\n").filter(Boolean));
+  if (planModeHint) lines.push(`- ${planModeHint}`);
+  lines.push(`- ${iterateHint}`);
+  return lines.join("\n");
 }
 
 function mvpPromptStructure(tool: BuildTool, language: BuildPromptLanguage): string {

@@ -78,7 +78,7 @@ export const COCKPIT_CAMPAGNE: CockpitModuleDef = {
   label: "Campagne",
   shortLabel: "Campagne",
   icon: Megaphone,
-  description: "Stack marketing, kits IA et lancement guidé",
+  description: "Plan d'acquisition guidé, actions et suivi",
 };
 
 export const COCKPIT_INTEGRATIONS: CockpitModuleDef = {

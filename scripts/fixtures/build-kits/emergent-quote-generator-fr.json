@@ -1,0 +1,9 @@
+{
+  "toolId": "emergent",
+  "opportunitySlug": "quote-generator-contractors",
+  "language": "fr",
+  "requiredSetupKinds": ["plan_mode", "paste_prompt"],
+  "requiredSetupTitles": ["Mettre en ligne"],
+  "requiredKeywords": ["authentification", "supabase", "preview"],
+  "sampleMvpPrompt": "## Contexte produit\nSubbieRates pour sous-traitants BTP.\n\n## Architecture\nWeb app full-stack Emergent avec Supabase (auth email/mot de passe + PostgreSQL).\n\n## Authentification\nInscription et connexion email/mot de passe.\n\n## Persistance\nProfils tarifaires et devis sauvegardés en base Supabase.\n\n## Configuration & secrets\nConfigurer auth et clés via l'interface native Emergent.\n\n## Fonctionnalités\n1. Calculateur de tarif journalier\n2. Sauvegarde des profils\n3. Génération de devis PDF\n4. Tableau de bord historique\n\n## Livraison\nMVP testable en preview Emergent — pas un squelette.\nLe parcours inscription connexion calcul devis export PDF doit être testable."
+}

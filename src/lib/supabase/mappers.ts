@@ -1,5 +1,10 @@
 import type { OpportunityRow } from './types'
-import type { Opportunity } from '@/types/opportunity'
+import type { Opportunity, OpportunityListItem } from '@/types/opportunity'
+
+const LIST_ITEM_SELECT =
+  "id, slug, name, pitch, origin_country, origin_country_code, origin_flag, sector, target_client, client_type, tech_complexity, france_competition, revenue_min, revenue_max, buildable_under_30_days, weekly_pick, published_at, created_at, scores"
+
+export const OPPORTUNITY_LIST_SELECT = LIST_ITEM_SELECT
 
 export function mapRowToOpportunity(row: OpportunityRow): Opportunity {
   return {
@@ -46,6 +51,30 @@ export function mapRowToOpportunity(row: OpportunityRow): Opportunity {
     roiInputs: (row.roi_inputs as unknown as Opportunity['roiInputs']) ?? undefined,
     tamBreakdown: (row.tam_breakdown as unknown as Opportunity['tamBreakdown']) ?? undefined,
     competitionAlerts: (row.competition_alerts as unknown as Opportunity['competitionAlerts']) ?? undefined,
+  }
+}
+
+export function mapRowToOpportunityListItem(row: OpportunityRow): OpportunityListItem {
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    pitch: row.pitch,
+    originCountry: row.origin_country,
+    originCountryCode: row.origin_country_code,
+    originFlag: row.origin_flag,
+    sector: row.sector as OpportunityListItem['sector'],
+    targetClient: row.target_client,
+    clientType: row.client_type as OpportunityListItem['clientType'],
+    techComplexity: row.tech_complexity as OpportunityListItem['techComplexity'],
+    franceCompetition: row.france_competition as OpportunityListItem['franceCompetition'],
+    revenueMin: row.revenue_min,
+    revenueMax: row.revenue_max,
+    buildableUnder30Days: row.buildable_under_30_days,
+    weeklyPick: row.weekly_pick,
+    publishedAt: row.published_at ?? undefined,
+    createdAt: row.created_at,
+    scores: row.scores as unknown as OpportunityListItem['scores'],
   }
 }
 

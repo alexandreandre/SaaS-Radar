@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -28,6 +28,7 @@ import {
   formatSubscriptionStatus,
   subscriptionBadgeTone,
 } from "@/lib/admin/user-labels.shared";
+import type { AdminUsersListResult } from "@/lib/admin/users";
 import { cn } from "@/lib/utils";
 
 type UserRow = UserDetail;
@@ -83,10 +84,20 @@ function TableSkeleton() {
   );
 }
 
-export function AdminUsersClient() {
+export function AdminUsersClient({
+  initialData = null,
+  initialStats = null,
+  initialError = null,
+}: {
+  initialData?: AdminUsersListResult | null;
+  initialStats?: UserStats | null;
+  initialError?: string | null;
+}) {
   const currentRole = useAdminRole();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const skipUsersFetch = useRef(initialData != null || initialError != null);
+  const skipStatsFetch = useRef(initialStats != null);
 
   const qParam = searchParams.get("q") ?? "";
   const planParam = searchParams.get("plan") ?? "";
@@ -96,14 +107,23 @@ export function AdminUsersClient() {
 
   const [qInput, setQInput] = useState(qParam);
   const [debouncedQ, setDebouncedQ] = useState(qParam);
-  const [users, setUsers] = useState<UserRow[]>([]);
-  const [roleOverrides, setRoleOverrides] = useState<Record<string, AdminRole>>({});
-  const [total, setTotal] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
-  const [stats, setStats] = useState<UserStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [users, setUsers] = useState<UserRow[]>(
+    () => (initialData?.users as UserRow[] | undefined) ?? [],
+  );
+  const [roleOverrides, setRoleOverrides] = useState<Record<string, AdminRole>>(() =>
+    Object.fromEntries(
+      ((initialData?.users as UserRow[] | undefined) ?? []).map((u) => [
+        u.id,
+        (u.admin_role ?? "none") as AdminRole,
+      ]),
+    ),
+  );
+  const [total, setTotal] = useState(initialData?.total ?? 0);
+  const [hasMore, setHasMore] = useState(initialData?.hasMore ?? false);
+  const [stats, setStats] = useState<UserStats | null>(initialStats);
+  const [loading, setLoading] = useState(!initialData && !initialError);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
   const [toast, setToast] = useState<Toast | null>(null);
   const [selectedUser, setSelectedUser] = useState<UserRow | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -194,10 +214,18 @@ export function AdminUsersClient() {
   }, [debouncedQ, planParam, roleParam, statusParam, offsetParam]);
 
   useEffect(() => {
+    if (skipStatsFetch.current) {
+      skipStatsFetch.current = false;
+      return;
+    }
     void loadStats();
   }, [loadStats]);
 
   useEffect(() => {
+    if (skipUsersFetch.current) {
+      skipUsersFetch.current = false;
+      return;
+    }
     void loadUsers();
   }, [loadUsers]);
 

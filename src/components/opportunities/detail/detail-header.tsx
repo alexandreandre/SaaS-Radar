@@ -18,9 +18,11 @@ export type DetailHeaderMeta = {
 export function DetailHeader({
   opportunity,
   meta,
+  existingProjectId = null,
 }: {
   opportunity: Opportunity;
   meta?: DetailHeaderMeta;
+  existingProjectId?: string | null;
 }) {
   return (
     <motion.div
@@ -123,7 +125,12 @@ export function DetailHeader({
 
       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <FavoriteButton slug={opportunity.slug} size="md" variant="pill" />
-        {!meta?.hideCta && <BuildOpportunityCta opportunity={opportunity} />}
+        {!meta?.hideCta && (
+          <BuildOpportunityCta
+            opportunity={opportunity}
+            existingProjectId={existingProjectId}
+          />
+        )}
       </div>
     </motion.div>
   );

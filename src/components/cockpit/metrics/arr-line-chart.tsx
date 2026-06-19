@@ -1,28 +1,18 @@
 "use client";
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import type { MetricsSnapshot } from "@/lib/connectors/types";
-import { formatCurrency } from "@/lib/utils";
+import dynamic from "next/dynamic";
+import type { ComponentProps } from "react";
 
-export function ArrLineChart({ snapshots }: { snapshots: MetricsSnapshot[] }) {
-  const data = snapshots.map((s) => ({
-    date: s.date,
-    arr: s.mrr * 12,
-  }));
+const ArrLineChartInner = dynamic(
+  () => import("./arr-line-chart-inner").then((m) => ({ default: m.ArrLineChartInner })),
+  { ssr: false, loading: () => <ChartSkeleton /> },
+);
 
-  if (data.length === 0) {
-    return <p className="text-sm text-muted-foreground">Pas de données ARR.</p>;
-  }
+function ChartSkeleton() {
+  return <div className="h-64 w-full animate-pulse rounded-lg bg-muted/50" aria-hidden />;
+}
 
-  return (
-    <ResponsiveContainer width="100%" height={240}>
-      <LineChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#E4E4E7" />
-        <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-        <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-        <Tooltip formatter={(v) => formatCurrency(Number(v))} />
-        <Line type="monotone" dataKey="arr" stroke="#4a6f9a" strokeWidth={2} dot />
-      </LineChart>
-    </ResponsiveContainer>
-  );
+
+export function ArrLineChart(props: ComponentProps<typeof ArrLineChartInner>) {
+  return <ArrLineChartInner {...props} />;
 }

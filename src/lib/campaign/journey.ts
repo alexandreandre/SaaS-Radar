@@ -1,41 +1,43 @@
 import type { Opportunity } from "@/types/opportunity";
 import type { UserProject } from "@/lib/portfolio";
 import { getBuildJourneyState } from "@/lib/build/journey";
-import type { ExtendedChannelKey } from "@/lib/campaign/channels";
-import { getChannelLabel } from "@/lib/campaign/channels";
-import { recommendPrimaryChannel } from "@/lib/campaign/recommend";
+import {
+  recommendStageForProject,
+} from "@/lib/campaign/recommend";
 import {
   getActiveCampaignKit,
   getActiveCampaignToolId,
-  getSavedCampaignToolIds,
+  getCampaignStage,
   hasCampaignKit,
+  isStep1Complete,
+  isStep2Complete,
+  isStep3Complete,
+  isStep4Complete,
+  isTrackingConfigured,
 } from "@/lib/campaign/kits";
-import {
-  getCampaignTool,
-  getDistributionTargetsForChannel,
-  type MarketingProfile,
-} from "@/lib/campaign/tools";
-import { getCampaignToolName } from "@/lib/campaign/kits";
+import { getStageDefinition } from "@/lib/campaign/stages";
 
-export type CampaignJourneyStep = 1 | 2 | 3 | 4;
+export type CampaignJourneyStep = 1 | 2 | 3 | 4 | 5;
 
 export const CAMPAIGN_JOURNEY_STEPS: { step: CampaignJourneyStep; label: string }[] = [
-  { step: 1, label: "Stratégie" },
-  { step: 2, label: "Création" },
-  { step: 3, label: "Diffusion" },
-  { step: 4, label: "Mesure" },
+  { step: 1, label: "Cible" },
+  { step: 2, label: "Message" },
+  { step: 3, label: "Préparer" },
+  { step: 4, label: "Agir" },
+  { step: 5, label: "Suivre" },
 ];
 
 export type CampaignDisplayPhase =
   | "strategy"
-  | "creating"
-  | "distributing"
-  | "measuring"
+  | "preparing"
+  | "executing"
+  | "tracking"
   | "iterating";
 
 export type CampaignJourneyState = {
   currentStep: CampaignJourneyStep;
   displayPhase: CampaignDisplayPhase;
+  acquisitionStage: ReturnType<typeof getCampaignStage>;
   showCoachCopy: boolean;
   actionTitle: string;
   actionDetail: string;
@@ -43,6 +45,7 @@ export type CampaignJourneyState = {
   appOnline: boolean;
   appOnlineWarning?: string;
   trackingUnlocked: boolean;
+  showAcquisitionHandoff: boolean;
 };
 
 function isIntegrationConnected(
@@ -56,42 +59,91 @@ function isIntegrationConnected(
   );
 }
 
-function hasDistributionReady(
-  project: UserProject,
-  channel: ExtendedChannelKey,
-  profile: MarketingProfile,
-): boolean {
-  if (project.campaignSetup?.distributionAcknowledgedAt) return true;
-
-  if (profile === "organic") {
-    return hasCampaignKit(project);
-  }
-
-  const adTargets = getDistributionTargetsForChannel(channel, profile).filter(
-    (t) => t.category === "ads",
-  );
-  if (adTargets.length === 0) return hasCampaignKit(project);
-  return adTargets.some((t) => isIntegrationConnected(project, t.connectorId));
-}
-
 function hasAnalyticsConnected(project: UserProject): boolean {
   if (project.campaignSetup?.measureAcknowledgedAt) return true;
   return (
     isIntegrationConnected(project, "plausible") ||
     isIntegrationConnected(project, "posthog") ||
-    isIntegrationConnected(project, "google-analytics")
+    isIntegrationConnected(project, "google-analytics") ||
+    isIntegrationConnected(project, "fathom")
   );
+}
+
+function resolveCurrentStep(project: UserProject): CampaignJourneyStep {
+  const setup = project.campaignSetup;
+  if (!isStep1Complete(setup)) return 1;
+  if (!isStep2Complete(setup)) return 2;
+  if (!isStep3Complete(setup)) return 3;
+  if (!isStep4Complete(setup)) return 4;
+  return 5;
 }
 
 function resolveDisplayPhase(
   step: CampaignJourneyStep,
-  measuring: boolean,
+  setup: UserProject["campaignSetup"],
 ): CampaignDisplayPhase {
-  if (measuring && step === 4) return "iterating";
+  if (setup?.cycleStatus === "completed" || setup?.retrospective) return "iterating";
   if (step === 1) return "strategy";
-  if (step === 2) return "creating";
-  if (step === 3) return "distributing";
-  return "measuring";
+  if (step === 2) return "strategy";
+  if (step === 3) return "preparing";
+  if (step === 4) return "executing";
+  return "tracking";
+}
+
+function stageCoachCopy(
+  stage: ReturnType<typeof getCampaignStage>,
+  step: CampaignJourneyStep,
+): { title: string; detail: string } {
+  const def = getStageDefinition(stage);
+
+  if (step === 1) {
+    return {
+      title: `Stade ${def.label} — définissez votre cible`,
+      detail: `${def.description} Métrique clé : ${def.primaryMetric}.`,
+    };
+  }
+  if (step === 2) {
+    return {
+      title: "Affinez votre message",
+      detail: "Positionnement en une phrase + brief stratégique avant de produire.",
+    };
+  }
+  if (step === 3) {
+    return {
+      title: "Préparez outils et mesure",
+      detail: stage === "scale"
+        ? "Créas prêtes + UTM + connecteurs ads avant de scaler."
+        : "Générez vos assets IA et configurez le suivi des signups.",
+    };
+  }
+  if (step === 4) {
+    if (stage === "network") {
+      return {
+        title: "Agissez — réseau d'abord",
+        detail: "20 DMs personnalisés cette semaine. Pas de pub.",
+      };
+    }
+    if (stage === "outreach") {
+      return {
+        title: "Agissez — outreach fondateur",
+        detail: "Objectif : 5 discovery calls. Personnalisez chaque message.",
+      };
+    }
+    if (stage === "scale") {
+      return {
+        title: "Lancez et pilotez dans Acquisition",
+        detail: "Suivez ROAS et funnel dans l'onglet Acquisition.",
+      };
+    }
+    return {
+      title: "Exécutez votre plan",
+      detail: "Cochez chaque action — une semaine, un focus.",
+    };
+  }
+  return {
+    title: "Suivez et ajustez",
+    detail: "Check-in hebdo : progressez-vous vers votre objectif ?",
+  };
 }
 
 export function getCampaignJourneyState(
@@ -100,86 +152,45 @@ export function getCampaignJourneyState(
 ): CampaignJourneyState {
   const buildState = getBuildJourneyState(project);
   const appOnline = buildState.displayPhase === "live";
+  const setup = project.campaignSetup;
+  const stage = opportunity
+    ? recommendStageForProject(project, opportunity)
+    : getCampaignStage(project);
 
-  const profile = project.marketingProfile ?? project.campaignSetup?.profile;
-  const hasProfile = Boolean(profile);
-  const strategyBrief = project.campaignSetup?.strategyBrief?.trim();
-  const hasStrategy = Boolean(hasProfile && strategyBrief);
-
-  const activeToolId = getActiveCampaignToolId(project);
-  const activeKit = getActiveCampaignKit(project);
-  const hasKit = Boolean(activeKit?.primaryPrompt) || hasCampaignKit(project);
-
-  const channel: ExtendedChannelKey =
-    project.campaignSetup?.primaryChannel ??
-    (opportunity ? recommendPrimaryChannel(opportunity) : "linkedin");
-
-  const resolvedProfile = profile ?? "organic";
-  const distributionReady = hasDistributionReady(project, channel, resolvedProfile);
-  const analyticsReady = hasAnalyticsConnected(project);
-
-  let currentStep: CampaignJourneyStep = 1;
-  if (!hasStrategy) currentStep = 1;
-  else if (!hasKit) currentStep = 2;
-  else if (!distributionReady) currentStep = 3;
-  else currentStep = 4;
-
-  const measuring = analyticsReady && currentStep === 4;
-  const displayPhase = resolveDisplayPhase(currentStep, measuring);
-
-  const tool = activeToolId ? getCampaignTool(activeToolId) : undefined;
-  const otherKitIds = getSavedCampaignToolIds(project).filter((id) => id !== activeToolId);
-  const secondaryDetail =
-    otherKitIds.length > 0
-      ? `Vous avez aussi un kit sur ${otherKitIds.map(getCampaignToolName).join(", ")} — changez d'outil via les chips ci-dessous.`
-      : undefined;
-
-  let actionTitle = "Définissez votre stratégie";
-  let actionDetail =
-    "Choisissez votre profil marketing et générez un brief adapté à votre canal.";
-
-  if (currentStep === 2) {
-    actionTitle = "Générez vos kits créatifs";
-    actionDetail = tool
-      ? `Un brief et des prompts prêts à coller dans ${tool.name}.`
-      : "Sélectionnez vos outils et générez les prompts pour votre campagne.";
-  } else if (currentStep === 3) {
-    actionTitle = "Diffusez votre campagne";
-    actionDetail =
-      resolvedProfile === "organic"
-        ? `Publiez sur ${getChannelLabel(channel)} en suivant le guide de diffusion.`
-        : "Connectez votre canal ads ou suivez le guide de publication.";
-  } else if (currentStep === 4) {
-    actionTitle = analyticsReady ? "Suivez vos résultats" : "Branchez la mesure";
-    actionDetail = analyticsReady
-      ? "Consultez Acquisition pour le ROAS et itérez sur vos créas."
-      : "Connectez Plausible ou PostHog pour suivre signups et conversions.";
-  }
+  const currentStep = resolveCurrentStep(project);
+  const displayPhase = resolveDisplayPhase(currentStep, setup);
+  const hasKit = Boolean(getActiveCampaignKit(project)?.primaryPrompt) || hasCampaignKit(project);
+  const coach = stageCoachCopy(stage, currentStep);
 
   const appOnlineWarning = !appOnline
     ? "Votre app n'est pas encore en ligne — vous pouvez préparer la campagne, mais lancez après le déploiement."
     : undefined;
 
-  if (appOnline && buildState.displayPhase === "live" && currentStep === 1) {
-    actionDetail =
-      "Votre app est en ligne — c'est le moment de préparer votre lancement.";
+  const checkInCount = setup?.weeklyCheckIns?.length ?? 0;
+  let secondaryDetail: string | undefined;
+  if (currentStep === 5 && checkInCount === 0) {
+    secondaryDetail = "Faites votre premier check-in — 2 minutes pour noter où vous en êtes.";
+  } else if (stage === "scale" && currentStep >= 4) {
+    secondaryDetail = "Le dashboard ROAS est dans l'onglet Acquisition.";
   }
 
   const showCoachCopy =
     displayPhase === "strategy" ||
-    displayPhase === "creating" ||
-    displayPhase === "distributing";
+    displayPhase === "preparing" ||
+    displayPhase === "executing";
 
   return {
     currentStep,
     displayPhase,
+    acquisitionStage: stage,
     showCoachCopy,
-    actionTitle,
-    actionDetail,
+    actionTitle: coach.title,
+    actionDetail: coach.detail,
     secondaryDetail,
     appOnline,
     appOnlineWarning,
-    trackingUnlocked: hasKit,
+    trackingUnlocked: hasKit || isStep3Complete(setup),
+    showAcquisitionHandoff: stage === "scale" && currentStep >= 4,
   };
 }
 
@@ -188,9 +199,20 @@ export function shouldShowCampaignTracking(project: UserProject): boolean {
 }
 
 export function isCampaignStarted(project: UserProject): boolean {
+  const setup = project.campaignSetup;
   return Boolean(
-    project.marketingProfile ||
-      project.campaignSetup?.strategyBrief ||
-      project.campaignSetup?.activeToolIds?.length,
+    setup?.smartGoal ||
+      setup?.strategyBrief ||
+      setup?.actionItems?.some((a) => a.done) ||
+      setup?.activeToolIds?.length ||
+      getActiveCampaignToolId(project),
+  );
+}
+
+export function isCampaignLive(project: UserProject): boolean {
+  const setup = project.campaignSetup;
+  return (
+    isStep4Complete(setup) &&
+    (isTrackingConfigured(setup) || hasAnalyticsConnected(project))
   );
 }

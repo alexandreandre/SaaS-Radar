@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AdminPageHeader } from "@/components/admin/admin-ui";
 import { SECTORS } from "@/lib/sourcing/constants";
@@ -8,6 +8,8 @@ import { sectorLabels } from "@/data/opportunities";
 import { CountryMultiSelect, type CountryOption } from "@/components/admin/country-multi-select";
 import { AdminPageSkeleton } from "@/components/admin/admin-page-skeleton";
 import { adminFetchJson } from "@/lib/admin/client-fetch";
+
+import type { AdminSystemPageData } from "@/lib/admin/system";
 
 type Schedule = {
   id: string;
@@ -21,7 +23,15 @@ type Schedule = {
   config?: { weeklyPick?: boolean; nicheHints?: string[] };
 };
 
-export function AdminSystemClient() {
+export function AdminSystemClient({
+  initialData = null,
+  initialError = null,
+}: {
+  initialData?: AdminSystemPageData | null;
+  initialError?: string | null;
+}) {
+  const skipFetch = useRef(initialData != null || initialError != null);
+  const firstSchedule = (initialData?.schedules?.[0] as Schedule | undefined) ?? null;
   const [data, setData] = useState<{
     checks?: Record<string, boolean>;
     recoveredStaleRuns?: number;
@@ -29,11 +39,36 @@ export function AdminSystemClient() {
     schedules?: Schedule[];
     monthCostUsd?: number;
     costAlert?: boolean;
-  }>({});
-  const [scheduleForm, setScheduleForm] = useState<Schedule | null>(null);
-  const [cronMarkets, setCronMarkets] = useState<CountryOption[]>([]);
+  }>(() =>
+    initialData
+      ? {
+          checks: initialData.checks,
+          recoveredStaleRuns: initialData.recoveredStaleRuns,
+          recentErrors: initialData.recentErrors as {
+            id: string;
+            error: string;
+            started_at: string;
+          }[],
+          schedules: initialData.schedules as Schedule[],
+          monthCostUsd: initialData.monthCostUsd,
+          costAlert: initialData.costAlert,
+        }
+      : {},
+  );
+  const [scheduleForm, setScheduleForm] = useState<Schedule | null>(() =>
+    firstSchedule
+      ? { ...firstSchedule, country_codes: firstSchedule.country_codes ?? [] }
+      : null,
+  );
+  const [cronMarkets, setCronMarkets] = useState<CountryOption[]>(() =>
+    (initialData?.markets ?? []).map((m) => ({
+      code: String(m.code),
+      name: String(m.name),
+      flag: m.flag as string | undefined,
+    })),
+  );
   const [message, setMessage] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialData && !initialError);
 
   const load = useCallback(async () => {
     const [sysRes, policyRes, marketsRes] = await Promise.all([
@@ -72,6 +107,10 @@ export function AdminSystemClient() {
   }, []);
 
   useEffect(() => {
+    if (skipFetch.current) {
+      skipFetch.current = false;
+      return;
+    }
     void load();
   }, [load]);
 
@@ -104,6 +143,14 @@ export function AdminSystemClient() {
 
   if (loading) {
     return <AdminPageSkeleton kpiCount={2} />;
+  }
+
+  if (initialError) {
+    return (
+      <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+        {initialError}
+      </div>
+    );
   }
 
   return (

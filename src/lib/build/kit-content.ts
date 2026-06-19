@@ -47,7 +47,7 @@ function classifySetupStep(text: string): SetupStepKind {
   if (/\.env\.example|\.env\.local|variables? d['']environnement|clés? (api|réelles|supabase|stripe)/i.test(lower)) {
     return "env";
   }
-  if (/coller|paste|prompt|chat (de |d[''])?\w+|ouvrir (cursor|windsurf|bolt)/i.test(lower)) {
+  if (/coller|paste|prompt|chat (de |d[''])?\w+|ouvrir (cursor|codex|emergent|bolt)/i.test(lower)) {
     return "paste_prompt";
   }
   if (/tester|testez|test local|vérifier|parcours principal|en local|npm run|preview/i.test(lower)) {

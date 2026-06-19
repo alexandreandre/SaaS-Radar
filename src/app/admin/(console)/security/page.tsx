@@ -13,6 +13,10 @@ export default function AdminSecurityPage() {
           attendant, seuls les comptes avec un rôle admin peuvent accéder au back-office après
           connexion.
         </p>
+        <p className="mt-3 text-xs">
+          SSR : cette page n&apos;a pas de fetch initial — contenu statique uniquement (conforme au
+          plan perf admin).
+        </p>
       </section>
     </div>
   );

@@ -1,25 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AdminPageHeader, AdminTable, KpiCard } from "@/components/admin/admin-ui";
 import { AdminPageSkeleton } from "@/components/admin/admin-page-skeleton";
 import { adminFetchJson } from "@/lib/admin/client-fetch";
+import type { AdminBillingData } from "@/lib/admin/billing";
 
-type Metrics = {
-  mrrCents: number;
-  arrCents: number;
-  activeSubscribers: number;
-  freeCount: number;
-  builderCount: number;
-  proCount: number;
-  pastDueCount: number;
-};
+type Metrics = AdminBillingData["metrics"];
 
-export function AdminBillingClient() {
-  const [metrics, setMetrics] = useState<Metrics | null>(null);
-  const [subscribers, setSubscribers] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(true);
+export function AdminBillingClient({
+  initialData = null,
+  initialError = null,
+}: {
+  initialData?: AdminBillingData | null;
+  initialError?: string | null;
+}) {
+  const skipFetch = useRef(initialData != null || initialError != null);
+  const [metrics, setMetrics] = useState<Metrics | null>(initialData?.metrics ?? null);
+  const [subscribers, setSubscribers] = useState<Record<string, unknown>[]>(
+    initialData?.subscribers ?? [],
+  );
+  const [loading, setLoading] = useState(!initialData && !initialError);
 
   const load = useCallback(async () => {
     const { ok, data: json } = await adminFetchJson<{
@@ -34,6 +36,10 @@ export function AdminBillingClient() {
   }, []);
 
   useEffect(() => {
+    if (skipFetch.current) {
+      skipFetch.current = false;
+      return;
+    }
     void load();
   }, [load]);
 
@@ -47,6 +53,14 @@ export function AdminBillingClient() {
 
   if (loading && !metrics) {
     return <AdminPageSkeleton kpiCount={4} />;
+  }
+
+  if (initialError) {
+    return (
+      <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+        {initialError}
+      </div>
+    );
   }
 
   return (

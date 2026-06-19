@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { isCredentialsEncryptionConfigured } from "@/lib/crypto/credentials";
 import { exchangeAndStoreMetaAdsOAuth } from "@/lib/connectors/meta-ads/sync-service";
+import { logApiError } from "@/lib/api-error-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,7 +53,12 @@ export async function GET(request: Request) {
 
   try {
     await exchangeAndStoreMetaAdsOAuth(user.id, projectId, code);
-  } catch {
+  } catch (err) {
+    logApiError(
+      "/api/connectors/meta-ads/callback",
+      500,
+      err instanceof Error ? err.message : "exchangeAndStoreMetaAdsOAuth failed",
+    );
     const cockpitUrl = new URL(`/cockpit/${projectId}`, request.url);
     cockpitUrl.searchParams.set("module", "integrations");
     cockpitUrl.searchParams.set("meta_ads_oauth", "token_error");

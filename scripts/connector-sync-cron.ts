@@ -2,13 +2,71 @@
  * Cron prod : synchronise tous les connecteurs éligibles (credentials Supabase).
  */
 import { listAllConnectorCredentials } from "../src/lib/connectors/credentials-store";
+import { listPendingConnectorSyncJobs } from "../src/lib/connectors/sync-jobs";
 import { providerToConnectorId, syncConnectorForProject } from "../src/lib/connectors/sync-orchestrator";
 import { isCredentialsEncryptionConfigured } from "../src/lib/crypto/credentials";
+import { createAdminClient } from "../src/lib/supabase/admin";
+
+async function processPendingJobs(): Promise<{ synced: number; errors: number }> {
+  const jobs = await listPendingConnectorSyncJobs(25);
+  if (jobs.length === 0) return { synced: 0, errors: 0 };
+
+  console.log(`File sync : ${jobs.length} job(s) en attente`);
+  const admin = createAdminClient();
+  let synced = 0;
+  let errors = 0;
+
+  for (const job of jobs) {
+    await admin
+      .from("connector_sync_jobs")
+      .update({ status: "running", started_at: new Date().toISOString(), attempts: job.attempts + 1 })
+      .eq("id", job.id);
+
+    try {
+      const result = await syncConnectorForProject(job.userId, job.projectId, job.provider);
+      if (result.status === "synced") {
+        synced += 1;
+        await admin
+          .from("connector_sync_jobs")
+          .update({ status: "completed", finished_at: new Date().toISOString(), last_error: null })
+          .eq("id", job.id);
+      } else {
+        errors += 1;
+        await admin
+          .from("connector_sync_jobs")
+          .update({
+            status: "failed",
+            finished_at: new Date().toISOString(),
+            last_error: result.message ?? result.reason ?? "skipped",
+          })
+          .eq("id", job.id);
+      }
+    } catch (err) {
+      errors += 1;
+      const message = err instanceof Error ? err.message : String(err);
+      await admin
+        .from("connector_sync_jobs")
+        .update({ status: "failed", finished_at: new Date().toISOString(), last_error: message })
+        .eq("id", job.id);
+    }
+  }
+
+  return { synced, errors };
+}
 
 async function main(): Promise<void> {
   if (!isCredentialsEncryptionConfigured()) {
     console.error("CREDENTIALS_ENCRYPTION_KEY requis — exit 1");
     process.exit(1);
+  }
+
+  try {
+    const jobResult = await processPendingJobs();
+    console.log(`File sync terminée — synced=${jobResult.synced} errors=${jobResult.errors}`);
+  } catch (err) {
+    console.warn(
+      `File sync ignorée: ${err instanceof Error ? err.message : String(err)}`,
+    );
   }
 
   const rows = await listAllConnectorCredentials();

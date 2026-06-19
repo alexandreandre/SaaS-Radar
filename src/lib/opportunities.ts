@@ -2,12 +2,43 @@ import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { enrichOpportunity } from '@/data/opportunity-enrichment'
 import { createDataSupabaseClient } from './supabase/data'
-import { mapRowToOpportunity } from './supabase/mappers'
+import { mapRowToOpportunity, mapRowToOpportunityListItem, OPPORTUNITY_LIST_SELECT } from './supabase/mappers'
+import type { OpportunityRow } from './supabase/types'
 import type { Opportunity } from '@/types/opportunity'
+import type { OpportunityListItem } from '@/types/opportunity'
 import type { MapCatalogOpportunity } from '@/context/map-catalog-context'
 
 /** Tag invalidé par POST /api/revalidate après chaque run de sourcing. */
 export const OPPORTUNITIES_CACHE_TAG = 'opportunities'
+
+async function fetchOpportunityListItemsFromDb(): Promise<OpportunityListItem[]> {
+  const supabase = createDataSupabaseClient()
+  const { data, error } = await supabase
+    .from('opportunities')
+    .select(OPPORTUNITY_LIST_SELECT)
+    .eq('status', 'published')
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((row) => mapRowToOpportunityListItem(row as OpportunityRow))
+}
+
+const getCachedOpportunityListItems = unstable_cache(
+  async () => {
+    try {
+      return await fetchOpportunityListItemsFromDb()
+    } catch (err) {
+      console.warn(
+        `[opportunities] getOpportunityListItems indisponible — fallback []: ${err instanceof Error ? err.message : err}`
+      )
+      return []
+    }
+  },
+  ['opportunity-list-items'],
+  { tags: [OPPORTUNITIES_CACHE_TAG], revalidate: 3600 }
+)
+
+/** Projection légère pour la page catalogue (cartes + filtres client). */
+export const getOpportunityListItems = cache(getCachedOpportunityListItems)
 
 async function fetchAllOpportunitiesFromDb(): Promise<Opportunity[]> {
   const supabase = createDataSupabaseClient()

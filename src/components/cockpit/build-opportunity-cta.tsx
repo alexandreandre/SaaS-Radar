@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ArrowRight, Rocket } from "lucide-react";
 import type { Opportunity } from "@/types/opportunity";
-import { usePortfolio } from "@/contexts/portfolio-context";
+import { useOptionalPortfolio } from "@/contexts/portfolio-context";
 import { getMilestoneProgress } from "@/lib/portfolio";
 import { getLaunchTeaser } from "@/lib/build-launch";
 import { cn } from "@/lib/utils";
@@ -15,22 +15,27 @@ import { getCockpitHref } from "@/lib/cockpit-modules";
 
 type BuildOpportunityCtaProps = {
   opportunity: Opportunity;
+  existingProjectId?: string | null;
   variant?: "header" | "sticky" | "footer";
   className?: string;
 };
 
 export function BuildOpportunityCta({
   opportunity,
+  existingProjectId = null,
   variant = "header",
   className,
 }: BuildOpportunityCtaProps) {
-  const { hydrated, getProjectBySlug } = usePortfolio();
-  const existing = hydrated ? getProjectBySlug(opportunity.slug) : undefined;
+  const portfolio = useOptionalPortfolio();
+  const fromPortfolio =
+    portfolio?.hydrated ? portfolio.getProjectBySlug(opportunity.slug) : undefined;
+  const existing = fromPortfolio ?? (existingProjectId ? { id: existingProjectId } : undefined);
 
   const [open, setOpen] = useState(false);
 
   if (existing) {
-    const progress = getMilestoneProgress(existing);
+    const progress =
+      fromPortfolio != null ? getMilestoneProgress(fromPortfolio) : null;
     if (variant === "footer") {
       return (
         <div
@@ -41,7 +46,9 @@ export function BuildOpportunityCta({
         >
           <p className="font-semibold text-foreground">Vous avez déjà commencé ce projet.</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Reprenez là où vous en étiez — {progress} % du journal complété.
+            {progress != null
+              ? `Reprenez là où vous en étiez — ${progress} % du journal complété.`
+              : "Reprenez là où vous en étiez."}
           </p>
           <Button variant="default" className="mt-4 gap-2" asChild>
             <Link href={getCockpitHref(existing.id, "build")}>
@@ -54,9 +61,11 @@ export function BuildOpportunityCta({
     }
     return (
       <div className={cn("flex flex-wrap items-center gap-3", className)}>
-        <Badge variant="outline" className="border-primary/30 text-primary">
-          En build · {progress} % journal
-        </Badge>
+        {progress != null ? (
+          <Badge variant="outline" className="border-primary/30 text-primary">
+            En build · {progress} % journal
+          </Badge>
+        ) : null}
         <Button variant="default" asChild className={variant === "sticky" ? "flex-1" : ""}>
           <Link href={getCockpitHref(existing.id, "build")}>
             Continuer mon build

@@ -7,7 +7,6 @@ import {
   SiReplit,
   SiSupabase,
   SiV0,
-  SiWindsurf,
 } from "@icons-pack/react-simple-icons";
 import { ConnectorLogo } from "@/components/cockpit/integrations/connector-logo";
 import { BuildBrandImage } from "@/components/cockpit/build/build-brand-image";
@@ -40,7 +39,6 @@ const SIMPLE_ICON_MAP = {
   SiReplit,
   SiCursor,
   SiClaude,
-  SiWindsurf,
   SiSupabase,
 } as const;
 
@@ -56,6 +54,8 @@ const FAVICON_FALLBACK_COLORS: Partial<Record<BuildToolId, string>> = {
   base44: "#4F46E5",
   lovable: "#FF385C",
   bolt: "#FBBF24",
+  emergent: "#6366F1",
+  codex: "#412991",
 };
 
 type LogoSize = keyof typeof SIZE_CONFIG;

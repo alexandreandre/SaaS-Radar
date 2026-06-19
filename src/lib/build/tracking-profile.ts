@@ -56,6 +56,14 @@ const TRACKING_PROFILES: Record<BuildToolId, BuildTrackingProfile> = {
     hostHint:
       "Collez l'URL affichée après Deploy dans Replit (onglet Deployments).",
   },
+  emergent: {
+    github: "optional",
+    host: "url-only",
+    urlPlaceholder: "https://votre-app.emergent.host",
+    hostTitle: "URL de production Emergent",
+    hostHint:
+      "Collez l'URL affichée après Deploy dans Emergent (.emergent.host ou domaine custom). GitHub reste optionnel pour exporter le code.",
+  },
   cursor: {
     github: "required",
     host: "vercel",
@@ -70,7 +78,7 @@ const TRACKING_PROFILES: Record<BuildToolId, BuildTrackingProfile> = {
     hostTitle: "Hébergement & déploiement",
     hostHint: "Connectez Vercel ou collez l'URL de production une fois en ligne.",
   },
-  windsurf: {
+  codex: {
     github: "required",
     host: "vercel",
     urlPlaceholder: "https://votre-app.vercel.app",

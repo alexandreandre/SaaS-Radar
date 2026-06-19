@@ -1,0 +1,11 @@
+{
+  "$schema": "Budgets First Load JS (kB) — régression max +10 % vs baseline enregistrée",
+  "routes": {
+    "/": { "maxKb": 280 },
+    "/pricing": { "maxKb": 200 },
+    "/login": { "maxKb": 200 },
+    "/opportunities": { "maxKb": 320 },
+    "/mes-saas": { "maxKb": 400 }
+  },
+  "regressionPercent": 10
+}

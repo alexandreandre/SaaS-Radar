@@ -3,7 +3,7 @@ import type { ConnectorId } from "@/lib/connectors/types";
 
 export type BuildBrandSimpleIcon = {
   source: "simple-icon";
-  icon: "SiV0" | "SiReplit" | "SiCursor" | "SiClaude" | "SiWindsurf" | "SiSupabase";
+  icon: "SiV0" | "SiReplit" | "SiCursor" | "SiClaude" | "SiSupabase";
   color: string;
 };
 
@@ -28,9 +28,10 @@ export const BUILD_TOOL_BRANDS: Record<BuildToolId, BuildBrand> = {
   bolt: { source: "favicon", domain: "bolt.new" },
   v0: { source: "simple-icon", icon: "SiV0", color: "#000000" },
   replit: { source: "simple-icon", icon: "SiReplit", color: "#F26207" },
+  emergent: { source: "favicon", domain: "emergent.sh", fallbackColor: "#6366F1" },
   cursor: { source: "simple-icon", icon: "SiCursor", color: "#000000" },
   "claude-code": { source: "simple-icon", icon: "SiClaude", color: "#D97757" },
-  windsurf: { source: "simple-icon", icon: "SiWindsurf", color: "#0B100F" },
+  codex: { source: "favicon", domain: "openai.com", fallbackColor: "#412991" },
 };
 
 export const BUILD_PLATFORM_BRANDS = {
