@@ -3,6 +3,8 @@
 import dynamic from "next/dynamic";
 import type { ComponentProps } from "react";
 
+export type { DualChartPoint } from "./mrr-trajectory-chart-inner";
+
 const MrrTrajectoryChartInner = dynamic(
   () => import("./mrr-trajectory-chart-inner").then((m) => ({ default: m.MrrTrajectoryChartInner })),
   { ssr: false, loading: () => <ChartSkeleton /> },

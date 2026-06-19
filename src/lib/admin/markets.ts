@@ -2,7 +2,17 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export async function listAdminMarkets() {
+export type AdminMarket = {
+  code: string;
+  name: string;
+  flag?: string;
+  heat_score: number;
+  tracked_micro_saas: number;
+  scope: string;
+  is_manual_override: boolean;
+};
+
+export async function listAdminMarkets(): Promise<AdminMarket[]> {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("world_markets")
@@ -10,5 +20,5 @@ export async function listAdminMarkets() {
     .order("heat_score", { ascending: false });
 
   if (error) throw new Error(error.message);
-  return (data ?? []) as Record<string, unknown>[];
+  return (data ?? []) as AdminMarket[];
 }

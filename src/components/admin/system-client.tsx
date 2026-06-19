@@ -64,7 +64,7 @@ export function AdminSystemClient({
     (initialData?.markets ?? []).map((m) => ({
       code: String(m.code),
       name: String(m.name),
-      flag: m.flag as string | undefined,
+      flag: String(m.flag ?? ""),
     })),
   );
   const [message, setMessage] = useState<string | null>(null);

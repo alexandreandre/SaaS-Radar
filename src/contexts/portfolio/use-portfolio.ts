@@ -21,6 +21,7 @@ export function usePortfolioProjects(): Pick<
   | "getProjectBySlug"
   | "getProjectById"
   | "catalogIndex"
+  | "setProjectPhase"
 > {
   const ctx = usePortfolio();
   return useMemo(
@@ -37,6 +38,7 @@ export function usePortfolioProjects(): Pick<
       getProjectBySlug: ctx.getProjectBySlug,
       getProjectById: ctx.getProjectById,
       catalogIndex: ctx.catalogIndex,
+      setProjectPhase: ctx.setProjectPhase,
     }),
     [ctx],
   );

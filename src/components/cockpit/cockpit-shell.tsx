@@ -76,7 +76,7 @@ export function CockpitShell({
   const welcomeIdea = searchParams.get("welcome") === "idea";
   const launchPadMode = shouldShowLaunchPad(project) && !paramModule && !welcomeIdea;
   const { collapsed, setCollapsed, hydrated } = useCockpitSidebarCollapsed();
-  const { autoSyncingProjectId, autoSyncingConnectors } = usePortfolioConnectors(projectId);
+  const { autoSyncingProjectId, autoSyncingConnectors } = usePortfolioConnectors(project.id);
   const isAutoSyncing =
     autoSyncingProjectId === project.id && autoSyncingConnectors.length > 0;
   const initialModule = paramModule
