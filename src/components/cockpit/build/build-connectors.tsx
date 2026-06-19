@@ -7,24 +7,53 @@ import { StatCard } from "@/components/cockpit/ui/module-primitives";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/utils";
 import type { CockpitModuleProps } from "@/components/cockpit/modules/module-props";
+import {
+  getGitHubPrimaryRepoStream,
+  getGitHubStreamsList,
+  isGitHubMultiStream,
+  normalizeGitHubStreamPayload,
+} from "@/lib/connectors/streams";
 
 type BuildConnectorsProps = Pick<
   CockpitModuleProps,
   "project" | "opportunity" | "onModuleChange"
 >;
 
+function aggregateGitHubStats(githubStream: ReturnType<typeof normalizeGitHubStreamPayload>) {
+  const streams = githubStream ? getGitHubStreamsList(githubStream) : [];
+  if (streams.length === 0) return null;
+
+  const deploysLast30d = streams.reduce((s, r) => s + (r.deploysLast30d ?? 0), 0);
+  const openIssues = streams.reduce((s, r) => s + (r.openIssues ?? 0), 0);
+  const uptimeValues = streams.map((r) => r.uptimePct).filter((v) => v != null);
+  const uptimePct =
+    uptimeValues.length > 0
+      ? Math.round((uptimeValues.reduce((a, b) => a + b, 0) / uptimeValues.length) * 10) / 10
+      : 0;
+
+  const primary = getGitHubPrimaryRepoStream(githubStream ?? undefined);
+  const label =
+    streams.length > 1
+      ? `${streams.length} dépôts`
+      : primary?.repoFullName ?? "GitHub";
+
+  return { deploysLast30d, openIssues, uptimePct, label };
+}
+
 export function BuildConnectors({
   project,
   opportunity,
   onModuleChange,
 }: BuildConnectorsProps) {
-  const githubStream = project.connectorStreams?.github;
+  const githubPayload = project.connectorStreams?.github;
+  const githubMulti = normalizeGitHubStreamPayload(githubPayload);
+  const githubStats = aggregateGitHubStats(githubMulti);
   const sentryStream = project.connectorStreams?.sentry;
   const vercelStream = project.connectorStreams?.vercel;
   const infraCost = opportunity.infraCosts?.reduce((s, c) => s + c.estimate, 0) ?? 0;
 
   const hasAnyConnector =
-    githubStream?.type === "dev" ||
+    Boolean(githubMulti) ||
     sentryStream?.type === "dev" ||
     vercelStream?.type === "dev";
 
@@ -58,11 +87,19 @@ export function BuildConnectors({
           </div>
         ) : (
           <>
-            {githubStream?.type === "dev" ? (
-              <div className="grid gap-3 sm:grid-cols-3">
-                <StatCard label="Deploys (30j)" value={String(githubStream.deploysLast30d)} />
-                <StatCard label="Issues ouvertes" value={String(githubStream.openIssues)} />
-                <StatCard label="Uptime" value={`${githubStream.uptimePct} %`} />
+            {githubStats ? (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  GitHub · {githubStats.label}
+                  {isGitHubMultiStream(githubMulti) && githubMulti?.primaryRepoFullName
+                    ? ` · principal ${githubMulti.primaryRepoFullName}`
+                    : null}
+                </p>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <StatCard label="Deploys (30j)" value={String(githubStats.deploysLast30d)} />
+                  <StatCard label="Issues ouvertes" value={String(githubStats.openIssues)} />
+                  <StatCard label="Uptime moy." value={`${githubStats.uptimePct} %`} />
+                </div>
               </div>
             ) : null}
 

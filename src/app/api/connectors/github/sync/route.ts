@@ -1,44 +1,11 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import type { DevStream } from "@/lib/connectors/streams";
-import {
-  fetchRepoMetrics,
-  getInstallationAccessToken,
-  listInstallationRepos,
-  detectRepoLogo,
-} from "@/lib/github/app";
-import { buildProductLogo } from "@/lib/build/product-logo";
+import { assertProjectOwnedByUser } from "@/lib/connectors/project-access";
+import { GitHubConnectorError } from "@/lib/connectors/github/client";
+import { runGitHubSync } from "@/lib/connectors/github/sync-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function metricsToDevStream(m: Awaited<ReturnType<typeof fetchRepoMetrics>>): DevStream {
-  const commitsDelta = m.commitsLast7d - m.commitsPrev7d;
-  let healthScore = 70;
-  if (m.lastWorkflowConclusion === "success") healthScore += 15;
-  if (m.lastWorkflowConclusion === "failure") healthScore -= 25;
-  if (m.commitsLast7d > 0) healthScore += 10;
-  if (m.commitsLast7d === 0) healthScore -= 20;
-  healthScore = Math.max(0, Math.min(100, healthScore));
-
-  return {
-    type: "dev",
-    deploysLast30d: m.deploysLast30d,
-    openIssues: m.openIssues,
-    errorRate: m.lastWorkflowConclusion === "failure" ? 2.5 : 0,
-    uptimePct: m.lastWorkflowConclusion === "failure" ? 98 : 99.9,
-    commitsLast7d: m.commitsLast7d,
-    commitsDelta,
-    openPrs: m.openPrs,
-    stars: m.stars,
-    lastWorkflowConclusion: m.lastWorkflowConclusion,
-    viewsLast14d: m.viewsLast14d,
-    defaultBranch: m.defaultBranch,
-    lastPushAt: m.lastPushAt,
-    repoFullName: m.repoFullName,
-    healthScore,
-  };
-}
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -54,50 +21,33 @@ export async function POST(request: Request) {
   }
 
   const b = body as Record<string, unknown>;
-  const installationId =
-    typeof b.installationId === "number"
-      ? b.installationId
-      : parseInt(String(b.installationId ?? ""), 10);
-  const repoFullName = typeof b.repoFullName === "string" ? b.repoFullName.trim() : "";
-  const action = b.action === "list_repos" ? "list_repos" : "sync";
+  const projectId = typeof b.projectId === "string" ? b.projectId.trim() : "";
+  const repoFullName =
+    typeof b.repoFullName === "string" && b.repoFullName.trim()
+      ? b.repoFullName.trim()
+      : undefined;
 
-  if (!Number.isFinite(installationId)) {
-    return NextResponse.json({ error: "installationId invalide" }, { status: 400 });
+  if (!projectId) {
+    return NextResponse.json({ error: "projectId requis" }, { status: 400 });
   }
 
   try {
-    const token = await getInstallationAccessToken(installationId);
-
-    if (action === "list_repos") {
-      const repos = await listInstallationRepos(token);
-      return NextResponse.json({ repos });
-    }
-
-    if (!repoFullName.includes("/")) {
-      return NextResponse.json({ error: "repoFullName invalide" }, { status: 400 });
-    }
-
-    const [owner, repo] = repoFullName.split("/");
-    const metrics = await fetchRepoMetrics(token, owner, repo);
-    const stream = metricsToDevStream(metrics);
-
-    const logoUrl = await detectRepoLogo(token, owner, repo, metrics.defaultBranch);
-    const productLogo = logoUrl ? buildProductLogo(logoUrl, "github") : undefined;
+    await assertProjectOwnedByUser(user.id, projectId);
+    const sync = await runGitHubSync(user.id, projectId, { repoFullName });
 
     return NextResponse.json({
-      connection: {
-        repoFullName,
-        installationId,
-        connectedAt: new Date().toISOString(),
-      },
-      stream,
-      metrics,
-      productLogo,
+      accountLabel: sync.accountLabel,
+      stream: sync.stream,
+      syncedAt: sync.syncedAt,
+      trackedRepos: sync.trackedRepos,
+      productLogo: sync.productLogo,
     });
   } catch (err) {
+    const status = err instanceof GitHubConnectorError && err.status ? err.status : 500;
+    const message = err instanceof Error ? err.message : "Erreur synchronisation GitHub";
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Erreur GitHub" },
-      { status: 500 },
+      { error: message },
+      { status: status >= 400 && status < 600 ? status : 500 },
     );
   }
 }

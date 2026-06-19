@@ -47,6 +47,8 @@ export type DevStream = {
   healthScore?: number;
   deploymentUrl?: string;
   lastDeploymentState?: string | null;
+  lastDeploymentAt?: string;
+  infraCostMonthly?: number;
 };
 
 export type CrmStream = {
@@ -69,12 +71,20 @@ export type PaymentStream = {
   recoveredPayments: number;
 };
 
+export type GitHubMultiStream = {
+  type: "github";
+  primaryRepoFullName?: string;
+  repos: Record<string, DevStream>;
+  lastSyncedAt?: string;
+};
+
 export type ConnectorStreamPayload =
   | FinanceStream
   | AccountingStream
   | ProductStream
   | SupportStream
   | DevStream
+  | GitHubMultiStream
   | CrmStream
   | CommsStream
   | PaymentStream;
@@ -120,4 +130,83 @@ export function hasProductAnalyticsConnected(integrations: { connectorId: Connec
       PRODUCT_ANALYTICS_IDS.includes(i.connectorId) &&
       (i.status === "demo" || i.status === "connected")
   );
+}
+
+export function isGitHubMultiStream(
+  stream: ConnectorStreamPayload | undefined,
+): stream is GitHubMultiStream {
+  return stream?.type === "github";
+}
+
+export function isLegacyGitHubDevStream(
+  stream: ConnectorStreamPayload | undefined,
+): stream is DevStream {
+  return stream?.type === "dev" && Boolean(stream.repoFullName);
+}
+
+export function normalizeGitHubStreamPayload(
+  stream: ConnectorStreamPayload | undefined,
+): GitHubMultiStream | undefined {
+  if (!stream) return undefined;
+  if (isGitHubMultiStream(stream)) return stream;
+  if (isLegacyGitHubDevStream(stream) && stream.repoFullName) {
+    return {
+      type: "github",
+      primaryRepoFullName: stream.repoFullName,
+      repos: { [stream.repoFullName]: stream },
+    };
+  }
+  return undefined;
+}
+
+export function getGitHubRepoStream(
+  stream: ConnectorStreamPayload | undefined,
+  repoFullName: string,
+): DevStream | undefined {
+  const multi = normalizeGitHubStreamPayload(stream);
+  return multi?.repos[repoFullName];
+}
+
+export function getGitHubStreamsList(
+  stream: ConnectorStreamPayload | undefined,
+): DevStream[] {
+  const multi = normalizeGitHubStreamPayload(stream);
+  if (!multi) return [];
+  return Object.values(multi.repos);
+}
+
+export function getGitHubPrimaryRepoStream(
+  stream: ConnectorStreamPayload | undefined,
+): DevStream | undefined {
+  const multi = normalizeGitHubStreamPayload(stream);
+  if (!multi) return undefined;
+  if (multi.primaryRepoFullName && multi.repos[multi.primaryRepoFullName]) {
+    return multi.repos[multi.primaryRepoFullName];
+  }
+  const keys = Object.keys(multi.repos);
+  return keys.length > 0 ? multi.repos[keys[0]!] : undefined;
+}
+
+export function mergeGitHubMultiStream(
+  existing: ConnectorStreamPayload | undefined,
+  repoFullName: string,
+  repoStream: DevStream,
+  opts?: { primaryRepoFullName?: string; lastSyncedAt?: string },
+): GitHubMultiStream {
+  const base = normalizeGitHubStreamPayload(existing) ?? {
+    type: "github" as const,
+    repos: {},
+  };
+  const repos = { ...base.repos, [repoFullName]: { ...repoStream, repoFullName } };
+  const primary =
+    opts?.primaryRepoFullName ??
+    base.primaryRepoFullName ??
+    (Object.keys(repos).length === 1 ? repoFullName : base.primaryRepoFullName);
+
+  return {
+    type: "github",
+    primaryRepoFullName: primary && repos[primary] ? primary : Object.keys(repos)[0],
+    repos,
+    lastSyncedAt: opts?.lastSyncedAt ?? base.lastSyncedAt,
+  };
 }

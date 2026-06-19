@@ -53,14 +53,24 @@ export function generateStreamDemo(
         avgResponseHours: Math.round(2 + r() * 8),
         csat: Math.round(70 + r() * 25),
       };
-    case "github":
-      return {
-        type: "dev",
+    case "github": {
+      const repoFullName = "demo/acme-app";
+      const devStream = {
+        type: "dev" as const,
+        repoFullName,
         deploysLast30d: Math.round(4 + r() * 20),
         openIssues: Math.round(r() * 15),
         errorRate: Math.round(r() * 2 * 10) / 10,
         uptimePct: Math.round(985 + r() * 14) / 10,
+        commitsLast7d: Math.round(1 + r() * 12),
+        lastWorkflowConclusion: r() > 0.2 ? "success" : "failure",
       };
+      return {
+        type: "github" as const,
+        primaryRepoFullName: repoFullName,
+        repos: { [repoFullName]: devStream },
+      };
+    }
     case "vercel":
     case "better-stack":
       return {

@@ -2,6 +2,7 @@
 
 import { IntegrationsMarketplace } from "@/components/cockpit/integrations/integrations-marketplace";
 import { StackHealthBar } from "@/components/cockpit/stack-health-bar";
+import { resolveGitHubTrackedRepos } from "@/lib/connectors/github/normalize";
 import type { CockpitModuleProps } from "@/components/cockpit/modules/module-props";
 
 export function IntegrationsModule({
@@ -21,6 +22,8 @@ export function IntegrationsModule({
       <IntegrationsMarketplace
         projectId={project.id}
         integrations={integrations}
+        githubTrackedRepos={resolveGitHubTrackedRepos(project)}
+        githubStream={project.connectorStreams?.github}
         onConnect={onConnectIntegration}
         onSync={onSyncIntegration}
         onDisconnect={onDisconnectIntegration}

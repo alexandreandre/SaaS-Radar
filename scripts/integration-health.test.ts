@@ -41,9 +41,11 @@ function makeProject(integrations: Integration[], metricsHistory: MetricsSnapsho
 }
 
 describe("integration-health — oauth ads connectors", () => {
-  it("targets meta-ads and google-ads only", () => {
+  it("targets oauth ads connectors", () => {
     assert.equal(isOAuthAdsConnector("meta-ads"), true);
     assert.equal(isOAuthAdsConnector("google-ads"), true);
+    assert.equal(isOAuthAdsConnector("tiktok-ads"), true);
+    assert.equal(isOAuthAdsConnector("linkedin-ads"), true);
     assert.equal(isOAuthAdsConnector("stripe"), false);
   });
 

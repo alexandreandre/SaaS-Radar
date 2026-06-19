@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ExternalLink, Loader2 } from "lucide-react";
+import { ExternalLink, Loader2, Unplug } from "lucide-react";
 import { BuildPlatformLogo, BuildToolLogo } from "@/components/cockpit/build/build-tool-logo";
 import { BuildCopyPrompt } from "@/components/cockpit/build/build-copy-prompt";
+import { VercelConnectDialog } from "@/components/cockpit/integrations/vercel-connect-dialog";
 import type { CockpitModuleId } from "@/lib/cockpit-modules";
 import type { UserProject } from "@/lib/portfolio";
 import { resolveProductName } from "@/lib/portfolio";
@@ -19,7 +20,6 @@ import {
   detectProductLogoFromHost,
   mergeDetectedProductLogo,
 } from "@/lib/build/product-logo-client";
-import type { ProductLogo } from "@/lib/portfolio";
 import { useSearchParams } from "next/navigation";
 
 type BuildHostTrackingProps = {
@@ -40,17 +40,19 @@ export function BuildHostTracking({
   embedded = false,
 }: BuildHostTrackingProps) {
   const hostMode = profile?.host ?? "vercel";
-  const { setHostConnection, updateProject, setProductLogo } = usePortfolio();
+  const { connectIntegration, syncIntegration, disconnectIntegration, setHostConnection, setProductLogo } =
+    usePortfolio();
   const searchParams = useSearchParams();
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [url, setUrl] = useState(project.hostConnection?.productionUrl ?? "");
-  const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [vercelProjects, setVercelProjects] = useState<
-    { id: string; name: string; repo?: string }[]
-  >([]);
 
   const deployStatus = getUnifiedDeployStatus(project);
   const vercelStream = project.connectorStreams?.vercel;
+  const isVercelConnected = Boolean(
+    project.hostConnection?.provider === "vercel" && project.hostConnection?.projectId,
+  );
 
   const handleSaveUrl = useCallback(
     async (provider: "vercel" | "custom") => {
@@ -71,76 +73,63 @@ export function BuildHostTracking({
     [url, project, setHostConnection, setProductLogo],
   );
 
-  const loadVercelProjects = useCallback(async () => {
-    setLoading(true);
+  async function handleSync() {
+    setSyncing(true);
     setError(null);
     try {
-      const res = await fetch("/api/connectors/vercel/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId: project.id, action: "list_projects" }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Liste projets échouée");
-      setVercelProjects(data.projects ?? []);
+      await syncIntegration(project.id, "vercel");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur");
     } finally {
-      setLoading(false);
+      setSyncing(false);
     }
-  }, [project.id]);
+  }
 
-  const syncVercelProject = useCallback(
-    async (vercelProjectId: string) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch("/api/connectors/vercel/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ projectId: project.id, vercelProjectId, action: "sync" }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Sync Vercel échouée");
+  const hydrateAfterOAuth = useCallback(async () => {
+    setSyncing(true);
+    setError(null);
+    try {
+      await syncIntegration(project.id, "vercel");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setSyncing(false);
+    }
+    const params = new URLSearchParams(window.location.search);
+    params.delete("vercel_oauth");
+    const nextUrl = `${window.location.pathname}${params.toString() ? `?${params}` : ""}`;
+    window.history.replaceState({}, "", nextUrl);
+  }, [project.id, syncIntegration]);
 
-        setHostConnection(project.id, data.connection);
-        const baseUpdated = {
-          ...project,
-          hostConnection: data.connection,
-          connectorStreams: {
-            ...project.connectorStreams,
-            vercel: data.stream,
-          },
-        };
-        const withLogo = mergeDetectedProductLogo(
-          baseUpdated,
-          data.productLogo as ProductLogo | undefined,
-        );
-        const updated = withLogo ?? baseUpdated;
-        updateProject(project.id, {
-          hostConnection: data.connection,
-          connectorStreams: updated.connectorStreams,
-          ...(withLogo ? { productLogo: withLogo.productLogo } : {}),
-        });
-        if (data.connection.productionUrl) setUrl(data.connection.productionUrl);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Erreur");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [project, setHostConnection, updateProject],
-  );
+  async function handleDisconnect() {
+    setSyncing(true);
+    setError(null);
+    try {
+      await disconnectIntegration(project.id, "vercel");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   useEffect(() => {
-    if (hostMode === "vercel" && searchParams.get("vercel_connected") === "1") {
-      void loadVercelProjects();
-    }
-  }, [searchParams, loadVercelProjects, hostMode]);
+    setUrl(project.hostConnection?.productionUrl ?? "");
+  }, [project.hostConnection?.productionUrl]);
 
-  const handleConnectVercel = () => {
-    window.location.href = `/api/connectors/vercel/oauth?projectId=${encodeURIComponent(project.id)}`;
-  };
+  useEffect(() => {
+    if (hostMode !== "vercel") return;
+
+    const oauthStatus = searchParams.get("vercel_oauth");
+    if (oauthStatus === "connected") {
+      void hydrateAfterOAuth();
+      return;
+    }
+
+    if (oauthStatus === "1") {
+      setDialogOpen(true);
+    }
+  }, [hostMode, hydrateAfterOAuth, searchParams]);
 
   const hostTitle = profile?.hostTitle ?? "Hébergement & déploiement";
   const urlPlaceholder = profile?.urlPlaceholder ?? "https://votre-app.vercel.app";
@@ -216,6 +205,25 @@ export function BuildHostTracking({
         </details>
       ) : null}
 
+      {isVercelConnected && project.hostConnection?.projectName ? (
+        <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 px-3 py-2 text-sm">
+          <p className="font-medium text-emerald-600">
+            Projet Vercel : {project.hostConnection.projectName}
+          </p>
+          {project.hostConnection.productionUrl ? (
+            <a
+              href={project.hostConnection.productionUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 inline-flex items-center gap-1 text-primary hover:underline"
+            >
+              {project.hostConnection.productionUrl}
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          ) : null}
+        </div>
+      ) : null}
+
       {deployStatus ? (
         <div
           className={cn(
@@ -247,44 +255,6 @@ export function BuildHostTracking({
       )}
 
       <div className="flex flex-wrap gap-2">
-        <Button type="button" size="sm" variant="outline" className="gap-2" onClick={handleConnectVercel}>
-          <BuildPlatformLogo platform="vercel" size="sm" variant="inline" />
-          Connecter Vercel
-        </Button>
-        {vercelProjects.length > 0 ? null : (
-          <Button
-            type="button"
-            size="sm"
-            variant="ghost"
-            disabled={loading}
-            onClick={() => void loadVercelProjects()}
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Charger mes projets"}
-          </Button>
-        )}
-      </div>
-
-      {vercelProjects.length > 0 ? (
-        <div>
-          <p className="mb-2 text-sm text-muted-foreground">Sélectionnez un projet Vercel :</p>
-          <div className="flex flex-wrap gap-2">
-            {vercelProjects.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                disabled={loading}
-                onClick={() => void syncVercelProject(p.id)}
-                className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-muted/50"
-              >
-                {p.name}
-                {p.repo ? ` (${p.repo})` : ""}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      <div className="flex flex-wrap gap-2">
         <input
           type="url"
           value={url}
@@ -300,13 +270,23 @@ export function BuildHostTracking({
       {vercelStream?.type === "dev" ? (
         <div className="grid gap-2 text-sm sm:grid-cols-2">
           <div className="rounded-lg border border-border p-3">
-            <p className="text-xs text-muted-foreground">Uptime Vercel</p>
+            <p className="text-xs text-muted-foreground">Taux deploys OK (30j)</p>
             <p className="font-semibold">{vercelStream.uptimePct} %</p>
           </div>
           <div className="rounded-lg border border-border p-3">
             <p className="text-xs text-muted-foreground">Deploys 30j</p>
             <p className="font-semibold">{vercelStream.deploysLast30d}</p>
           </div>
+          {vercelStream.infraCostMonthly ? (
+            <div className="rounded-lg border border-border p-3 sm:col-span-2">
+              <p className="text-xs text-muted-foreground">Coût infra ce mois</p>
+              <p className="font-semibold">{vercelStream.infraCostMonthly.toFixed(2)}</p>
+            </div>
+          ) : isVercelConnected ? (
+            <div className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground sm:col-span-2">
+              Coûts infra : disponible sur plan Vercel Pro
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -334,14 +314,64 @@ export function BuildHostTracking({
       <BuildPlatformLogo platform="vercel" size="sm" />
     );
 
+  const headerActions =
+    hostMode === "vercel" ? (
+      !isVercelConnected ? (
+        <Button type="button" size="sm" onClick={() => setDialogOpen(true)}>
+          Connecter Vercel
+        </Button>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={syncing}
+            onClick={() => void handleSync()}
+          >
+            {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Synchroniser"}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="text-muted-foreground"
+            disabled={syncing}
+            onClick={() => void handleDisconnect()}
+          >
+            <Unplug className="h-4 w-4" />
+            Déconnecter
+          </Button>
+        </div>
+      )
+    ) : null;
+
+  const vercelDialog =
+    hostMode === "vercel" ? (
+      <VercelConnectDialog
+        projectId={project.id}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        returnTo="build"
+        onConnect={(options) => connectIntegration(project.id, "vercel", options)}
+        onSyncConnected={() => syncIntegration(project.id, "vercel")}
+      />
+    ) : null;
+
   if (embedded) {
     return (
       <div className="rounded-lg border border-border bg-muted/10 p-4">
-        <h3 className="mb-3 flex items-center gap-2 text-base font-semibold">
-          {titleIcon}
-          {hostTitle}
-        </h3>
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="flex items-center gap-2 text-base font-semibold">
+              {titleIcon}
+              {hostTitle}
+            </h3>
+          </div>
+          {headerActions}
+        </div>
         {body}
+        {vercelDialog}
       </div>
     );
   }
@@ -368,7 +398,13 @@ export function BuildHostTracking({
           </span>
         ) : null}
       </summary>
-      <div className="space-y-4 border-t border-border px-5 pb-5 pt-4">{body}</div>
+      <div className="space-y-4 border-t border-border px-5 pb-5 pt-4">
+        {hostMode === "vercel" ? (
+          <div className="flex flex-wrap items-start justify-end gap-3">{headerActions}</div>
+        ) : null}
+        {body}
+        {vercelDialog}
+      </div>
     </details>
   );
 }

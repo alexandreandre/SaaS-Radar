@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { Loader2, Plug, RefreshCw, Unplug } from "lucide-react";
 import type { ConnectorDefinition } from "@/lib/connectors/types";
 import type { ConnectorId, Integration } from "@/lib/connectors/types";
+import type { ConnectorStreamPayload } from "@/lib/connectors/streams";
+import type { GitHubTrackedRepo } from "@/lib/portfolio";
 import {
   getConnectorConnectionProfile,
   getIntegrationDisplayStatus,
@@ -20,6 +22,15 @@ import { ConnectorLogo } from "@/components/cockpit/integrations/connector-logo"
 import { StripeRakDialog } from "@/components/cockpit/integrations/stripe-connect-dialog";
 import { GoogleAdsConnectDialog } from "@/components/cockpit/integrations/google-ads-connect-dialog";
 import { MetaAdsConnectDialog } from "@/components/cockpit/integrations/meta-ads-connect-dialog";
+import { TikTokAdsConnectDialog } from "@/components/cockpit/integrations/tiktok-ads-connect-dialog";
+import { LinkedInAdsConnectDialog } from "@/components/cockpit/integrations/linkedin-ads-connect-dialog";
+import { PlausibleConnectDialog } from "@/components/cockpit/integrations/plausible-connect-dialog";
+import { GitHubConnectDialog } from "@/components/cockpit/integrations/github-connect-dialog";
+import { LoopsConnectDialog } from "@/components/cockpit/integrations/loops-connect-dialog";
+import { BrevoConnectDialog } from "@/components/cockpit/integrations/brevo-connect-dialog";
+import { LemonSqueezyConnectDialog } from "@/components/cockpit/integrations/lemon-squeezy-connect-dialog";
+import { CrispConnectDialog } from "@/components/cockpit/integrations/crisp-connect-dialog";
+import { VercelConnectDialog } from "@/components/cockpit/integrations/vercel-connect-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -43,6 +54,8 @@ type IntegrationCardProps = {
   projectId: string;
   connector: ConnectorDefinition;
   integration?: Integration;
+  githubTrackedRepos?: GitHubTrackedRepo[];
+  githubStream?: ConnectorStreamPayload;
   onConnect: (id: ConnectorId, options?: ConnectIntegrationOptions) => Promise<void>;
   onSync: (id: ConnectorId) => Promise<void>;
   onDisconnect: (id: ConnectorId) => Promise<void>;
@@ -52,6 +65,8 @@ type IntegrationCardProps = {
 const OAUTH_ADS_HEALTH_PATH: Partial<Record<ConnectorId, string>> = {
   "google-ads": "google-ads",
   "meta-ads": "meta-ads",
+  "tiktok-ads": "tiktok-ads",
+  "linkedin-ads": "linkedin-ads",
 };
 
 function IntegrationStatusBadge({ status }: { status: IntegrationDisplayStatus }) {
@@ -113,29 +128,17 @@ function IntegrationCardActions({
   onDisconnect,
 }: IntegrationCardActionsProps) {
   if (!isActive) {
-    if (profile.supportsReal && profile.connectDialog) {
+    if (profile.supportsReal) {
       return (
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" className="w-fit" onClick={onOpenDialog}>
-            <Plug className="h-4 w-4" />
-            Connecter
-          </Button>
-          {profile.supportsDemo ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-fit"
-              onClick={() => void onConnect(connectorId, { mode: "demo" })}
-            >
-              Essayer en démo
-            </Button>
-          ) : null}
-        </div>
+        <Button size="sm" className="w-fit" onClick={onOpenDialog}>
+          <Plug className="h-4 w-4" />
+          Connecter
+        </Button>
       );
     }
 
     return (
-      <Button size="sm" className="w-fit" onClick={() => void onConnect(connectorId)}>
+      <Button size="sm" className="w-fit" onClick={() => void onConnect(connectorId, { mode: "demo" })}>
         Essayer en démo
       </Button>
     );
@@ -179,6 +182,8 @@ export function IntegrationCard({
   projectId,
   connector,
   integration,
+  githubTrackedRepos = [],
+  githubStream,
   onConnect,
   onSync,
   onDisconnect,
@@ -202,7 +207,35 @@ export function IntegrationCard({
     if (profile.connectDialog === "meta-ads" && searchParams.get("meta_ads_oauth") === "1") {
       setDialogOpen(true);
     }
-  }, [profile.connectDialog, searchParams]);
+    if (profile.connectDialog === "tiktok-ads" && searchParams.get("tiktok_ads_oauth") === "1") {
+      setDialogOpen(true);
+    }
+    if (profile.connectDialog === "linkedin-ads" && searchParams.get("linkedin_ads_oauth") === "1") {
+      setDialogOpen(true);
+    }
+    if (profile.connectDialog === "github" && searchParams.get("github_oauth") === "1") {
+      setDialogOpen(true);
+    }
+    if (profile.connectDialog === "vercel") {
+      const vercelOauth = searchParams.get("vercel_oauth");
+      if (vercelOauth === "connected") {
+        void (async () => {
+          setSyncing(true);
+          try {
+            await onSync(connector.id);
+          } finally {
+            setSyncing(false);
+          }
+        })();
+        const params = new URLSearchParams(window.location.search);
+        params.delete("vercel_oauth");
+        const nextUrl = `${window.location.pathname}${params.toString() ? `?${params}` : ""}`;
+        window.history.replaceState({}, "", nextUrl);
+      } else if (vercelOauth === "1") {
+        setDialogOpen(true);
+      }
+    }
+  }, [connector.id, onSync, profile.connectDialog, searchParams]);
 
   useEffect(() => {
     if (integration?.status !== "connected") return;
@@ -259,8 +292,8 @@ export function IntegrationCard({
   const connectDialogId = profile.connectDialog;
 
   return (
-    <>
-      <div className="rounded-xl border border-border bg-card p-5 shadow-card">
+    <div className="h-full">
+      <div className="flex h-full flex-col rounded-xl border border-border bg-card p-5 shadow-card">
         <div className="flex items-start gap-3">
           <ConnectorLogo
             connectorId={connector.id}
@@ -299,10 +332,6 @@ export function IntegrationCard({
 
         <IntegrationMetricChips connector={connector} />
 
-        {connector.cockpitImpact ? (
-          <p className="mt-2 text-xs text-primary/80">{connector.cockpitImpact}</p>
-        ) : null}
-
         {integration?.lastSyncAt ? (
           <p className="mt-2 text-xs text-muted-foreground">
             Dernière sync : {new Date(integration.lastSyncAt).toLocaleDateString("fr-FR")}
@@ -313,7 +342,7 @@ export function IntegrationCard({
           <p className="mt-2 text-xs text-destructive">{integration.lastError}</p>
         ) : null}
 
-        <div className="mt-4 flex flex-col gap-2">
+        <div className="mt-auto flex flex-col gap-2 pt-4">
           <IntegrationCardActions
             connectorId={connector.id}
             profile={profile}
@@ -352,6 +381,81 @@ export function IntegrationCard({
           onConnect={(options) => onConnect("meta-ads", options)}
         />
       ) : null}
-    </>
+      {connectDialogId === "tiktok-ads" ? (
+        <TikTokAdsConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("tiktok-ads", options)}
+        />
+      ) : null}
+      {connectDialogId === "linkedin-ads" ? (
+        <LinkedInAdsConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("linkedin-ads", options)}
+        />
+      ) : null}
+      {connectDialogId === "plausible" ? (
+        <PlausibleConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("plausible", options)}
+        />
+      ) : null}
+      {connectDialogId === "github" ? (
+        <GitHubConnectDialog
+          projectId={projectId}
+          trackedRepos={githubTrackedRepos}
+          stream={githubStream}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("github", options)}
+        />
+      ) : null}
+      {connectDialogId === "loops" ? (
+        <LoopsConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("loops", options)}
+        />
+      ) : null}
+      {connectDialogId === "brevo" ? (
+        <BrevoConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("brevo", options)}
+        />
+      ) : null}
+      {connectDialogId === "lemon-squeezy" ? (
+        <LemonSqueezyConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("lemon-squeezy", options)}
+        />
+      ) : null}
+      {connectDialogId === "crisp" ? (
+        <CrispConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("crisp", options)}
+        />
+      ) : null}
+      {connectDialogId === "vercel" ? (
+        <VercelConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("vercel", options)}
+          onSyncConnected={() => onSync("vercel")}
+        />
+      ) : null}
+    </div>
   );
 }

@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { CONNECTOR_JOB_LABELS, CONNECTORS } from "@/lib/connectors/registry";
 import type { ConnectorId, Integration } from "@/lib/connectors/types";
+import type { ConnectorStreamPayload } from "@/lib/connectors/streams";
+import type { GitHubTrackedRepo } from "@/lib/portfolio";
 import { IntegrationCard } from "@/components/cockpit/integrations/integration-card";
 import { cn } from "@/lib/utils";
 import type { ConnectIntegrationOptions } from "@/contexts/portfolio-context";
@@ -10,6 +12,8 @@ import type { ConnectIntegrationOptions } from "@/contexts/portfolio-context";
 type IntegrationsMarketplaceProps = {
   projectId: string;
   integrations: Integration[];
+  githubTrackedRepos?: GitHubTrackedRepo[];
+  githubStream?: ConnectorStreamPayload;
   onConnect: (id: ConnectorId, options?: ConnectIntegrationOptions) => Promise<void>;
   onSync: (id: ConnectorId) => Promise<void>;
   onDisconnect: (id: ConnectorId) => Promise<void>;
@@ -19,6 +23,8 @@ type IntegrationsMarketplaceProps = {
 export function IntegrationsMarketplace({
   projectId,
   integrations,
+  githubTrackedRepos = [],
+  githubStream,
   onConnect,
   onSync,
   onDisconnect,
@@ -91,6 +97,8 @@ export function IntegrationsMarketplace({
                     projectId={projectId}
                     connector={connector}
                     integration={integration}
+                    githubTrackedRepos={githubTrackedRepos}
+                    githubStream={githubStream}
                     onConnect={onConnect}
                     onSync={onSync}
                     onDisconnect={onDisconnect}

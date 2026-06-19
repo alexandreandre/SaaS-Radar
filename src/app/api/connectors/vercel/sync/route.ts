@@ -1,30 +1,16 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import type { DevStream } from "@/lib/connectors/streams";
-import type { HostConnection } from "@/lib/portfolio";
-import { loadConnectorCredential } from "@/lib/connectors/credentials-store";
-import {
-  fetchVercelDeployMetrics,
-  listVercelProjects,
-} from "@/lib/vercel/client";
+import { assertProjectOwnedByUser } from "@/lib/connectors/project-access";
+import { VercelConnectorError } from "@/lib/connectors/vercel/client";
 import { detectHostLogo } from "@/lib/build/detect-host-logo";
 import { buildProductLogo } from "@/lib/build/product-logo";
+import {
+  listVercelProjectsForUser,
+  runVercelSync,
+} from "@/lib/connectors/vercel/sync-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function metricsToDevStream(m: Awaited<ReturnType<typeof fetchVercelDeployMetrics>>): DevStream {
-  const failed = m?.lastDeploymentState?.toUpperCase() === "ERROR";
-  return {
-    type: "dev",
-    deploysLast30d: m?.deploysLast30d ?? 0,
-    openIssues: 0,
-    errorRate: failed ? 2 : 0,
-    uptimePct: m?.uptimePct ?? 99.9,
-    deploymentUrl: m?.productionUrl,
-    lastDeploymentState: m?.lastDeploymentState ?? null,
-  };
-}
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -47,61 +33,44 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "projectId requis" }, { status: 400 });
   }
 
-  const cred = await loadConnectorCredential<{
-    accessToken: string;
-    teamId?: string | null;
-  }>(user.id, projectId, "vercel");
-
-  if (!cred?.data.accessToken) {
-    return NextResponse.json({ error: "Vercel non connecté" }, { status: 404 });
+  try {
+    await assertProjectOwnedByUser(user.id, projectId);
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Accès refusé" },
+      { status: 403 },
+    );
   }
-
-  const { accessToken, teamId } = cred.data;
-  const team = teamId ?? undefined;
 
   try {
     if (action === "list_projects") {
-      const projects = await listVercelProjects(accessToken, team);
-      return NextResponse.json({
-        projects: projects.map((p) => ({
-          id: p.id,
-          name: p.name,
-          repo: p.link?.repo,
-        })),
-      });
+      const projects = await listVercelProjectsForUser(user.id, projectId);
+      return NextResponse.json({ projects });
     }
 
-    const targetProjectId =
-      typeof b.vercelProjectId === "string" ? b.vercelProjectId.trim() : "";
-    if (!targetProjectId) {
-      return NextResponse.json({ error: "vercelProjectId requis" }, { status: 400 });
-    }
-
-    const metrics = await fetchVercelDeployMetrics(accessToken, targetProjectId, team);
-    if (!metrics) {
-      return NextResponse.json({ error: "Projet Vercel introuvable" }, { status: 404 });
-    }
-
-    const stream = metricsToDevStream(metrics);
-    const connection: HostConnection = {
-      provider: "vercel",
-      projectId: metrics.projectId,
-      projectName: metrics.projectName,
-      productionUrl: metrics.productionUrl || undefined,
-      connectedAt: new Date().toISOString(),
-    };
+    const vercelProjectId =
+      typeof b.vercelProjectId === "string" ? b.vercelProjectId.trim() : undefined;
+    const sync = await runVercelSync(user.id, projectId, vercelProjectId);
 
     let productLogo;
-    if (metrics.productionUrl) {
-      const logoUrl = await detectHostLogo(metrics.productionUrl);
+    if (sync.connection.productionUrl) {
+      const logoUrl = await detectHostLogo(sync.connection.productionUrl);
       if (logoUrl) productLogo = buildProductLogo(logoUrl, "host");
     }
 
-    return NextResponse.json({ connection, stream, metrics, productLogo });
+    return NextResponse.json({
+      accountLabel: sync.accountLabel,
+      stream: sync.stream,
+      connection: sync.connection,
+      syncedAt: sync.syncedAt,
+      productLogo,
+    });
   } catch (err) {
+    const status = err instanceof VercelConnectorError && err.status ? err.status : 500;
+    const message = err instanceof Error ? err.message : "Erreur Vercel";
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Erreur Vercel" },
-      { status: 500 },
+      { error: message },
+      { status: status >= 400 && status < 600 ? status : 500 },
     );
   }
 }

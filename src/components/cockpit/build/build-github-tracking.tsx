@@ -1,34 +1,40 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import {
   Activity,
   ExternalLink,
   GitBranch,
   Loader2,
+  Plus,
   Workflow,
 } from "lucide-react";
 import { BuildPlatformLogo } from "@/components/cockpit/build/build-tool-logo";
 import { BuildCopyPrompt } from "@/components/cockpit/build/build-copy-prompt";
+import { GitHubConnectDialog } from "@/components/cockpit/integrations/github-connect-dialog";
 import type { CockpitModuleId } from "@/lib/cockpit-modules";
-import type { DevStream } from "@/lib/connectors/streams";
-import type { UserProject } from "@/lib/portfolio";
-import { resolveProductName } from "@/lib/portfolio";
-import { getActiveBuildToolId } from "@/lib/portfolio";
-import type { Opportunity } from "@/types/opportunity";
-import type { BuildTool } from "@/lib/build/tools";
-import type { BuildTrackingGithubMode } from "@/lib/build/tracking-profile";
+import type { ConnectorStreamPayload } from "@/lib/connectors/streams";
+import {
+  getGitHubRepoStream,
+  getGitHubStreamsList,
+  isGitHubMultiStream,
+} from "@/lib/connectors/streams";
+import {
+  getGitHubReposForTool,
+  hasGitHubTrackedRepos,
+} from "@/lib/connectors/github/normalize";
 import { getBuildGitHubAlert } from "@/lib/build/github-alerts";
 import { getGitHubCursorPrompt, getGitHubManualSteps } from "@/lib/build/deploy-prompts";
-import { getBuildTool } from "@/lib/build/tools";
+import { getBuildTool, type BuildTool, type BuildToolId } from "@/lib/build/tools";
+import type { BuildTrackingGithubMode } from "@/lib/build/tracking-profile";
+import { getActiveBuildToolId, resolveProductName, type UserProject } from "@/lib/portfolio";
+import type { Opportunity } from "@/types/opportunity";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { usePortfolio } from "@/contexts/portfolio-context";
-import { mergeDetectedProductLogo } from "@/lib/build/product-logo-client";
-import type { ProductLogo } from "@/lib/portfolio";
-import { useSearchParams } from "next/navigation";
 
-type BuildGithubTrackingProps = {
+type BuildGitHubTrackingProps = {
   project: UserProject;
   opportunity?: Opportunity;
   tool?: BuildTool;
@@ -65,108 +71,162 @@ function MetricTile({
   );
 }
 
-export function BuildGithubTracking({
+function RepoMetricsBlock({
+  repoFullName,
+  stream,
+  compact,
+}: {
+  repoFullName: string;
+  stream: ConnectorStreamPayload | undefined;
+  compact?: boolean;
+}) {
+  const repoStream = getGitHubRepoStream(stream, repoFullName);
+  if (!repoStream) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        Aucune métrique — synchronisez ce dépôt.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
+        <GitBranch className="h-3.5 w-3.5" />
+        {repoFullName}
+        {repoStream.defaultBranch ? ` · ${repoStream.defaultBranch}` : ""}
+        <a
+          href={`https://github.com/${repoFullName}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="ml-auto text-muted-foreground hover:text-foreground"
+          aria-label={`Ouvrir ${repoFullName}`}
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+      </p>
+      <div
+        className={cn(
+          "grid gap-3",
+          compact ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3",
+        )}
+      >
+        <MetricTile
+          label="Commits (7j)"
+          value={repoStream.commitsLast7d ?? 0}
+          sub={
+            repoStream.commitsDelta !== undefined
+              ? `${repoStream.commitsDelta >= 0 ? "+" : ""}${repoStream.commitsDelta} vs sem. préc.`
+              : undefined
+          }
+          tone={(repoStream.commitsLast7d ?? 0) > 0 ? "good" : "warn"}
+        />
+        <MetricTile
+          label="CI / Actions"
+          value={repoStream.lastWorkflowConclusion ?? "—"}
+          tone={repoStream.lastWorkflowConclusion === "success" ? "good" : "warn"}
+        />
+        <MetricTile label="Étoiles" value={repoStream.stars ?? 0} sub="popularité" />
+        <MetricTile label="PR ouvertes" value={repoStream.openPrs ?? 0} />
+        <MetricTile label="Issues" value={repoStream.openIssues} />
+        <MetricTile
+          label="Santé build"
+          value={`${repoStream.healthScore ?? 0}%`}
+          tone={(repoStream.healthScore ?? 0) >= 70 ? "good" : "warn"}
+        />
+      </div>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <Activity className="h-3.5 w-3.5" />
+        Vues 14j : {repoStream.viewsLast14d ?? 0}
+        {repoStream.lastPushAt ? (
+          <>
+            <span>·</span>
+            <Workflow className="h-3.5 w-3.5" />
+            Dernier push : {new Date(repoStream.lastPushAt).toLocaleDateString("fr-FR")}
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function TrackedRepoSection({
+  title,
+  repos,
+  stream,
+  compact,
+}: {
+  title: string;
+  repos: Array<{
+    repoFullName: string;
+    linkedToolId?: string;
+    isPrimary?: boolean;
+  }>;
+  stream: ConnectorStreamPayload | undefined;
+  compact?: boolean;
+}) {
+  if (repos.length === 0) return null;
+
+  return (
+    <section className="space-y-3">
+      <h4 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {title}
+      </h4>
+      {repos.map((repo) => (
+        <div
+          key={repo.repoFullName}
+          className="rounded-lg border border-border/60 bg-muted/10 p-3 space-y-2"
+        >
+          <div className="flex flex-wrap gap-1">
+            {repo.isPrimary ? (
+              <Badge variant="secondary" className="text-[10px]">
+                Principal
+              </Badge>
+            ) : null}
+            {repo.linkedToolId ? (
+              <Badge variant="outline" className="text-[10px]">
+                {getBuildTool(repo.linkedToolId as BuildToolId)?.name ?? repo.linkedToolId}
+              </Badge>
+            ) : null}
+          </div>
+          <RepoMetricsBlock
+            repoFullName={repo.repoFullName}
+            stream={stream}
+            compact={compact}
+          />
+        </div>
+      ))}
+    </section>
+  );
+}
+
+export function BuildGitHubTracking({
   project,
   opportunity,
   tool: toolProp,
   mode = "required",
   embedded = false,
-}: BuildGithubTrackingProps) {
-  const { setGitHubConnection, updateProject } = usePortfolio();
-  const searchParams = useSearchParams();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [repos, setRepos] = useState<{ fullName: string; private: boolean }[]>([]);
-  const [selectedRepo, setSelectedRepo] = useState(project.githubConnection?.repoFullName ?? "");
+}: BuildGitHubTrackingProps) {
+  const { connectIntegration, syncIntegration } = usePortfolio();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
-  const stream = project.connectorStreams?.github as DevStream | undefined;
+  const stream = project.connectorStreams?.github;
   const alert = getBuildGitHubAlert(project, stream);
+  const tracked = project.githubTrackedRepos ?? [];
+  const hasTracked = hasGitHubTrackedRepos(project);
 
+  const activeToolId = getActiveBuildToolId(project);
   const buildTool =
-    toolProp ??
-    (getActiveBuildToolId(project) ? getBuildTool(getActiveBuildToolId(project)!) : undefined);
+    toolProp ?? (activeToolId ? getBuildTool(activeToolId) : undefined);
+  const activeToolLabel = buildTool?.name ?? "l'outil actif";
 
-  const syncRepo = useCallback(
-    async (installationId: number, repoFullName: string) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch("/api/connectors/github/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ installationId, repoFullName, action: "sync" }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Sync échouée");
+  const linkedRepos = getGitHubReposForTool(project, activeToolId);
+  const otherRepos = tracked.filter((r) => r.linkedToolId !== activeToolId);
 
-        setGitHubConnection(project.id, data.connection);
-        const baseUpdated: UserProject = {
-          ...project,
-          githubConnection: data.connection,
-          connectorStreams: {
-            ...project.connectorStreams,
-            github: data.stream,
-          },
-        };
-        const withLogo = mergeDetectedProductLogo(
-          baseUpdated,
-          data.productLogo as ProductLogo | undefined,
-        );
-        const updated = withLogo ?? baseUpdated;
-        updateProject(project.id, {
-          githubConnection: data.connection,
-          connectorStreams: updated.connectorStreams,
-          ...(withLogo ? { productLogo: withLogo.productLogo } : {}),
-        });
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Erreur");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [project, setGitHubConnection, updateProject],
-  );
-
-  const loadRepos = useCallback(async (installationId: number) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/connectors/github/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ installationId, action: "list_repos" }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Liste repos échouée");
-      setRepos(data.repos ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    const installId = searchParams.get("github_install");
-    if (!installId) return;
-    const installationId = parseInt(installId, 10);
-    if (!Number.isFinite(installationId)) return;
-    void loadRepos(installationId);
-    setGitHubConnection(project.id, {
-      repoFullName: "",
-      installationId,
-      connectedAt: new Date().toISOString(),
-    });
-  }, [searchParams, project.id, loadRepos, setGitHubConnection]);
-
-  const handleConnect = () => {
-    window.location.href = `/api/connectors/github/oauth?projectId=${encodeURIComponent(project.id)}`;
-  };
-
-  const installationId = project.githubConnection?.installationId;
   const showCursorHelp =
     mode === "required" &&
-    Boolean(opportunity && buildTool?.deployModel === "github-vercel" && !project.githubConnection);
+    Boolean(opportunity && buildTool?.deployModel === "github-vercel" && !hasTracked);
 
   const optionalHint = buildTool
     ? `Si vous avez activé la sync GitHub dans ${buildTool.name}, liez le repo ici pour suivre commits et CI — ce n'est pas requis pour publier.`
@@ -174,6 +234,15 @@ export function BuildGithubTracking({
 
   const requiredHint =
     "Une fois le code sur GitHub, connectez-le ici pour suivre commits et déploiements.";
+
+  async function handleSyncAll() {
+    setSyncing(true);
+    try {
+      await syncIntegration(project.id, "github");
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   const content = (
     <>
@@ -195,27 +264,31 @@ export function BuildGithubTracking({
             {mode === "optional" ? (
               <span className="text-xs font-normal text-muted-foreground">(optionnel)</span>
             ) : null}
+            {hasTracked && isGitHubMultiStream(stream) ? (
+              <span className="text-xs font-normal text-muted-foreground">
+                · {getGitHubStreamsList(stream).length} dépôt
+                {getGitHubStreamsList(stream).length > 1 ? "s" : ""}
+              </span>
+            ) : null}
           </h3>
         </div>
-        {!project.githubConnection ? (
-          <Button type="button" size="sm" onClick={handleConnect}>
-            Connecter GitHub
+        <div className="flex flex-wrap gap-2">
+          {hasTracked ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={syncing}
+              onClick={() => void handleSyncAll()}
+            >
+              {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Synchroniser"}
+            </Button>
+          ) : null}
+          <Button type="button" size="sm" onClick={() => setDialogOpen(true)}>
+            <Plus className="h-3.5 w-3.5 mr-1" />
+            {hasTracked ? "Ajouter un dépôt" : "Connecter GitHub"}
           </Button>
-        ) : (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={loading || !selectedRepo}
-            onClick={() => {
-              if (installationId && selectedRepo) {
-                void syncRepo(installationId, selectedRepo);
-              }
-            }}
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Synchroniser"}
-          </Button>
-        )}
+        </div>
       </div>
 
       {showCursorHelp && opportunity && buildTool ? (
@@ -261,83 +334,54 @@ export function BuildGithubTracking({
         </div>
       ) : null}
 
-      {installationId && repos.length > 0 && !project.githubConnection?.repoFullName ? (
-        <div className="mb-4">
-          <p className="mb-2 text-sm text-muted-foreground">Sélectionnez votre repo :</p>
-          <div className="flex flex-wrap gap-2">
-            {repos.map((r) => (
-              <button
-                key={r.fullName}
-                type="button"
-                onClick={() => {
-                  setSelectedRepo(r.fullName);
-                  void syncRepo(installationId, r.fullName);
-                }}
-                className="rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-muted/50"
-              >
-                {r.fullName}
-              </button>
-            ))}
-          </div>
+      {hasTracked ? (
+        <div className="space-y-4">
+          {linkedRepos.length > 0 ? (
+            <TrackedRepoSection
+              title={`Repos liés à ${activeToolLabel}`}
+              repos={linkedRepos}
+              stream={stream}
+              compact={embedded}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Aucun dépôt lié à {activeToolLabel}. Ajoutez le repo que vous utilisez avec{" "}
+              {activeToolLabel}.
+            </p>
+          )}
+          <TrackedRepoSection
+            title="Autres repos suivis"
+            repos={otherRepos}
+            stream={stream}
+            compact={embedded}
+          />
         </div>
-      ) : null}
-
-      {project.githubConnection?.repoFullName && stream?.type === "dev" ? (
-        <>
-          <p className="mb-3 flex items-center gap-1.5 text-sm text-muted-foreground">
-            <GitBranch className="h-3.5 w-3.5" />
-            {stream.repoFullName ?? project.githubConnection.repoFullName}
-            {stream.defaultBranch ? ` · ${stream.defaultBranch}` : ""}
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            <MetricTile
-              label="Commits (7j)"
-              value={stream.commitsLast7d ?? 0}
-              sub={
-                stream.commitsDelta !== undefined
-                  ? `${stream.commitsDelta >= 0 ? "+" : ""}${stream.commitsDelta} vs sem. préc.`
-                  : undefined
-              }
-              tone={(stream.commitsLast7d ?? 0) > 0 ? "good" : "warn"}
-            />
-            <MetricTile
-              label="CI / Actions"
-              value={stream.lastWorkflowConclusion ?? "—"}
-              tone={stream.lastWorkflowConclusion === "success" ? "good" : "warn"}
-            />
-            <MetricTile label="Étoiles" value={stream.stars ?? 0} sub="popularité" />
-            <MetricTile label="PR ouvertes" value={stream.openPrs ?? 0} />
-            <MetricTile label="Issues" value={stream.openIssues} />
-            <MetricTile
-              label="Santé build"
-              value={`${stream.healthScore ?? 0}%`}
-              tone={(stream.healthScore ?? 0) >= 70 ? "good" : "warn"}
-            />
-          </div>
-          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
-            <Activity className="h-3.5 w-3.5" />
-            Vues 14j : {stream.viewsLast14d ?? 0}
-            {stream.lastPushAt ? (
-              <>
-                <span>·</span>
-                <Workflow className="h-3.5 w-3.5" />
-                Dernier push : {new Date(stream.lastPushAt).toLocaleDateString("fr-FR")}
-              </>
-            ) : null}
-          </div>
-        </>
-      ) : !project.githubConnection ? (
+      ) : (
         <p className="text-sm text-muted-foreground">
           {mode === "required" ? requiredHint : optionalHint}
         </p>
-      ) : null}
+      )}
 
-      {error ? <p className="mt-2 text-xs text-destructive">{error}</p> : null}
+      <GitHubConnectDialog
+        projectId={project.id}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        defaultLinkedToolId={activeToolId}
+        trackedRepos={tracked}
+        stream={stream}
+        oauthModule="build"
+        onConnect={(options) =>
+          connectIntegration(project.id, "github", {
+            ...options,
+            linkedToolId: options?.linkedToolId ?? activeToolId,
+          })
+        }
+      />
     </>
   );
 
   const wrappedContent =
-    mode === "optional" && !project.githubConnection ? (
+    mode === "optional" && !hasTracked ? (
       <details open className="rounded-lg border border-dashed border-border bg-muted/10">
         <summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium marker:content-none [&::-webkit-details-marker]:hidden">
           Optionnel — lier GitHub pour suivre le code
@@ -349,7 +393,7 @@ export function BuildGithubTracking({
     );
 
   if (embedded) {
-    if (mode === "optional" && !project.githubConnection) {
+    if (mode === "optional" && !hasTracked) {
       return wrappedContent;
     }
     return <div className="rounded-lg border border-border bg-muted/10 p-4">{wrappedContent}</div>;
@@ -361,3 +405,6 @@ export function BuildGithubTracking({
     </section>
   );
 }
+
+/** Alias historique (casse github) */
+export const BuildGithubTracking = BuildGitHubTracking;

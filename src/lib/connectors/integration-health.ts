@@ -3,7 +3,7 @@ import type { CockpitModuleId } from "@/lib/cockpit-modules";
 import { getConnector } from "@/lib/connectors/registry";
 import type { ConnectorId, Integration } from "@/lib/connectors/types";
 
-const OAUTH_ADS_CONNECTORS: ConnectorId[] = ["google-ads", "meta-ads"];
+const OAUTH_ADS_CONNECTORS: ConnectorId[] = ["google-ads", "meta-ads", "tiktok-ads", "linkedin-ads"];
 const TOKEN_WARNING_DAYS = 7;
 const STALE_SYNC_DAYS = 30;
 

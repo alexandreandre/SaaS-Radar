@@ -13,7 +13,14 @@ export type ConnectorProvider =
   | "netlify"
   | "stripe"
   | "google-ads"
-  | "meta-ads";
+  | "meta-ads"
+  | "tiktok-ads"
+  | "linkedin-ads"
+  | "plausible"
+  | "loops"
+  | "lemon-squeezy"
+  | "brevo"
+  | "crisp";
 
 export type StoredCredential<T> = {
   provider: ConnectorProvider;
@@ -90,4 +97,24 @@ export async function deleteConnectorCredential(
     .eq("project_id", projectId)
     .eq("provider", provider);
   if (error) throw error;
+}
+
+export async function loadConnectorCredentialByProject<T extends Record<string, unknown>>(
+  projectId: string,
+  provider: ConnectorProvider,
+): Promise<T | null> {
+  if (!isCredentialsEncryptionConfigured()) return null;
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("connector_credentials")
+    .select("credential_encrypted")
+    .eq("project_id", projectId)
+    .eq("provider", provider)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data?.credential_encrypted) return null;
+
+  return JSON.parse(decryptCredential(data.credential_encrypted)) as T;
 }
