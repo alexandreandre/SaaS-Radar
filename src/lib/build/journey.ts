@@ -1,4 +1,5 @@
-import type { DevStream } from "@/lib/connectors/streams";
+import { hasGitHubTrackedRepos } from "@/lib/connectors/github/normalize";
+import type { ConnectorStreamPayload } from "@/lib/connectors/streams";
 import {
   getActiveBuildKit,
   getActiveBuildToolId,
@@ -59,15 +60,10 @@ export function resolveDevLevel(project: UserProject): BuildToolLevel | undefine
 function isOnline(project: UserProject): boolean {
   if (project.hostConnection?.productionUrl) return true;
 
-  const activeToolId = getActiveBuildToolId(project);
-  if (!activeToolId) return false;
-
-  const tool = getBuildTool(activeToolId);
-  if (!tool) return false;
-
-  const profile = getBuildTrackingProfile(tool);
-  if (profile.github === "required" && project.githubConnection?.repoFullName) {
-    return true;
+  const vercel = project.connectorStreams?.vercel;
+  if (vercel?.type === "dev") {
+    const state = vercel.lastDeploymentState?.toUpperCase();
+    if (state === "READY" || vercel.deploymentUrl) return true;
   }
 
   return false;
@@ -111,7 +107,7 @@ export function getBuildJourneyState(project: UserProject): BuildJourneyState {
   const tool = activeToolId ? getBuildTool(activeToolId) : undefined;
 
   const otherKitIds = getSavedBuildToolIds(project).filter((id) => id !== activeToolId);
-  const secondaryDetail =
+  let secondaryDetail =
     otherKitIds.length > 0
       ? `Vous avez aussi un kit sur ${otherKitIds
           .map((id) => getBuildTool(id)?.name ?? id)
@@ -135,6 +131,10 @@ export function getBuildJourneyState(project: UserProject): BuildJourneyState {
     actionTitle = "Votre app est suivie";
     actionDetail =
       "Concentrez-vous sur les retours utilisateurs et les prochaines fonctionnalités.";
+    const campaignHint = "Passez à Campagne pour préparer votre lancement.";
+    secondaryDetail = secondaryDetail
+      ? `${secondaryDetail} ${campaignHint}`
+      : campaignHint;
   }
 
   const displayPhase = resolveDisplayPhase(currentStep, online);
@@ -157,8 +157,8 @@ export function shouldShowBuildTracking(project: UserProject): boolean {
 
 export function shouldShowGitHubAlerts(
   project: UserProject,
-  stream?: DevStream,
+  stream?: ConnectorStreamPayload,
 ): boolean {
   if (!shouldShowBuildTracking(project)) return false;
-  return Boolean(project.githubConnection || stream);
+  return Boolean(hasGitHubTrackedRepos(project) || stream);
 }

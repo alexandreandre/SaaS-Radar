@@ -4,12 +4,14 @@ import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getResolvedCockpitModule, type CockpitModuleId } from "@/lib/cockpit-modules";
 import type { Opportunity } from "@/types/opportunity";
+import type { UserProject } from "@/lib/portfolio";
 import type { CockpitAlert } from "@/lib/cockpit-alerts";
 
 type CockpitModuleBarProps = {
   activeModule: CockpitModuleId;
   alerts: CockpitAlert[];
   opportunity?: Pick<Opportunity, "name">;
+  project?: UserProject;
   onOpenNav: () => void;
 };
 
@@ -17,9 +19,10 @@ export function CockpitModuleBar({
   activeModule,
   alerts,
   opportunity,
+  project,
   onOpenNav,
 }: CockpitModuleBarProps) {
-  const mod = getResolvedCockpitModule(activeModule, opportunity);
+  const mod = getResolvedCockpitModule(activeModule, opportunity, project);
   const Icon = mod.icon;
   const alertCount = alerts.filter((alert) => alert.actionModule === activeModule).length;
 

@@ -25,8 +25,12 @@ function readString(value: unknown): string | undefined {
 function rowToUserProject(row: UserProjectRow): UserProject {
   const payload = readPayloadRecord(row.payload);
 
-  if (readString(payload.id) === row.id && readString(payload.opportunitySlug)) {
-    return migrateProject(payload as UserProject);
+  if (readString(payload.id) === row.id) {
+    const hasSlug = readString(payload.opportunitySlug);
+    const hasIdea = payload && typeof payload === "object" && "ideaBrief" in payload;
+    if (hasSlug || hasIdea) {
+      return migrateProject(payload as UserProject);
+    }
   }
 
   return migrateProject({
@@ -39,6 +43,23 @@ function rowToUserProject(row: UserProjectRow): UserProject {
     createdAt: readString(payload.createdAt) ?? row.created_at,
     startedAt: readString(payload.startedAt) ?? row.created_at,
   });
+}
+
+export async function loadUserProject(
+  userId: string,
+  projectId: string,
+): Promise<UserProject | null> {
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("user_projects")
+    .select("id, opportunity_slug, name, phase, mrr_cents, payload, created_at")
+    .eq("id", projectId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+  return rowToUserProject(data as UserProjectRow);
 }
 
 export async function loadUserProjects(userId: string): Promise<UserProject[]> {
@@ -62,7 +83,11 @@ export async function syncUserProject(userId: string, project: UserProject) {
       id: migrated.id,
       user_id: userId,
       opportunity_slug: migrated.opportunitySlug,
-      name: migrated.productName?.trim() || migrated.opportunitySlug,
+      name:
+        migrated.productName?.trim() ||
+        migrated.ideaBrief?.identity.name ||
+        migrated.opportunitySlug ||
+        "Mon SaaS",
       phase: migrated.phase,
       mrr_cents: Math.round(migrated.currentMrr * 100),
       payload: migrated,

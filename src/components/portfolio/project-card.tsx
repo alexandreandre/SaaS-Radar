@@ -23,6 +23,8 @@ import {
 import { getProjectCardMetrics, getProjectCardQuip } from "@/lib/portfolio-card-copy";
 import { ProjectCardMetrics } from "@/components/portfolio/project-card-metrics";
 import { getCockpitHref } from "@/lib/cockpit-modules";
+import { getBuildJourneyState } from "@/lib/build/journey";
+import type { CockpitModuleId } from "@/lib/cockpit-modules";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,19 +52,23 @@ function formatOriginCountryCode(code: string): string {
 export function ProjectCard({ project, onPause, onResume, onRemove }: ProjectCardProps) {
   const router = useRouter();
   const { getCatalogOpportunity } = usePortfolio();
-  const opportunity = getCatalogOpportunity(project.opportunitySlug);
+  const opportunity = project.opportunitySlug
+    ? getCatalogOpportunity(project.opportunitySlug)
+    : undefined;
 
   const cockpitHref = getCockpitHref(project.id, "build");
   const prefetchCockpit = useCallback(() => {
-    router.prefetch(cockpitHref);
-    prefetchCockpitEntry(project, "build");
-  }, [cockpitHref, project, router]);
+    const entryModule: CockpitModuleId =
+      getBuildJourneyState(project).displayPhase === "live" ? "campagne" : "build";
+    router.prefetch(getCockpitHref(project.id, entryModule));
+    prefetchCockpitEntry(project, entryModule);
+  }, [project, router]);
 
   const openBuilder = useCallback(() => {
     router.push(cockpitHref);
   }, [cockpitHref, router]);
 
-  if (!opportunity) return null;
+  if (!opportunity && !project.ideaBrief && project.projectSource !== "github") return null;
 
   const quip = getProjectCardQuip(project);
   const metrics = getProjectCardMetrics(project);
@@ -70,7 +76,14 @@ export function ProjectCard({ project, onPause, onResume, onRemove }: ProjectCar
   const paused = project.phase === "paused";
   const daysSinceCheckIn = daysSince(project.lastCheckInAt ?? project.createdAt);
   const displayName = resolveProductName(project, opportunity);
-  const originLabel = formatOriginCountryCode(opportunity.originCountryCode);
+  const originLabel = opportunity
+    ? formatOriginCountryCode(opportunity.originCountryCode)
+    : "FR";
+  const subtitle = opportunity
+    ? `Inspiré de ${opportunity.name}, ${originLabel}`
+    : project.ideaBrief
+      ? project.ideaBrief.identity.pitch.slice(0, 72)
+      : "Projet · GitHub";
 
   return (
     <motion.article
@@ -98,9 +111,7 @@ export function ProjectCard({ project, onPause, onResume, onRemove }: ProjectCar
           <ProductLogoImage logo={project.productLogo} size="sm" alt={displayName} />
           <div className="min-w-0">
             <h2 className="text-lg font-semibold leading-tight">{displayName}</h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              Inspiré de {opportunity.name}, {originLabel}
-            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
           </div>
         </div>
         <div
@@ -116,13 +127,15 @@ export function ProjectCard({ project, onPause, onResume, onRemove }: ProjectCar
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem asChild>
-                <Link href={`/opportunities/${project.opportunitySlug}`}>
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Voir la fiche
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              {opportunity ? (
+                <DropdownMenuItem asChild>
+                  <Link href={`/opportunities/${project.opportunitySlug}`}>
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Voir la fiche
+                  </Link>
+                </DropdownMenuItem>
+              ) : null}
+              {opportunity ? <DropdownMenuSeparator /> : null}
               {paused ? (
                 <DropdownMenuItem onClick={() => onResume(project.id)}>
                   <Play className="mr-2 h-4 w-4" />

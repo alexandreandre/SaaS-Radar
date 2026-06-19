@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useMemo, useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { Suspense, useMemo, useState, useEffect, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { OpportunityCard } from "@/components/opportunities/opportunity-card";
@@ -13,7 +13,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import type { Opportunity, Sector, TechComplexity, FranceCompetition } from "@/types/opportunity";
-import { Search } from "lucide-react";
+import { flagFromAlpha2 } from "@/lib/country-code";
+import { Search, X } from "lucide-react";
 
 const sortOptions: { value: SortOption; label: string }[] = [
   { value: "opportunity", label: "Top Opportunity Score" },
@@ -47,20 +48,56 @@ function OpportunitiesFallback() {
 }
 
 function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   const { favoriteSlugs, guestHint, clearGuestHint } = useFavorites();
   const favoriteSet = useMemo(() => new Set(favoriteSlugs), [favoriteSlugs]);
+
+  const syncCountryInUrl = useCallback(
+    (code: string | null) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (code) params.set("country", code);
+      else params.delete("country");
+      const qs = params.toString();
+      router.replace(qs ? `/opportunities?${qs}` : "/opportunities", { scroll: false });
+    },
+    [router, searchParams]
+  );
+
+  const setCountryFilter = useCallback(
+    (code: string | null) => {
+      const normalized = code ? code.toUpperCase() : null;
+      setFilters((f) => ({ ...f, countryCode: normalized }));
+      syncCountryInUrl(normalized);
+    },
+    [syncCountryInUrl]
+  );
+
+  const clearCountryFilter = useCallback(() => {
+    setCountryFilter(null);
+  }, [setCountryFilter]);
 
   useEffect(() => {
     const country = searchParams.get("country");
     const favorites = searchParams.get("favorites");
     setFilters((f) => ({
       ...f,
-      ...(country ? { countryCode: country.toUpperCase() } : {}),
-      ...(favorites === "1" ? { favoritesOnly: true } : {}),
+      countryCode: country ? country.toUpperCase() : null,
+      favoritesOnly: favorites === "1",
     }));
   }, [searchParams]);
+
+  const countryOptions = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const o of opportunities) {
+      const code = o.originCountryCode.toUpperCase();
+      counts.set(code, (counts.get(code) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "fr"))
+      .map(([code, count]) => ({ code, count }));
+  }, [opportunities]);
 
   const filtered = useMemo(() => {
     let result = filterOpportunities(opportunities, filters);
@@ -86,19 +123,22 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
             Trouve ton idée dès maintenant
           </h1>
           {filters.countryCode && (
-            <p className="mt-2 text-muted-foreground">
-              <span className="inline-flex items-center rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-primary">
-                Pays : {filters.countryCode}
+            <div className="mt-3">
+              <span
+                role="status"
+                className="inline-flex items-center gap-1 rounded-md border border-border bg-muted/50 px-2 py-0.5 font-data text-[11px] uppercase tracking-data text-muted-foreground"
+              >
+                {filters.countryCode}
                 <button
                   type="button"
-                  className="ml-1.5 hover:opacity-70"
-                  onClick={() => setFilters((f) => ({ ...f, countryCode: null }))}
-                  aria-label="Retirer le filtre pays"
+                  className="inline-flex rounded p-0.5 text-muted-foreground/70 hover:bg-muted hover:text-foreground"
+                  aria-label={`Retirer le filtre ${filters.countryCode}`}
+                  onClick={clearCountryFilter}
                 >
-                  ×
+                  <X className="size-3" strokeWidth={2.5} aria-hidden />
                 </button>
               </span>
-            </p>
+            </div>
           )}
         </div>
 
@@ -130,6 +170,22 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
                     className="w-full rounded-lg border border-border py-2 pl-9 pr-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
+              </div>
+
+              <div>
+                <Label>Pays</Label>
+                <select
+                  className="mt-2 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                  value={filters.countryCode ?? ""}
+                  onChange={(e) => setCountryFilter(e.target.value || null)}
+                >
+                  <option value="">Tous</option>
+                  {countryOptions.map(({ code, count }) => (
+                    <option key={code} value={code}>
+                      {flagFromAlpha2(code)} {code} ({count})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -269,7 +325,14 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
                       : "Aucune de vos fiches favorites ne correspond aux autres filtres."
                     : "Essayez de retirer un filtre pour voir plus d'opportunités."}
                 </p>
-                <Button className="mt-4" variant="outline" onClick={() => setFilters(defaultFilters)}>
+                <Button
+                  className="mt-4"
+                  variant="outline"
+                  onClick={() => {
+                    setFilters(defaultFilters);
+                    syncCountryInUrl(null);
+                  }}
+                >
                   Réinitialiser les filtres
                 </Button>
               </div>

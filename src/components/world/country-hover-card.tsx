@@ -55,7 +55,7 @@ export function CountryHoverCard({
       exit={{ opacity: 0, scale: 0.96, y: 6 }}
       transition={{ duration: 0.15 }}
       style={{ left, top, width: CARD_WIDTH }}
-      className="pointer-events-none fixed z-50"
+      className="pointer-events-none fixed z-[70]"
     >
       <div className="overflow-hidden rounded-xl border border-border bg-background/95 shadow-lg shadow-black/40 backdrop-blur-md">
         <div className="border-b border-border bg-muted/20 px-4 py-3.5">

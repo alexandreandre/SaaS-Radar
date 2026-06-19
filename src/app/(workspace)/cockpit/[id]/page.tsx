@@ -8,6 +8,7 @@ import { Navbar } from "@/components/layout/navbar";
 import { usePortfolio } from "@/contexts/portfolio-context";
 import type { Opportunity } from "@/types/opportunity";
 import type { UserProject } from "@/lib/portfolio";
+import { resolveCockpitOpportunity } from "@/lib/idea/to-opportunity";
 import { shouldShowLaunchPad } from "@/lib/build-launch";
 import { syncBuildMilestones } from "@/lib/portfolio";
 import { CockpitProjectIdentity } from "@/components/cockpit/cockpit-project-identity";
@@ -110,9 +111,13 @@ export default function CockpitPage({ params }: { params: { id: string } }) {
   const searchParams = useSearchParams();
   const { hydrated, getProjectById, getCatalogOpportunity } = usePortfolio();
   const project = getProjectById(params.id);
+  const catalogOpportunity = useMemo(
+    () => (project?.opportunitySlug ? getCatalogOpportunity(project.opportunitySlug) : null),
+    [project, getCatalogOpportunity],
+  );
   const opportunity = useMemo(
-    () => (project ? getCatalogOpportunity(project.opportunitySlug) : null),
-    [project, getCatalogOpportunity]
+    () => (project ? resolveCockpitOpportunity(project, catalogOpportunity) : null),
+    [project, catalogOpportunity],
   );
 
   if (!hydrated) {
@@ -128,8 +133,11 @@ export default function CockpitPage({ params }: { params: { id: string } }) {
 
   if (!project || !opportunity) notFound();
 
+  const welcomeIdea = searchParams.get("welcome") === "idea";
   const inLaunchPad =
-    shouldShowLaunchPad(project) && searchParams.get("module") !== "build";
+    !welcomeIdea &&
+    shouldShowLaunchPad(project) &&
+    searchParams.get("module") !== "build";
 
   return (
     <>

@@ -1,5 +1,14 @@
+import {
+  getGitHubReposForTool,
+  getPrimaryGitHubRepo,
+} from "@/lib/connectors/github/normalize";
 import type { DevStream } from "@/lib/connectors/streams";
-import type { UserProject } from "@/lib/portfolio";
+import {
+  getGitHubPrimaryRepoStream,
+  getGitHubRepoStream,
+  type ConnectorStreamPayload,
+} from "@/lib/connectors/streams";
+import { getActiveBuildToolId, type UserProject } from "@/lib/portfolio";
 
 export type UnifiedDeployStatus = {
   status: "success" | "failure" | "pending" | "unknown";
@@ -27,8 +36,22 @@ function mapVercelState(state?: string | null): UnifiedDeployStatus["status"] {
   return "unknown";
 }
 
+function resolveGitHubStreamForDeploy(project: UserProject): DevStream | undefined {
+  const payload = project.connectorStreams?.github as ConnectorStreamPayload | undefined;
+  const activeToolId = getActiveBuildToolId(project);
+  const linked = getGitHubReposForTool(project, activeToolId);
+  if (linked.length > 0) {
+    return getGitHubRepoStream(payload, linked[0]!.repoFullName);
+  }
+  const primary = getPrimaryGitHubRepo(project);
+  if (primary) {
+    return getGitHubRepoStream(payload, primary.repoFullName);
+  }
+  return getGitHubPrimaryRepoStream(payload);
+}
+
 export function getUnifiedDeployStatus(project: UserProject): UnifiedDeployStatus | null {
-  const github = project.connectorStreams?.github as DevStream | undefined;
+  const github = resolveGitHubStreamForDeploy(project);
   const vercel = project.connectorStreams?.vercel as DevStream | undefined;
   const hostUrl = project.hostConnection?.productionUrl;
 
@@ -48,7 +71,7 @@ export function getUnifiedDeployStatus(project: UserProject): UnifiedDeployStatu
     }
   }
 
-  if (github?.type === "dev" && github.lastWorkflowConclusion) {
+  if (github?.lastWorkflowConclusion) {
     sources.push("github");
     const ghStatus = mapWorkflowConclusion(github.lastWorkflowConclusion);
     if (status === "unknown" || ghStatus === "failure") status = ghStatus;

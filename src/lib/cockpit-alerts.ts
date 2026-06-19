@@ -3,7 +3,7 @@ import type { CockpitMetrics } from "@/lib/cockpit-metrics";
 import type { CockpitModuleId } from "@/lib/cockpit-modules";
 import { CONNECTORS } from "@/lib/connectors/registry";
 import { getBuildGitHubAlert } from "@/lib/build/github-alerts";
-import type { DevStream } from "@/lib/connectors/streams";
+import type { ConnectorStreamPayload } from "@/lib/connectors/streams";
 import {
   computeCac,
   computeLtv,
@@ -169,7 +169,7 @@ export function buildCockpitAlerts(
     });
   }
 
-  const githubStream = project.connectorStreams?.github as DevStream | undefined;
+  const githubStream = project.connectorStreams?.github as ConnectorStreamPayload | undefined;
   const githubAlert = getBuildGitHubAlert(project, githubStream);
   if (githubAlert && githubAlert.severity !== "info") {
     alerts.push({

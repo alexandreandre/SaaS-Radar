@@ -20,6 +20,7 @@ const CHANNEL_CONNECTOR_MAP: Record<string, ConnectorId> = {
   seo: "plausible",
   google: "google-ads",
   meta: "meta-ads",
+  tiktok: "tiktok-ads",
   referral: "hubspot",
 };
 

@@ -12,11 +12,11 @@
     "start": "next start",
     "lint": "next lint",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
-    "sourcing": "tsx --env-file=.env.local scripts/sourcing.ts",
-    "sourcing:worker": "tsx --env-file=.env.local scripts/sourcing-worker.ts",
-    "sourcing:premium": "tsx --env-file=.env.local scripts/sourcing.ts --premium",
-    "sourcing:test-a": "tsx --env-file=.env.local scripts/test-discover-a.ts",
-    "test": "node --import tsx --test scripts/sourcing.test.ts scripts/build-infra.test.ts scripts/build-journey.test.ts scripts/product-logo.test.ts scripts/stripe-connector.test.ts scripts/google-ads-connector.test.ts scripts/meta-ads-connector.test.ts scripts/integration-health.test.ts",
+    "sourcing": "node --require ./scripts/register-server-only-stub.cjs --import tsx --env-file=.env.local scripts/sourcing.ts",
+    "sourcing:worker": "node --require ./scripts/register-server-only-stub.cjs --import tsx --env-file=.env.local scripts/sourcing-worker.ts",
+    "sourcing:premium": "node --require ./scripts/register-server-only-stub.cjs --import tsx --env-file=.env.local scripts/sourcing.ts --premium",
+    "sourcing:test-a": "node --require ./scripts/register-server-only-stub.cjs --import tsx --env-file=.env.local scripts/test-discover-a.ts",
+    "test": "node --import tsx --test scripts/sourcing.test.ts scripts/build-infra.test.ts scripts/build-journey.test.ts scripts/campaign-journey.test.ts scripts/campaign-recommend.test.ts scripts/campaign-prompts.test.ts scripts/product-logo.test.ts scripts/stripe-connector.test.ts scripts/google-ads-connector.test.ts scripts/meta-ads-connector.test.ts scripts/tiktok-ads-connector.test.ts scripts/linkedin-ads-connector.test.ts scripts/plausible-connector.test.ts scripts/loops-connector.test.ts scripts/brevo-connector.test.ts scripts/vercel-connector.test.ts scripts/github-connector.test.ts scripts/lemon-squeezy-connector.test.ts scripts/crisp-connector.test.ts scripts/integration-health.test.ts",
     "db:migrate:015": "bash scripts/apply-migration-015.sh"
   },
   "dependencies": {

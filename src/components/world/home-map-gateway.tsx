@@ -11,12 +11,14 @@ import { MapHeroSkeleton } from "@/components/world/map-hero-skeleton";
 
 export function HomeMapGateway({
   unlocked,
+  showDashboard = false,
   onUnlock,
   onLock,
   deferMap = true,
   mapCatalog = [],
 }: {
   unlocked: boolean;
+  showDashboard?: boolean;
   onUnlock: () => void;
   onLock: () => void;
   deferMap?: boolean;
@@ -31,6 +33,7 @@ export function HomeMapGateway({
         >
           <WorldMapHero
             unlocked={unlocked}
+            showDashboard={showDashboard}
             onUnlock={onUnlock}
             onLock={onLock}
             className="absolute inset-0 z-0"

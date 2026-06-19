@@ -186,7 +186,9 @@ export function BuildRecipeCard({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            opportunitySlug,
+            ...(opportunitySlug && opportunitySlug !== "__idea__"
+              ? { opportunitySlug }
+              : { projectId: project.id }),
             toolId: tool.id,
             mode,
             language: promptLanguage,
@@ -214,7 +216,7 @@ export function BuildRecipeCard({
         setGenerating(false);
       }
     },
-    [opportunitySlug, tool.id, promptLanguage, onGenerated, project.productName],
+    [opportunitySlug, tool.id, promptLanguage, onGenerated, project.productName, project.id],
   );
 
   const busy = loading || generating;

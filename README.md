@@ -176,6 +176,158 @@ Flux utilisateur : OAuth Meta → sélection du compte publicitaire → sync ini
 
 **Comportement à l'expiration du token** : les snapshots déjà synchronisés restent dans le cockpit ; une alerte « Action requise » apparaît sur la carte Intégrations et dans le panel alertes. Reconnectez via OAuth pour resynchroniser (token long-lived ~60 jours).
 
+### Connecteur TikTok Ads cockpit (acquisition)
+
+Le connecteur TikTok Ads (`/api/connectors/tiktok-ads/*`) synchronise **adSpend**,
+**impressions**, **clics** et **conversions** sur 12 mois via la TikTok Marketing API v1.3.
+
+**Prérequis plateforme** (variables dans `.env`) :
+
+1. App sur [TikTok API for Business](https://business-api.tiktok.com/portal/docs) avec produit **Marketing API**
+2. Redirect URI : `https://<domaine>/api/connectors/tiktok-ads/callback`
+3. Scope OAuth : `ad.read` (lecture reporting)
+4. `CREDENTIALS_ENCRYPTION_KEY` pour chiffrer les tokens utilisateur
+
+Flux utilisateur : OAuth TikTok → sélection du compte publicitaire → sync initiale.
+
+**Production multi-utilisateurs** : app review TikTok requis pour accès production à volume.
+
+**Comportement à l'expiration du token** : access token ~24h renouvelé via refresh token ; si refresh expiré (~1 an), reconnectez via OAuth. Les snapshots déjà synchronisés restent visibles.
+
+Doc détaillée : [`docs/connectors/tiktok-ads.md`](docs/connectors/tiktok-ads.md)
+
+### Connecteur LinkedIn Ads cockpit (acquisition B2B)
+
+Le connecteur LinkedIn Ads (`/api/connectors/linkedin-ads/*`) synchronise **adSpend**,
+**impressions**, **clics** et **conversions** (site + Lead Gen) sur 12 mois via la LinkedIn Marketing API.
+
+**Prérequis plateforme** (variables dans `.env`) :
+
+1. App sur [LinkedIn Developer Portal](https://www.linkedin.com/developers/apps) avec produit **Advertising API**
+2. Redirect URI : `https://<domaine>/api/connectors/linkedin-ads/callback`
+3. Scopes OAuth : `r_ads`, `r_ads_reporting`
+4. Tier Development : whitelist du compte dans **Products → View Ad Accounts**
+5. `CREDENTIALS_ENCRYPTION_KEY` pour chiffrer les tokens utilisateur
+
+Flux utilisateur : OAuth LinkedIn → sélection du compte publicitaire → sync initiale.
+
+**Comportement à l'expiration du token** : access token ~60j renouvelé via refresh token ; si refresh expiré (~365j), reconnectez via OAuth. Les snapshots déjà synchronisés restent visibles.
+
+Doc détaillée : [`docs/connectors/linkedin-ads.md`](docs/connectors/linkedin-ads.md)
+
+### Connecteur Vercel cockpit (build & déploiements)
+
+Le connecteur Vercel (`/api/connectors/vercel/*`) alimente un **DevStream** : deploys 30j, état du dernier déploiement, taux de deploys OK et coûts infra optionnels (plan Pro+). Connexion possible depuis le **module Build** ou le **marketplace Intégrations** (credential unique).
+
+**Prérequis plateforme** (setup une fois) :
+
+1. Créer une **Integration** dans le dashboard développeur Vercel
+2. Scopes OAuth : `user`, `project`, `deployment`, `team` (+ `billing` pour coûts infra Pro+)
+3. Variables : `VERCEL_CLIENT_ID`, `VERCEL_CLIENT_SECRET`
+4. `NEXT_PUBLIC_APP_URL` dérive le redirect (`/api/connectors/vercel/callback`) — `VERCEL_REDIRECT_URI` optionnel
+5. `CREDENTIALS_ENCRYPTION_KEY` pour chiffrer le token long-lived
+
+**Flux utilisateur** : un clic → OAuth → connecté automatiquement si un seul projet (ou match repo GitHub). Sinon choix en un tap. **Démo** ou **URL manuelle** si OAuth plateforme indisponible.
+
+### Connecteur GitHub cockpit (dev / CI)
+
+Le connecteur GitHub (`/api/connectors/github/*`) alimente un **GitHubMultiStream** : jusqu'à **5 dépôts** suivis sous une seule installation, chacun avec commits 7j, workflow CI, PRs, issues et étoiles. Connexion via **GitHub App** depuis le **module Build** (lien auto à l'outil actif) ou le **marketplace Intégrations**.
+
+1. Créer une GitHub App : callback `https://<domaine>/api/connectors/github/callback`
+2. Permissions lecture : metadata, contents, actions, pull_requests
+3. Variables : `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_SLUG`
+4. Doc détaillée : [`docs/connectors/github.md`](docs/connectors/github.md)
+
+Flux : installer l'app → ajouter un ou plusieurs dépôts → sync (tous ou par repo). Mode **démo** conservé dans Intégrations.
+
+### Connecteur Plausible cockpit (analytics web)
+
+Le connecteur Plausible (`/api/connectors/plausible/*`) synchronise **signups** (goal optionnel),
+**activeUsers**, **mau** et **dau** sur 12 mois via la Stats API v2.
+
+**Prérequis utilisateur** (pas de secret plateforme) :
+
+1. Compte Plausible **plan Business** (Stats API)
+2. Clé **Stats API** créée dans Paramètres → API Keys
+3. Domaine du site identique à celui configuré dans Plausible
+4. Goal signup optionnel (sinon signups = 0)
+
+**Prérequis plateforme** : `CREDENTIALS_ENCRYPTION_KEY` pour chiffrer la clé utilisateur.
+
+Variable optionnelle : `PLAUSIBLE_API_BASE` (défaut `https://plausible.io`) pour instance self-hosted.
+
+Flux utilisateur : saisie clé + domaine → validation → sélection goal signup (optionnel) → sync initiale. Le mode **démo** reste disponible.
+
+### Connecteur Lemon Squeezy cockpit (paiements MoR)
+
+Le connecteur Lemon Squeezy (`/api/connectors/lemon-squeezy/*`) synchronise **MRR**, **newMrr**,
+**churnedMrr** et **clients actifs** sur 12 mois via l'API v1 (abonnements + prices).
+
+**Prérequis utilisateur** (pas de secret plateforme) :
+
+1. Compte [Lemon Squeezy](https://app.lemonsqueezy.com) avec au moins une boutique
+2. Clé **API** créée dans Settings → API (mode test ou live)
+3. Abonnements actifs sur la boutique sélectionnée
+
+**Prérequis plateforme** : `CREDENTIALS_ENCRYPTION_KEY` pour chiffrer la clé utilisateur.
+
+Flux utilisateur : saisie clé API → validation → sélection boutique → sync initiale. Connexion **réelle uniquement** (pas de mode démo). Les montants sont exprimés dans la devise de la boutique (souvent USD), sans conversion FX automatique.
+
+### Connecteur Loops cockpit (email marketing)
+
+Le connecteur Loops (`/api/connectors/loops/*`) synchronise **signups** et **conversions** sur 12 mois via **webhooks** (l'API REST Loops ne fournit pas d'historique analytics).
+
+**Prérequis utilisateur** (pas de secret plateforme) :
+
+1. Compte Loops avec clé API (Settings → API)
+2. Webhook configuré dans Loops → Settings → Webhooks pointant vers  
+   `{NEXT_PUBLIC_APP_URL}/api/connectors/loops/webhook?projectId=<uuid-projet>`
+3. Events activés : `contact.created`, `contact.mailingList.subscribed` (+ `email.clicked` si pas de liste conversion)
+4. Signing secret (`whsec_…`) collé dans le dialog SaaS-Radar
+5. Liste mailing conversion optionnelle (sinon conversions = clics email uniques)
+
+**Limitations** : pas d'historique rétroactif avant activation du webhook ; conversions ≠ Goals Loops (proxy liste mailing ou clics).
+
+**Prérequis plateforme** : `CREDENTIALS_ENCRYPTION_KEY` + `NEXT_PUBLIC_APP_URL` (URL webhook affichée dans le dialog).
+
+Flux utilisateur : clé API → config webhook → liste conversion (optionnel) → sync initiale. Le mode **démo** reste disponible.
+
+### Connecteur Brevo cockpit (email marketing)
+
+Le connecteur Brevo (`/api/connectors/brevo/*`) synchronise **signups** (nouveaux contacts sur 12 mois via API) et **conversions** selon deux modes :
+
+- **Campagnes email** (défaut) : clics uniques agrégés par mois d'envoi (`GET /emailCampaigns`)
+- **Liste cible** : webhook marketing `list_addition` + agrégation locale
+
+**Prérequis** :
+
+1. Clé API Brevo restreinte (Contacts lecture + Campagnes email lecture) — [app.brevo.com/settings/keys/api](https://app.brevo.com/settings/keys/api)
+2. Mode liste : webhook outbound Brevo pointant vers  
+   `{NEXT_PUBLIC_APP_URL}/api/connectors/brevo/webhook?projectId=…&token=…`
+
+Doc détaillée : [docs/connectors/brevo.md](docs/connectors/brevo.md).
+
+Flux utilisateur : clé API → mode conversions → webhook (si liste) → sync initiale. Le mode **démo** reste disponible.
+
+### Connecteur Crisp cockpit (support client)
+
+Le connecteur Crisp (`/api/connectors/crisp/*`) synchronise **activeUsers** (visiteurs uniques chatbox / mois) et un stream support : **tickets ouverts**, **temps de réponse**, **CSAT**.
+
+**Prérequis plateforme** :
+
+1. Plugin SaaS-Radar sur [Crisp Marketplace](https://marketplace.crisp.chat/)
+2. `CRISP_PLUGIN_IDENTIFIER` + `CRISP_PLUGIN_KEY` dans `.env`
+3. Scopes Production : `website:analytics`, `website:conversation:sessions`
+4. `NEXT_PUBLIC_CRISP_INSTALL_URL` (lien d'installation affiché dans le dialog)
+
+**Prérequis utilisateur** :
+
+1. Installer le plugin SaaS-Radar sur le workspace Crisp
+2. Copier le **Website ID** (Settings → Workspace Settings → Setup & Integrations)
+3. Analytics Crisp (Essentials+) recommandé pour CSAT et temps de réponse
+
+Doc détaillée : [docs/connectors/crisp.md](docs/connectors/crisp.md).
+
 ## Pipeline de sourcing
 
 Découverte (Sonar Pro) → structuration (Gemini Flash) → validation Zod → upsert Supabase →

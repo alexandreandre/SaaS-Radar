@@ -4,6 +4,8 @@ import type { CockpitMetrics } from "@/lib/cockpit-metrics";
 import type { StackHealth } from "@/lib/stack-health";
 import type { UserProject } from "@/lib/portfolio";
 import { getFirstLaunchAction } from "@/lib/build-launch";
+import { getBuildJourneyState } from "@/lib/build/journey";
+import { isCampaignStarted } from "@/lib/campaign/journey";
 import { daysSince, getTargetMrr } from "@/lib/portfolio";
 import { getProductStream, hasProductAnalyticsConnected } from "@/lib/connectors/streams";
 import type { Opportunity } from "@/types/opportunity";
@@ -78,15 +80,27 @@ export function buildRadarActions(
 
   if (progressPct < 30 && activeCampaigns.length === 0 && target > 0 && !inFocusMode) {
     const channel = opportunity.cacChannels[0]?.channel ?? "acquisition";
-    actions.push({
-      id: "launch-campaign",
-      priority: "high",
-      title: "Lancer une campagne",
-      rationale: `MRR encore faible — activez ${channel} pour accélérer.`,
-      actionModule: "acquisition",
-      actionLabel: "Configurer une campagne",
-      connectorHint: "google-ads",
-    });
+    const buildLive = getBuildJourneyState(project).displayPhase === "live";
+    if (buildLive && !isCampaignStarted(project)) {
+      actions.push({
+        id: "launch-campaign-kit",
+        priority: "high",
+        title: "Préparer votre campagne",
+        rationale: "Votre app est en ligne — générez vos kits marketing avant de dépenser en ads.",
+        actionModule: "campagne",
+        actionLabel: "Ouvrir Campagne",
+      });
+    } else {
+      actions.push({
+        id: "launch-campaign",
+        priority: "high",
+        title: "Lancer une campagne",
+        rationale: `MRR encore faible — activez ${channel} pour accélérer.`,
+        actionModule: "acquisition",
+        actionLabel: "Configurer une campagne",
+        connectorHint: "google-ads",
+      });
+    }
   }
 
   const metaCampaign = campaigns.find((c) => c.channel === "meta" && c.status === "active");

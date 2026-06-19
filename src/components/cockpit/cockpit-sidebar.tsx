@@ -150,7 +150,7 @@ export function CockpitSidebar({
   onCollapsedChange,
   showCollapseToggle = true,
 }: CockpitSidebarProps) {
-  const nav = resolveNavForOpportunity(opportunity, allowedModules);
+  const nav = resolveNavForOpportunity(opportunity, allowedModules, project);
 
   const alertCountByModule = alerts.reduce<Record<string, number>>((acc, alert) => {
     acc[alert.actionModule] = (acc[alert.actionModule] ?? 0) + 1;

@@ -34,4 +34,4 @@ jobs:
           REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
           SOURCING_MIN_SCORE: ${{ vars.SOURCING_MIN_SCORE }}
           SOURCING_NOTIFY_WEBHOOK_URL: ${{ secrets.SOURCING_NOTIFY_WEBHOOK_URL }}
-        run: npx tsx scripts/sourcing-worker.ts --max=10
+        run: node --require ./scripts/register-server-only-stub.cjs ./node_modules/tsx/dist/cli.mjs scripts/sourcing-worker.ts --max=10

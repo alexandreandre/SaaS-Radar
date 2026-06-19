@@ -20,8 +20,17 @@ function parseProject(body: unknown): UserProject | null {
   const startedAt = typeof b.startedAt === "string" ? b.startedAt : undefined;
   const createdAt = typeof b.createdAt === "string" ? b.createdAt : undefined;
   const targetScenario = b.targetScenario;
+  const hasIdeaBrief =
+    b.ideaBrief != null && typeof b.ideaBrief === "object";
+  const projectSource =
+    typeof b.projectSource === "string" ? b.projectSource : undefined;
+  const isIdeaOrGithub =
+    hasIdeaBrief || projectSource === "idea" || projectSource === "github";
 
-  if (!id || !opportunitySlug || !VALID_PHASES.includes(phase as ProjectPhase)) {
+  if (!id || !VALID_PHASES.includes(phase as ProjectPhase)) {
+    return null;
+  }
+  if (!isIdeaOrGithub && !opportunitySlug) {
     return null;
   }
   if (!Number.isFinite(currentMrr) || currentMrr < 0) return null;

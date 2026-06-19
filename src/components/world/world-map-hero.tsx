@@ -27,11 +27,13 @@ const MapHeroDashboard = dynamic(
 export function WorldMapHero({
   className,
   unlocked,
+  showDashboard = false,
   onUnlock,
   onLock,
 }: {
   className?: string;
   unlocked: boolean;
+  showDashboard?: boolean;
   onUnlock: () => void;
   onLock: () => void;
 }) {
@@ -47,17 +49,11 @@ export function WorldMapHero({
   const countryClickRef = useRef(false);
 
   const hoveredMarket = hovered ? getMarketByCode(hovered) : null;
-  const showHoverCard = unlocked && !!hoveredMarket && !!hovered;
+  const showHoverCard = !!hoveredMarket && !!hovered;
 
   useEffect(() => {
     setFilter("all");
   }, [target.code]);
-
-  useEffect(() => {
-    if (!unlocked) {
-      setHovered(null);
-    }
-  }, [unlocked]);
 
   const isVisible = useCallback(
     (code: string) => {
@@ -86,7 +82,7 @@ export function WorldMapHero({
     (code: string) => {
       const market = getMarketByCode(code);
       if (!market || (unlocked && !isVisible(code))) return colors.dormant;
-      if (unlocked && hovered === code) return colors.hover;
+      if (hovered === code) return colors.hover;
       return unlocked ? getHeatColor(market.heatScore) : getHeatColorAmbient(market.heatScore);
     },
     [colors, getHeatColor, getHeatColorAmbient, hovered, unlocked, isVisible]
@@ -99,7 +95,8 @@ export function WorldMapHero({
 
   const handleEnter = useCallback(
     (code: string | null, hasMarket: boolean) => {
-      if (!unlocked || !code || !hasMarket || !isVisible(code)) return;
+      if (!code || !hasMarket) return;
+      if (unlocked && !isVisible(code)) return;
       if (hideTimer.current) clearTimeout(hideTimer.current);
       setHovered(code);
     },
@@ -120,8 +117,11 @@ export function WorldMapHero({
 
   const handleGeographyClick = useCallback(
     (market: ReturnType<typeof getMarketByCode>, code: string | null) => {
+      if (!unlocked) {
+        onUnlock();
+        return;
+      }
       const countryCode = market?.code ?? code;
-      if (!unlocked) onUnlock();
       if (countryCode) goToCountryOpportunities(countryCode);
     },
     [unlocked, onUnlock, goToCountryOpportunities]
@@ -217,7 +217,7 @@ export function WorldMapHero({
                         cursor={getCursor(market, code)}
                         pressedFill={unlocked && visible ? colors.selected : undefined}
                         onMouseEnter={() => handleEnter(code, !!market)}
-                        onMouseLeave={() => unlocked && scheduleHide()}
+                        onMouseLeave={() => scheduleHide()}
                         onClick={() => {
                           countryClickRef.current = true;
                           handleGeographyClick(market, code);
@@ -247,7 +247,7 @@ export function WorldMapHero({
         />
 
         <AnimatePresence>
-          {unlocked && (
+          {unlocked && showDashboard && (
             <MapHeroDashboard
               key="map-dashboard"
               onBack={handleBack}
@@ -264,20 +264,6 @@ export function WorldMapHero({
               x={mouse.x}
               y={mouse.y}
             />
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {!unlocked && mapReady && (
-            <m.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="pointer-events-none absolute bottom-10 left-1/2 z-[2] -translate-x-1/2 font-data text-[10px] uppercase tracking-data text-muted-foreground"
-            >
-              Cliquez sur la carte pour explorer
-            </m.p>
           )}
         </AnimatePresence>
       </div>

@@ -21,6 +21,7 @@ import type { ConnectIntegrationOptions } from "@/contexts/portfolio-context";
 import { shouldShowLaunchPad } from "@/lib/build-launch";
 import { COCKPIT_MODULE_MAP, LaunchPad } from "@/lib/cockpit-module-loader";
 import { useCockpitSidebarCollapsed } from "@/hooks/use-cockpit-sidebar-collapsed";
+import { CockpitWelcomeBanner } from "@/components/cockpit/cockpit-welcome-banner";
 
 type CockpitShellProps = {
   project: UserProject;
@@ -70,7 +71,8 @@ export function CockpitShell({
   const router = useRouter();
   const searchParams = useSearchParams();
   const paramModule = searchParams.get("module");
-  const launchPadMode = shouldShowLaunchPad(project) && !paramModule;
+  const welcomeIdea = searchParams.get("welcome") === "idea";
+  const launchPadMode = shouldShowLaunchPad(project) && !paramModule && !welcomeIdea;
   const { collapsed, setCollapsed, hydrated } = useCockpitSidebarCollapsed();
   const initialModule = paramModule
     ? normalizeModuleId(paramModule)
@@ -172,7 +174,14 @@ export function CockpitShell({
 
       <div className="min-w-0 flex-1 px-4 py-10 sm:px-6">
         <div className="space-y-4">
-          <CockpitModuleHeader activeModule={activeModule} opportunity={opportunity} />
+          {welcomeIdea ? (
+            <CockpitWelcomeBanner
+              projectId={project.id}
+              onModuleChange={handleModuleChange}
+            />
+          ) : null}
+
+          <CockpitModuleHeader activeModule={activeModule} opportunity={opportunity} project={project} />
 
           {data.metrics.hasDemoData ? <DemoModeBanner /> : null}
 
@@ -180,6 +189,7 @@ export function CockpitShell({
             activeModule={activeModule}
             alerts={data.alerts}
             opportunity={opportunity}
+            project={project}
             onOpenNav={() => setNavDrawerOpen(true)}
           />
 
