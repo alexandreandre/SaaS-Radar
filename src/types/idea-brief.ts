@@ -13,15 +13,49 @@ import type {
 
 export type IdeaClarityDimension = "cible" | "problème" | "monétisation" | "différenciation";
 
+export type IdeaClarifyQuestionType = "single" | "multi" | "open";
+
+export type IdeaClarifySuggestion = {
+  id: string;
+  label: string;
+  hint?: string;
+};
+
 export type IdeaClarifyTurn = {
   question: string;
   answer: string;
+  questionType?: IdeaClarifyQuestionType;
+  dimension?: IdeaClarityDimension;
+};
+
+export type IdeaClarifyPrompt = {
+  insight?: string;
+  dimension?: IdeaClarityDimension;
+  question: string;
+  questionType: IdeaClarifyQuestionType;
+  suggestions: IdeaClarifySuggestion[];
+  allowCustom: boolean;
+};
+
+export const IDEA_CLARITY_DIMENSIONS: IdeaClarityDimension[] = [
+  "cible",
+  "problème",
+  "monétisation",
+  "différenciation",
+];
+
+export const IDEA_CLARITY_DIMENSION_LABELS: Record<IdeaClarityDimension, string> = {
+  cible: "Cible",
+  problème: "Problème",
+  monétisation: "Monétisation",
+  différenciation: "Différenciation",
 };
 
 export type IdeaDraft = {
   initialIdea: string;
   turns: IdeaClarifyTurn[];
   summary?: string;
+  productName?: string;
 };
 
 export type ProjectIdeaBriefIdentity = {

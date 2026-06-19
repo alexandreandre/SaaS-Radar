@@ -67,8 +67,8 @@ export const CONNECTORS: ConnectorDefinition[] = [
     jobLabel: "Encaisser",
     priority: "p2",
     description: "Monétisation plugins et licences WordPress.",
-    provides: ["mrr", "newMrr", "customers"],
-    demoFields: ["mrr", "newMrr", "customers"],
+    provides: ["mrr", "newMrr", "churnedMrr", "customers"],
+    demoFields: ["mrr", "newMrr", "churnedMrr", "customers"],
   }),
   makeConnector({
     id: "google-ads",
@@ -162,8 +162,8 @@ export const CONNECTORS: ConnectorDefinition[] = [
     jobLabel: "Comprendre",
     priority: "p2",
     description: "Cohortes et funnels produit avancés.",
-    provides: ["signups", "activeUsers", "mau"],
-    demoFields: ["signups", "activeUsers", "mau"],
+    provides: ["signups", "activeUsers", "mau", "dau"],
+    demoFields: ["signups", "activeUsers", "mau", "dau"],
   }),
   makeConnector({
     id: "fathom",

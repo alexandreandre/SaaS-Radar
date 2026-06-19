@@ -26,11 +26,17 @@ export function decryptCredential(payload: string): string {
   if (!ivB64 || !tagB64 || !dataB64) throw new Error("Credential chiffrée invalide");
   const decipher = createDecipheriv(ALGO, getKey(), Buffer.from(ivB64, "base64url"));
   decipher.setAuthTag(Buffer.from(tagB64, "base64url"));
-  const decrypted = Buffer.concat([
-    decipher.update(Buffer.from(dataB64, "base64url")),
-    decipher.final(),
-  ]);
-  return decrypted.toString("utf8");
+  try {
+    const decrypted = Buffer.concat([
+      decipher.update(Buffer.from(dataB64, "base64url")),
+      decipher.final(),
+    ]);
+    return decrypted.toString("utf8");
+  } catch {
+    throw new Error(
+      "Impossible de déchiffrer les credentials (clé CREDENTIALS_ENCRYPTION_KEY modifiée ?). Reconnectez le connecteur.",
+    );
+  }
 }
 
 export function isCredentialsEncryptionConfigured(): boolean {

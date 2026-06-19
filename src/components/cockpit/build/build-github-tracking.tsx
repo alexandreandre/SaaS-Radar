@@ -207,9 +207,11 @@ export function BuildGitHubTracking({
   mode = "required",
   embedded = false,
 }: BuildGitHubTrackingProps) {
-  const { connectIntegration, syncIntegration } = usePortfolio();
+  const { connectIntegration, autoSyncingProjectId, autoSyncingConnectors } = usePortfolio();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+
+  const syncing =
+    autoSyncingProjectId === project.id && autoSyncingConnectors.includes("github");
 
   const stream = project.connectorStreams?.github;
   const alert = getBuildGitHubAlert(project, stream);
@@ -234,15 +236,6 @@ export function BuildGitHubTracking({
 
   const requiredHint =
     "Une fois le code sur GitHub, connectez-le ici pour suivre commits et déploiements.";
-
-  async function handleSyncAll() {
-    setSyncing(true);
-    try {
-      await syncIntegration(project.id, "github");
-    } finally {
-      setSyncing(false);
-    }
-  }
 
   const content = (
     <>
@@ -273,16 +266,11 @@ export function BuildGitHubTracking({
           </h3>
         </div>
         <div className="flex flex-wrap gap-2">
-          {hasTracked ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              disabled={syncing}
-              onClick={() => void handleSyncAll()}
-            >
-              {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Synchroniser"}
-            </Button>
+          {syncing ? (
+            <span className="inline-flex items-center gap-1.5 self-center text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Synchronisation…
+            </span>
           ) : null}
           <Button type="button" size="sm" onClick={() => setDialogOpen(true)}>
             <Plus className="h-3.5 w-3.5 mr-1" />

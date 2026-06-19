@@ -11,11 +11,15 @@ export type GenerateBriefInput = {
   initialIdea: string;
   turns: IdeaClarifyTurn[];
   summary?: string;
+  productName?: string;
 };
 
 function formatContext(input: GenerateBriefInput): string {
   const lines = [`Idée : "${input.initialIdea}"`];
   if (input.summary) lines.push(`Résumé validé : ${input.summary}`);
+  if (input.productName?.trim()) {
+    lines.push(`Nom du produit choisi par le fondateur (à utiliser tel quel dans identity.name) : ${input.productName.trim()}`);
+  }
   for (const turn of input.turns) {
     lines.push(`- ${turn.question} → ${turn.answer}`);
   }

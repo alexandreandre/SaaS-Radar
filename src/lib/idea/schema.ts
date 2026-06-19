@@ -1,23 +1,49 @@
 import { z } from "zod";
 
+const ideaClarityDimensionSchema = z.enum([
+  "cible",
+  "problème",
+  "monétisation",
+  "différenciation",
+]);
+
 export const ideaClarifyTurnSchema = z.object({
   question: z.string().min(1),
   answer: z.string().min(1),
+  questionType: z.enum(["single", "multi", "open"]).optional(),
+  dimension: ideaClarityDimensionSchema.optional(),
 });
 
 export const ideaDraftSchema = z.object({
   initialIdea: z.string().min(8).max(2000),
-  turns: z.array(ideaClarifyTurnSchema).max(3),
+  turns: z.array(ideaClarifyTurnSchema).max(4),
   summary: z.string().optional(),
+  productName: z.string().min(2).max(40).optional(),
+});
+
+export const ideaClarifySuggestionSchema = z.object({
+  id: z.string().min(1).max(40),
+  label: z.string().min(1).max(80),
+  hint: z.string().max(120).optional(),
 });
 
 export const clarifyResponseSchema = z.object({
   clarityScore: z.number().min(0).max(100),
-  missingDimensions: z.array(
-    z.enum(["cible", "problème", "monétisation", "différenciation"]),
-  ),
+  dimensionScores: z
+    .object({
+      cible: z.number().min(0).max(100),
+      problème: z.number().min(0).max(100),
+      monétisation: z.number().min(0).max(100),
+      différenciation: z.number().min(0).max(100),
+    })
+    .optional(),
+  missingDimensions: z.array(ideaClarityDimensionSchema),
+  insight: z.string().max(200).optional(),
+  targetDimension: ideaClarityDimensionSchema.optional(),
   question: z.string().optional(),
-  suggestions: z.array(z.string().min(1).max(80)).max(4).optional(),
+  questionType: z.enum(["single", "multi", "open"]).optional(),
+  suggestions: z.array(ideaClarifySuggestionSchema).max(5).optional(),
+  allowCustom: z.boolean().optional(),
   summary: z.string().optional(),
 });
 

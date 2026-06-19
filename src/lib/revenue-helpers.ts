@@ -7,7 +7,11 @@ import { getDeltaPercent, getMrrBreakdown } from "@/lib/portfolio";
 import type { CockpitKpi } from "@/lib/cockpit-metrics";
 
 export const PAYMENT_CONNECTOR_IDS: ConnectorId[] = CONNECTORS.filter(
-  (c) => c.category === "payments"
+  (c) => c.category === "payments",
+).map((c) => c.id);
+
+export const ACCOUNTING_CONNECTOR_IDS: ConnectorId[] = CONNECTORS.filter(
+  (c) => c.category === "accounting",
 ).map((c) => c.id);
 
 export function hasPaymentConnector(project: UserProject): boolean {

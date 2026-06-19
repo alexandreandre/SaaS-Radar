@@ -40,13 +40,17 @@ export function BuildHostTracking({
   embedded = false,
 }: BuildHostTrackingProps) {
   const hostMode = profile?.host ?? "vercel";
-  const { connectIntegration, syncIntegration, disconnectIntegration, setHostConnection, setProductLogo } =
+  const { connectIntegration, syncIntegration, disconnectIntegration, setHostConnection, setProductLogo, autoSyncingProjectId, autoSyncingConnectors } =
     usePortfolio();
   const searchParams = useSearchParams();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [url, setUrl] = useState(project.hostConnection?.productionUrl ?? "");
-  const [syncing, setSyncing] = useState(false);
+  const [oauthSyncing, setOauthSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const autoSyncing =
+    autoSyncingProjectId === project.id && autoSyncingConnectors.includes("vercel");
+  const syncing = oauthSyncing || autoSyncing;
 
   const deployStatus = getUnifiedDeployStatus(project);
   const vercelStream = project.connectorStreams?.vercel;
@@ -73,27 +77,15 @@ export function BuildHostTracking({
     [url, project, setHostConnection, setProductLogo],
   );
 
-  async function handleSync() {
-    setSyncing(true);
-    setError(null);
-    try {
-      await syncIntegration(project.id, "vercel");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur");
-    } finally {
-      setSyncing(false);
-    }
-  }
-
   const hydrateAfterOAuth = useCallback(async () => {
-    setSyncing(true);
+    setOauthSyncing(true);
     setError(null);
     try {
       await syncIntegration(project.id, "vercel");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur");
     } finally {
-      setSyncing(false);
+      setOauthSyncing(false);
     }
     const params = new URLSearchParams(window.location.search);
     params.delete("vercel_oauth");
@@ -102,14 +94,14 @@ export function BuildHostTracking({
   }, [project.id, syncIntegration]);
 
   async function handleDisconnect() {
-    setSyncing(true);
+    setOauthSyncing(true);
     setError(null);
     try {
       await disconnectIntegration(project.id, "vercel");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur");
     } finally {
-      setSyncing(false);
+      setOauthSyncing(false);
     }
   }
 
@@ -302,6 +294,12 @@ export function BuildHostTracking({
       ) : null}
 
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
+      {syncing ? (
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Synchronisation Vercel…
+        </p>
+      ) : null}
     </div>
   );
 
@@ -322,15 +320,6 @@ export function BuildHostTracking({
         </Button>
       ) : (
         <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            disabled={syncing}
-            onClick={() => void handleSync()}
-          >
-            {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Synchroniser"}
-          </Button>
           <Button
             type="button"
             size="sm"

@@ -5,8 +5,8 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -14,8 +14,10 @@ import {
   removeConnectorStream,
   stripConnectorMetrics,
   syncConnectorAllDemo,
+  getConnector,
   type ConnectorId,
 } from "@/lib/connectors";
+import { getConnectorConnectionProfile } from "@/lib/connectors/connection-profile";
 import {
   applyConnectorSyncToProject,
   applyGitHubSyncToProject,
@@ -24,16 +26,15 @@ import {
   setIntegrationError,
   type ConnectorSyncApiResponse,
 } from "@/lib/connectors/integration-client";
+import { listAutoSyncableConnectorIds } from "@/lib/connectors/auto-sync";
 import type { AdCampaign, Expense, Integration, MetricsSnapshot } from "@/lib/connectors/types";
 import type { Opportunity } from "@/types/opportunity";
 import { useTier } from "@/contexts/tier-context";
-import { useSession } from "@/contexts/session-context";
 import { enrichOpportunity } from "@/data/opportunity-enrichment";
+import { createClient } from "@/lib/supabase/client";
 import { gateOpportunityForTier } from "@/lib/opportunity-access";
 import { isOnboardingComplete } from "@/lib/build-launch";
 import {
-  PORTFOLIO_STORAGE_KEY,
-  PENDING_PROJECT_STORAGE_KEY,
   computeNextStreak,
   createProjectFromOpportunity,
   getMostUrgentProject,
@@ -83,16 +84,40 @@ import {
 } from "@/lib/portfolio-sync-client";
 import type { BuildToolId } from "@/lib/build/tools";
 import type { BuildPromptLanguage } from "@/lib/build/prompt-language";
+import {
+  clearGuestPortfolioStorage,
+  migrateLegacyPortfolioStorage,
+  persistProjects,
+  portfolioStorageKey,
+  PORTFOLIO_GUEST_STORAGE_KEY,
+  readStoredProjects,
+} from "@/lib/portfolio-storage.shared";
 
 export type ConnectIntegrationOptions = {
   mode?: "demo" | "real";
   secretKey?: string;
   currency?: string;
   customerId?: string;
+  accountId?: string;
   adAccountId?: string;
   apiKey?: string;
   siteId?: string;
   signupGoalDisplayName?: string | null;
+  personalApiKey?: string;
+  appHost?: string;
+  posthogProjectId?: string;
+  mixpanelServiceAccountUsername?: string;
+  mixpanelServiceAccountSecret?: string;
+  mixpanelProjectId?: string;
+  mixpanelRegion?: string;
+  mixpanelWorkspaceId?: string | null;
+  activityEvent?: string | null;
+  signupEvent?: string | null;
+  signupEventName?: string | null;
+  activationEvent?: string | null;
+  gaPropertyId?: string;
+  propertyDisplayName?: string;
+  trialEvent?: string | null;
   loopsApiKey?: string;
   loopsWebhookSigningSecret?: string;
   loopsConversionListId?: string | null;
@@ -103,10 +128,29 @@ export type ConnectIntegrationOptions = {
   brevoConversionListId?: string | null;
   brevoConversionListName?: string | null;
   brevoWebhookToken?: string;
+  resendApiKey?: string;
+  resendWebhookSigningSecret?: string;
+  resendConversionSegmentId?: string | null;
+  resendConversionSegmentName?: string | null;
+  resendConversionMode?: "segment" | "email_clicked";
   crispWebsiteId?: string;
   vercelProjectId?: string;
+  betterStackApiToken?: string;
+  betterStackMonitorId?: string;
+  betterStackMonitorName?: string | null;
+  betterStackMonitorUrl?: string | null;
+  betterStackTeamName?: string | null;
+  sentryProjectId?: string;
+  sentryProjectSlug?: string;
+  sentryProjectName?: string;
+  channelId?: string;
+  channelName?: string;
   storeId?: string;
   storeName?: string;
+  productId?: string;
+  productTitle?: string;
+  apiToken?: string;
+  sandbox?: boolean;
   testMode?: boolean;
   repoFullName?: string;
   linkedToolId?: BuildToolId;
@@ -164,6 +208,12 @@ type PortfolioContextValue = {
   ) => Promise<void>;
   disconnectIntegration: (projectId: string, connectorId: ConnectorId) => Promise<void>;
   syncIntegration: (projectId: string, connectorId: ConnectorId) => Promise<void>;
+  syncProjectIntegrations: (
+    projectId: string,
+    opts?: { force?: boolean },
+  ) => Promise<void>;
+  autoSyncingProjectId: string | null;
+  autoSyncingConnectors: ConnectorId[];
   removeGitHubRepo: (projectId: string, repoFullName: string) => Promise<void>;
   patchIntegration: (
     projectId: string,
@@ -183,90 +233,158 @@ type PortfolioContextValue = {
 
 const PortfolioContext = createContext<PortfolioContextValue | null>(null);
 
-function readStoredProjects(): UserProject[] {
-  if (typeof window === "undefined") return [];
+async function loadAccountProjects(userId: string): Promise<UserProject[]> {
+  const storageKey = portfolioStorageKey(userId);
+  const localCache = readStoredProjects(storageKey);
   try {
-    const raw = localStorage.getItem(PORTFOLIO_STORAGE_KEY);
-    const parsed = raw ? (JSON.parse(raw) as UserProject[]) : [];
-    const base = Array.isArray(parsed) ? parsed.map(migrateProject) : [];
-
-    const pendingRaw = sessionStorage.getItem(PENDING_PROJECT_STORAGE_KEY);
-    if (!pendingRaw) return base;
-
-    const pending = migrateProject(JSON.parse(pendingRaw) as UserProject);
-    sessionStorage.removeItem(PENDING_PROJECT_STORAGE_KEY);
-    if (base.some((p) => p.id === pending.id)) {
-      return base.map((p) => (p.id === pending.id ? pending : p));
-    }
-    return [pending, ...base];
+    const serverProjects = (await fetchAccountProjects()).map(migrateProject);
+    persistProjects(serverProjects, storageKey);
+    return serverProjects;
   } catch {
-    return [];
+    return localCache;
   }
 }
 
-function persistProjects(projects: UserProject[]) {
-  localStorage.setItem(PORTFOLIO_STORAGE_KEY, JSON.stringify(projects));
-}
+async function mergeGuestProjectsToAccount(userId: string): Promise<UserProject[]> {
+  migrateLegacyPortfolioStorage();
+  const guestProjects = readStoredProjects(PORTFOLIO_GUEST_STORAGE_KEY);
+  const storageKey = portfolioStorageKey(userId);
 
-async function syncAccountPortfolioInBackground(
-  localProjects: UserProject[]
-): Promise<UserProject[]> {
-  const serverProjects = (await fetchAccountProjects()).map(migrateProject);
-  const serverIds = new Set(serverProjects.map((p) => p.id));
-  const serverSlugs = new Set(serverProjects.map((p) => p.opportunitySlug));
+  try {
+    const serverProjects = (await fetchAccountProjects()).map(migrateProject);
+    const serverIds = new Set(serverProjects.map((p) => p.id));
+    const serverSlugs = new Set(serverProjects.map((p) => p.opportunitySlug));
+    const toUpload = guestProjects.filter(
+      (p) => !serverIds.has(p.id) && !serverSlugs.has(p.opportunitySlug),
+    );
 
-  const toUpload = localProjects.filter(
-    (p) => !serverIds.has(p.id) && !serverSlugs.has(p.opportunitySlug)
-  );
+    if (toUpload.length > 0) {
+      await Promise.all(toUpload.map((p) => uploadAccountProject(migrateProject(p))));
+    }
 
-  if (toUpload.length > 0) {
-    void Promise.all(toUpload.map((p) => uploadAccountProject(migrateProject(p))));
-    return [...toUpload, ...serverProjects].map(migrateProject);
+    clearGuestPortfolioStorage();
+    const merged = [...toUpload, ...serverProjects].map(migrateProject);
+    persistProjects(merged, storageKey);
+    return merged;
+  } catch {
+    const fallback = guestProjects.length > 0 ? guestProjects : readStoredProjects(storageKey);
+    persistProjects(fallback, storageKey);
+    return fallback;
   }
-
-  return serverProjects.length > 0 ? serverProjects : localProjects;
 }
 
 export function PortfolioProvider({
   children,
   opportunityCatalog,
+  userId: serverUserId = null,
 }: {
   children: ReactNode;
   opportunityCatalog: Opportunity[];
+  userId?: string | null;
 }) {
   const { tier } = useTier();
-  const { isAuthenticated } = useSession();
   const [projects, setProjects] = useState<UserProject[]>([]);
   const [hydrated, setHydrated] = useState(false);
-
-  useLayoutEffect(() => {
-    const local = readStoredProjects();
-    setProjects(local);
-    setHydrated(true);
-  }, []);
+  const [autoSyncState, setAutoSyncState] = useState<{
+    projectId: string;
+    connectorIds: ConnectorId[];
+  } | null>(null);
+  const [activeUserId, setActiveUserId] = useState<string | null>(serverUserId);
+  const storageKeyRef = useRef(
+    serverUserId ? portfolioStorageKey(serverUserId) : PORTFOLIO_GUEST_STORAGE_KEY,
+  );
+  const mergeDoneRef = useRef(Boolean(serverUserId));
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    setActiveUserId(serverUserId);
+    if (serverUserId) {
+      storageKeyRef.current = portfolioStorageKey(serverUserId);
+      mergeDoneRef.current = true;
+    }
+  }, [serverUserId]);
 
-    let cancelled = false;
-    const local = readStoredProjects();
+  useEffect(() => {
+    const supabase = createClient();
+    let active = true;
 
-    void (async () => {
-      try {
-        const accountProjects = await syncAccountPortfolioInBackground(local);
-        if (!cancelled) {
-          setProjects(accountProjects);
-          persistProjects(accountProjects);
+    const applyProjects = (next: UserProject[], userId: string | null, storageKey: string) => {
+      if (!active) return;
+      setActiveUserId(userId);
+      storageKeyRef.current = storageKey;
+      setProjects(next);
+      persistProjects(next, storageKey);
+      setHydrated(true);
+    };
+
+    const loadGuest = () => {
+      migrateLegacyPortfolioStorage();
+      applyProjects(
+        readStoredProjects(PORTFOLIO_GUEST_STORAGE_KEY),
+        null,
+        PORTFOLIO_GUEST_STORAGE_KEY,
+      );
+    };
+
+    const loadForUser = async (userId: string, mergeGuest: boolean) => {
+      const storageKey = portfolioStorageKey(userId);
+      if (mergeGuest) {
+        try {
+          const merged = await mergeGuestProjectsToAccount(userId);
+          applyProjects(merged, userId, storageKey);
+        } catch {
+          applyProjects(readStoredProjects(storageKey), userId, storageKey);
         }
-      } catch {
-        /* conserve le cache local */
+        return;
       }
-    })();
+
+      try {
+        const accountProjects = await loadAccountProjects(userId);
+        applyProjects(accountProjects, userId, storageKey);
+      } catch {
+        applyProjects(readStoredProjects(storageKey), userId, storageKey);
+      }
+    };
+
+    const init = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!active) return;
+
+      if (user) {
+        mergeDoneRef.current = true;
+        await loadForUser(user.id, false);
+      } else {
+        loadGuest();
+      }
+    };
+
+    void init();
+
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!active) return;
+
+      if (session?.user) {
+        if (event === "SIGNED_IN" && !mergeDoneRef.current) {
+          mergeDoneRef.current = true;
+          await loadForUser(session.user.id, true);
+        } else if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+          mergeDoneRef.current = true;
+          await loadForUser(session.user.id, false);
+        }
+      } else if (event === "SIGNED_OUT") {
+        mergeDoneRef.current = false;
+        setActiveUserId(null);
+        setProjects([]);
+        loadGuest();
+      }
+    });
 
     return () => {
-      cancelled = true;
+      active = false;
+      sub.subscription.unsubscribe();
     };
-  }, [isAuthenticated]);
+  }, []);
 
   const getCatalogOpportunity = useCallback(
     (slug: string) => {
@@ -283,9 +401,9 @@ export function PortfolioProvider({
     (updater: (prev: UserProject[]) => UserProject[]) => {
       setProjects((prev) => {
         const next = updater(prev);
-        persistProjects(next);
+        persistProjects(next, storageKeyRef.current);
 
-        if (isAuthenticated && next !== prev) {
+        if (activeUserId && next !== prev) {
           const nextIds = new Set(next.map((p) => p.id));
           const prevById = new Map(prev.map((p) => [p.id, p]));
 
@@ -304,7 +422,7 @@ export function PortfolioProvider({
         return next;
       });
     },
-    [isAuthenticated]
+    [activeUserId],
   );
 
   const addProject = useCallback(
@@ -790,6 +908,13 @@ export function PortfolioProvider({
       connectorId: ConnectorId,
       options?: ConnectIntegrationOptions,
     ) => {
+      const profile = getConnectorConnectionProfile(connectorId);
+      const connectorName = getConnector(connectorId)?.name ?? connectorId;
+
+      if (options?.mode === "demo" && !profile.supportsDemo) {
+        throw new Error(`La connexion démo ${connectorName} n'est plus disponible.`);
+      }
+
       if (connectorId === "stripe" && options?.mode === "demo") {
         throw new Error("La connexion démo Stripe n'est plus disponible. Utilisez OAuth ou une clé restreinte.");
       }
@@ -811,10 +936,39 @@ export function PortfolioProvider({
           "La connexion démo LinkedIn Ads n'est plus disponible. Connectez votre compte via OAuth.",
         );
       }
+      if (connectorId === "microsoft-ads" && options?.mode === "demo") {
+        throw new Error(
+          "La connexion démo Microsoft Ads n'est plus disponible. Connectez votre compte via OAuth.",
+        );
+      }
 
       if (connectorId === "lemon-squeezy" && options?.mode === "demo") {
         throw new Error(
           "La connexion démo Lemon Squeezy n'est plus disponible. Connectez votre boutique via clé API.",
+        );
+      }
+
+      if (connectorId === "paddle" && options?.mode === "demo") {
+        throw new Error(
+          "La connexion démo Paddle n'est plus disponible. Connectez votre compte via clé API.",
+        );
+      }
+
+      if (connectorId === "freemius" && options?.mode === "demo") {
+        throw new Error(
+          "La connexion démo Freemius n'est plus disponible. Connectez votre produit via Bearer Token.",
+        );
+      }
+
+      if (connectorId === "posthog" && options?.mode === "demo") {
+        throw new Error(
+          "La connexion démo PostHog n'est plus disponible. Connectez votre projet via Personal API Key.",
+        );
+      }
+
+      if (connectorId === "google-analytics" && options?.mode === "demo") {
+        throw new Error(
+          "La connexion démo Google Analytics n'est plus disponible. Connectez votre propriété GA4 via OAuth.",
         );
       }
 
@@ -1125,6 +1279,61 @@ export function PortfolioProvider({
         throw new Error("Connectez LinkedIn Ads via OAuth.");
       }
 
+      const isMicrosoftAdsReal =
+        connectorId === "microsoft-ads" &&
+        options?.mode === "real" &&
+        Boolean(options.accountId?.trim()) &&
+        Boolean(options.customerId?.trim());
+
+      if (isMicrosoftAdsReal) {
+        try {
+          const res = await fetch("/api/connectors/microsoft-ads/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectId,
+              accountId: options!.accountId!.trim(),
+              customerId: options!.customerId!.trim(),
+            }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion Microsoft Ads échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? "Microsoft Ads",
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion Microsoft Ads échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
+      if (connectorId === "microsoft-ads") {
+        throw new Error("Connectez Microsoft Ads via OAuth.");
+      }
+
       const isGitHubReal =
         connectorId === "github" &&
         options?.mode === "real" &&
@@ -1226,6 +1435,289 @@ export function PortfolioProvider({
         return;
       }
 
+      const isFathomReal =
+        connectorId === "fathom" &&
+        options?.mode === "real" &&
+        Boolean(options.apiKey?.trim()) &&
+        Boolean(options.siteId?.trim());
+
+      if (isFathomReal) {
+        try {
+          const res = await fetch("/api/connectors/fathom/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectId,
+              apiKey: options!.apiKey!.trim(),
+              siteId: options!.siteId!.trim(),
+              signupEventId: options?.signupEvent ?? null,
+              signupEventName: options?.signupEventName ?? null,
+            }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion Fathom échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? options!.siteId!.trim(),
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion Fathom échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
+      const isGoogleAnalyticsReal =
+        connectorId === "google-analytics" &&
+        options?.mode === "real" &&
+        Boolean(options.gaPropertyId?.trim());
+
+      if (isGoogleAnalyticsReal) {
+        try {
+          const res = await fetch("/api/connectors/google-analytics/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectId,
+              propertyId: options!.gaPropertyId!.trim(),
+              propertyDisplayName: options?.propertyDisplayName?.trim() || undefined,
+              signupEvent: options?.signupEvent ?? "sign_up",
+              trialEvent: options?.trialEvent ?? null,
+            }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion Google Analytics échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? options?.propertyDisplayName ?? "Google Analytics",
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message =
+            err instanceof Error ? err.message : "Connexion Google Analytics échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
+      const isSentryReal =
+        connectorId === "sentry" &&
+        options?.mode === "real" &&
+        Boolean(options.sentryProjectId?.trim());
+
+      if (isSentryReal) {
+        try {
+          const res = await fetch("/api/connectors/sentry/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectId,
+              sentryProjectId: options!.sentryProjectId!.trim(),
+              sentryProjectSlug: options?.sentryProjectSlug?.trim() || undefined,
+              projectName: options?.sentryProjectName?.trim() || undefined,
+            }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & {
+            error?: string;
+            tokenExpiresAt?: string;
+          };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion Sentry échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? options?.sentryProjectName ?? "Sentry",
+              );
+              if (updated && data.tokenExpiresAt) {
+                updated = {
+                  ...updated,
+                  integrations: updated.integrations?.map((integration) =>
+                    integration.connectorId === connectorId
+                      ? { ...integration, tokenExpiresAt: data.tokenExpiresAt }
+                      : integration,
+                  ),
+                };
+              }
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion Sentry échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
+      const isPostHogReal =
+        connectorId === "posthog" &&
+        options?.mode === "real" &&
+        Boolean(options.personalApiKey?.trim()) &&
+        Boolean(options.posthogProjectId?.trim());
+
+      if (isPostHogReal) {
+        try {
+          const res = await fetch("/api/connectors/posthog/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectId,
+              personalApiKey: options!.personalApiKey!.trim(),
+              posthogProjectId: options!.posthogProjectId!.trim(),
+              appHost: options?.appHost?.trim() || undefined,
+              signupEvent: options?.signupEvent ?? null,
+              activationEvent: options?.activationEvent ?? null,
+            }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion PostHog échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? `PostHog ${options!.posthogProjectId!.trim()}`,
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion PostHog échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
+      const isMixpanelReal =
+        connectorId === "mixpanel" &&
+        options?.mode === "real" &&
+        Boolean(options.mixpanelServiceAccountUsername?.trim()) &&
+        Boolean(options.mixpanelServiceAccountSecret?.trim()) &&
+        Boolean(options.mixpanelProjectId?.trim()) &&
+        Boolean(options.activityEvent?.trim() || options.signupEvent?.trim());
+
+      if (isMixpanelReal) {
+        try {
+          const res = await fetch("/api/connectors/mixpanel/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectId,
+              serviceAccountUsername: options!.mixpanelServiceAccountUsername!.trim(),
+              serviceAccountSecret: options!.mixpanelServiceAccountSecret!.trim(),
+              mixpanelProjectId: options!.mixpanelProjectId!.trim(),
+              region: options?.mixpanelRegion?.trim() || undefined,
+              workspaceId: options?.mixpanelWorkspaceId ?? null,
+              signupEvent: options?.signupEvent ?? null,
+              activationEvent: options?.activationEvent ?? null,
+              activityEvent: options?.activityEvent ?? options?.signupEvent ?? null,
+            }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion Mixpanel échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? `Mixpanel ${options!.mixpanelProjectId!.trim()}`,
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion Mixpanel échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
       const isLemonSqueezyReal =
         connectorId === "lemon-squeezy" &&
         options?.mode === "real" &&
@@ -1268,6 +1760,110 @@ export function PortfolioProvider({
           if (updated) queueProjectSync(updated);
         } catch (err) {
           const message = err instanceof Error ? err.message : "Connexion Lemon Squeezy échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
+      const isPaddleReal =
+        connectorId === "paddle" &&
+        options?.mode === "real" &&
+        Boolean(options.apiKey?.trim());
+
+      if (isPaddleReal) {
+        try {
+          const res = await fetch("/api/connectors/paddle/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectId,
+              apiKey: options!.apiKey!.trim(),
+              currency: options?.currency ?? undefined,
+            }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion Paddle échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? "Paddle",
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion Paddle échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
+      const isFreemiusReal =
+        connectorId === "freemius" &&
+        options?.mode === "real" &&
+        Boolean(options.productId?.trim()) &&
+        Boolean(options.apiToken?.trim());
+
+      if (isFreemiusReal) {
+        try {
+          const res = await fetch("/api/connectors/freemius/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectId,
+              productId: options!.productId!.trim(),
+              apiToken: options!.apiToken!.trim(),
+              productTitle: options?.productTitle ?? undefined,
+              currency: options?.currency ?? undefined,
+              sandbox: options?.sandbox ?? undefined,
+            }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion Freemius échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? options!.productTitle ?? "Freemius",
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion Freemius échouée";
           commit((prev) =>
             prev.map((project) =>
               project.id === projectId
@@ -1387,6 +1983,60 @@ export function PortfolioProvider({
         return;
       }
 
+      const isResendReal =
+        connectorId === "resend" &&
+        options?.mode === "real" &&
+        Boolean(options.resendApiKey?.trim() || options.apiKey?.trim()) &&
+        Boolean(options.resendWebhookSigningSecret?.trim());
+
+      if (isResendReal) {
+        try {
+          const res = await fetch("/api/connectors/resend/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectId,
+              apiKey: (options!.resendApiKey ?? options!.apiKey)!.trim(),
+              webhookSigningSecret: options!.resendWebhookSigningSecret!.trim(),
+              conversionSegmentId: options?.resendConversionSegmentId ?? null,
+              conversionSegmentName: options?.resendConversionSegmentName ?? null,
+              conversionMode: options?.resendConversionMode ?? "email_clicked",
+            }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion Resend échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? "Resend",
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion Resend échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
       const isCrispReal =
         connectorId === "crisp" &&
         options?.mode === "real" &&
@@ -1434,6 +2084,459 @@ export function PortfolioProvider({
           throw err;
         }
         return;
+      }
+
+      const isIntercomReal = connectorId === "intercom" && options?.mode === "real";
+
+      if (isIntercomReal) {
+        try {
+          const res = await fetch("/api/connectors/intercom/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ projectId }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion Intercom échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? "Intercom",
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion Intercom échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
+      if (connectorId === "intercom" && options?.mode !== "demo") {
+        throw new Error("Connectez Intercom via OAuth.");
+      }
+
+      const isHubSpotReal = connectorId === "hubspot" && options?.mode === "real";
+
+      if (isHubSpotReal) {
+        try {
+          const res = await fetch("/api/connectors/hubspot/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ projectId }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion HubSpot échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? "HubSpot",
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion HubSpot échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
+      if (connectorId === "hubspot" && options?.mode !== "demo") {
+        throw new Error("Connectez HubSpot via OAuth.");
+      }
+
+      const isPipedriveReal = connectorId === "pipedrive" && options?.mode === "real";
+
+      if (isPipedriveReal) {
+        try {
+          const res = await fetch("/api/connectors/pipedrive/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ projectId }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion Pipedrive échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? "Pipedrive",
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion Pipedrive échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
+      if (connectorId === "pipedrive" && options?.mode !== "demo") {
+        throw new Error("Connectez Pipedrive via OAuth.");
+      }
+
+      const isQontoReal = connectorId === "qonto" && options?.mode === "real";
+
+      if (isQontoReal) {
+        try {
+          const res = await fetch("/api/connectors/qonto/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ projectId }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion Qonto échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? "Qonto",
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion Qonto échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
+      if (connectorId === "qonto" && options?.mode !== "demo") {
+        throw new Error("Connectez Qonto via OAuth.");
+      }
+
+      const isPennylaneReal = connectorId === "pennylane" && options?.mode === "real";
+
+      if (isPennylaneReal) {
+        try {
+          const body: Record<string, string> = { projectId };
+          if (options?.apiToken?.trim()) {
+            body.apiToken = options.apiToken.trim();
+          }
+
+          const res = await fetch("/api/connectors/pennylane/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion Pennylane échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? "Pennylane",
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion Pennylane échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
+      if (connectorId === "pennylane" && options?.mode !== "demo") {
+        throw new Error("Connectez Pennylane via token API ou OAuth.");
+      }
+
+      const isAbbyReal =
+        connectorId === "abby" &&
+        options?.mode === "real" &&
+        Boolean(options.apiKey?.trim());
+
+      if (isAbbyReal) {
+        try {
+          const res = await fetch("/api/connectors/abby/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectId,
+              apiKey: options!.apiKey!.trim(),
+            }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & {
+            error?: string;
+            revenueUnavailable?: boolean;
+          };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion Abby échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? "Abby",
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion Abby échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
+      if (connectorId === "abby" && options?.mode !== "demo") {
+        throw new Error("Connectez Abby via clé API.");
+      }
+
+      const isBetterStackReal =
+        connectorId === "better-stack" &&
+        options?.mode === "real" &&
+        Boolean(options.betterStackApiToken?.trim()) &&
+        Boolean(options.betterStackMonitorId?.trim());
+
+      if (isBetterStackReal) {
+        try {
+          const res = await fetch("/api/connectors/better-stack/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectId,
+              apiToken: options!.betterStackApiToken!.trim(),
+              monitorId: options!.betterStackMonitorId!.trim(),
+              monitorName: options?.betterStackMonitorName ?? null,
+              monitorUrl: options?.betterStackMonitorUrl ?? null,
+              teamName: options?.betterStackTeamName ?? null,
+            }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion Better Stack échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? options?.betterStackMonitorName ?? "Better Stack",
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion Better Stack échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId ? setIntegrationError(project, connectorId, message) : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
+      if (connectorId === "better-stack" && options?.mode !== "demo") {
+        throw new Error("Connectez Better Stack via token API Uptime.");
+      }
+
+      const isSlackReal =
+        connectorId === "slack" &&
+        options?.mode === "real" &&
+        Boolean(options.channelId?.trim());
+
+      if (isSlackReal) {
+        try {
+          const res = await fetch("/api/connectors/slack/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              projectId,
+              channelId: options!.channelId!.trim(),
+              channelName: options?.channelName?.trim() || undefined,
+            }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion Slack échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? "Slack",
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion Slack échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
+      if (connectorId === "slack" && options?.mode !== "demo") {
+        throw new Error("Connectez Slack via OAuth et sélectionnez un canal.");
+      }
+
+      const isZendeskReal = connectorId === "zendesk" && options?.mode === "real";
+
+      if (isZendeskReal) {
+        try {
+          const res = await fetch("/api/connectors/zendesk/connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ projectId }),
+          });
+          const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+          if (!res.ok) {
+            throw new Error(data.error ?? "Connexion Zendesk échouée");
+          }
+
+          let updated: UserProject | undefined;
+          commit((prev) =>
+            prev.map((project) => {
+              if (project.id !== projectId) return project;
+              updated = applyConnectorSyncToProject(
+                project,
+                connectorId,
+                data,
+                "connected",
+                data.accountLabel ?? "Zendesk",
+              );
+              return updated;
+            }),
+          );
+          if (updated) queueProjectSync(updated);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Connexion Zendesk échouée";
+          commit((prev) =>
+            prev.map((project) =>
+              project.id === projectId
+                ? setIntegrationError(project, connectorId, message)
+                : project,
+            ),
+          );
+          throw err;
+        }
+        return;
+      }
+
+      if (connectorId === "zendesk" && options?.mode !== "demo") {
+        throw new Error("Connectez Zendesk via OAuth.");
       }
 
       const isVercelReal =
@@ -1495,6 +2598,30 @@ export function PortfolioProvider({
 
       if (connectorId === "vercel" && options?.mode !== "demo") {
         throw new Error("Connectez Vercel via OAuth.");
+      }
+
+      if (connectorId === "paddle") {
+        throw new Error("Connectez Paddle via une clé API.");
+      }
+
+      if (connectorId === "freemius") {
+        throw new Error("Connectez Freemius via Bearer Token produit.");
+      }
+
+      if (connectorId === "posthog") {
+        throw new Error("Connectez PostHog via Personal API Key.");
+      }
+
+      if (connectorId === "google-analytics") {
+        throw new Error("Connectez Google Analytics via OAuth.");
+      }
+
+      if (connectorId === "sentry" && options?.mode === "real") {
+        throw new Error("Connectez Sentry via OAuth.");
+      }
+
+      if (!profile.supportsDemo) {
+        throw new Error(`Connectez ${connectorName} via une connexion réelle.`);
       }
 
       commit((prev) =>
@@ -1605,6 +2732,22 @@ export function PortfolioProvider({
         }
       }
 
+      if (connectorId === "microsoft-ads") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find((i) => i.connectorId === "microsoft-ads");
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/microsoft-ads/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
       if (connectorId === "plausible") {
         const project = projects.find((p) => p.id === projectId);
         const integration = project?.integrations?.find((i) => i.connectorId === "plausible");
@@ -1621,12 +2764,126 @@ export function PortfolioProvider({
         }
       }
 
+      if (connectorId === "fathom") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find((i) => i.connectorId === "fathom");
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/fathom/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
       if (connectorId === "lemon-squeezy") {
         const project = projects.find((p) => p.id === projectId);
         const integration = project?.integrations?.find((i) => i.connectorId === "lemon-squeezy");
         if (integration?.status === "connected") {
           try {
             await fetch("/api/connectors/lemon-squeezy/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
+      if (connectorId === "paddle") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find((i) => i.connectorId === "paddle");
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/paddle/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
+      if (connectorId === "freemius") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find((i) => i.connectorId === "freemius");
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/freemius/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
+      if (connectorId === "posthog") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find((i) => i.connectorId === "posthog");
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/posthog/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
+      if (connectorId === "mixpanel") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find((i) => i.connectorId === "mixpanel");
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/mixpanel/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
+      if (connectorId === "google-analytics") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find(
+          (i) => i.connectorId === "google-analytics",
+        );
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/google-analytics/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
+      if (connectorId === "sentry") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find((i) => i.connectorId === "sentry");
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/sentry/disconnect", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ projectId }),
@@ -1669,12 +2926,172 @@ export function PortfolioProvider({
         }
       }
 
+      if (connectorId === "resend") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find((i) => i.connectorId === "resend");
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/resend/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
       if (connectorId === "crisp") {
         const project = projects.find((p) => p.id === projectId);
         const integration = project?.integrations?.find((i) => i.connectorId === "crisp");
         if (integration?.status === "connected") {
           try {
             await fetch("/api/connectors/crisp/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
+      if (connectorId === "intercom") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find((i) => i.connectorId === "intercom");
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/intercom/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
+      if (connectorId === "hubspot") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find((i) => i.connectorId === "hubspot");
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/hubspot/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
+      if (connectorId === "pipedrive") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find((i) => i.connectorId === "pipedrive");
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/pipedrive/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
+      if (connectorId === "qonto") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find((i) => i.connectorId === "qonto");
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/qonto/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
+      if (connectorId === "pennylane") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find((i) => i.connectorId === "pennylane");
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/pennylane/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
+      if (connectorId === "abby") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find((i) => i.connectorId === "abby");
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/abby/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
+      if (connectorId === "better-stack") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find((i) => i.connectorId === "better-stack");
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/better-stack/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
+      if (connectorId === "slack") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find((i) => i.connectorId === "slack");
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/slack/disconnect", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+          } catch {
+            // Continue local disconnect even if API fails
+          }
+        }
+      }
+
+      if (connectorId === "zendesk") {
+        const project = projects.find((p) => p.id === projectId);
+        const integration = project?.integrations?.find((i) => i.connectorId === "zendesk");
+        if (integration?.status === "connected") {
+          try {
+            await fetch("/api/connectors/zendesk/disconnect", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ projectId }),
@@ -1964,6 +3381,50 @@ export function PortfolioProvider({
         throw new Error("Connectez LinkedIn Ads via OAuth.");
       }
 
+      if (connectorId === "microsoft-ads") {
+        if (integration?.status === "connected") {
+          try {
+            const res = await fetch("/api/connectors/microsoft-ads/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation Microsoft Ads échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "Microsoft Ads",
+                );
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Synchronisation Microsoft Ads échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
+          return;
+        }
+
+        throw new Error("Connectez Microsoft Ads via OAuth.");
+      }
+
       if (connectorId === "github") {
         if (integration?.status === "connected") {
           try {
@@ -1996,11 +3457,6 @@ export function PortfolioProvider({
             );
             throw err;
           }
-          return;
-        }
-
-        if (integration?.status === "demo") {
-          await connectIntegration(projectId, connectorId, { mode: "demo" });
           return;
         }
 
@@ -2048,12 +3504,51 @@ export function PortfolioProvider({
           return;
         }
 
-        if (integration?.status === "demo") {
-          await connectIntegration(projectId, connectorId, { mode: "demo" });
+        throw new Error("Connectez Plausible via une clé Stats API.");
+      }
+
+      if (connectorId === "fathom") {
+        if (integration?.status === "connected") {
+          try {
+            const res = await fetch("/api/connectors/fathom/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation Fathom échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "Fathom",
+                );
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Synchronisation Fathom échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
           return;
         }
 
-        throw new Error("Connectez Plausible via une clé Stats API.");
+        throw new Error("Connectez Fathom via une clé API.");
       }
 
       if (connectorId === "lemon-squeezy") {
@@ -2100,6 +3595,282 @@ export function PortfolioProvider({
         throw new Error("Connectez Lemon Squeezy via une clé API.");
       }
 
+      if (connectorId === "paddle") {
+        if (integration?.status === "connected") {
+          try {
+            const res = await fetch("/api/connectors/paddle/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation Paddle échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "Paddle",
+                );
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "Synchronisation Paddle échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
+          return;
+        }
+
+        throw new Error("Connectez Paddle via une clé API.");
+      }
+
+      if (connectorId === "freemius") {
+        if (integration?.status === "connected") {
+          try {
+            const res = await fetch("/api/connectors/freemius/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation Freemius échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "Freemius",
+                );
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Synchronisation Freemius échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
+          return;
+        }
+
+        throw new Error("Connectez Freemius via Bearer Token produit.");
+      }
+
+      if (connectorId === "posthog") {
+        if (integration?.status === "connected") {
+          try {
+            const res = await fetch("/api/connectors/posthog/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation PostHog échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "PostHog",
+                );
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Synchronisation PostHog échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
+          return;
+        }
+
+        throw new Error("Connectez PostHog via Personal API Key.");
+      }
+
+      if (connectorId === "mixpanel") {
+        if (integration?.status === "connected") {
+          try {
+            const res = await fetch("/api/connectors/mixpanel/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation Mixpanel échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "Mixpanel",
+                );
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Synchronisation Mixpanel échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
+          return;
+        }
+
+        throw new Error("Connectez Mixpanel via Service Account.");
+      }
+
+      if (connectorId === "google-analytics") {
+        if (integration?.status === "connected") {
+          try {
+            const res = await fetch("/api/connectors/google-analytics/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation Google Analytics échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "Google Analytics",
+                );
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Synchronisation Google Analytics échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
+          return;
+        }
+
+        throw new Error("Connectez Google Analytics via OAuth.");
+      }
+
+      if (connectorId === "sentry") {
+        if (integration?.status === "connected") {
+          try {
+            const res = await fetch("/api/connectors/sentry/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & {
+              error?: string;
+              tokenExpiresAt?: string;
+            };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation Sentry échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "Sentry",
+                );
+                if (updated && data.tokenExpiresAt) {
+                  updated = {
+                    ...updated,
+                    integrations: updated.integrations?.map((item) =>
+                      item.connectorId === connectorId
+                        ? { ...item, tokenExpiresAt: data.tokenExpiresAt }
+                        : item,
+                    ),
+                  };
+                }
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Synchronisation Sentry échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
+          return;
+        }
+
+        throw new Error("Connectez Sentry via OAuth.");
+      }
+
       if (connectorId === "crisp") {
         if (integration?.status === "connected") {
           try {
@@ -2143,6 +3914,400 @@ export function PortfolioProvider({
         throw new Error("Connectez Crisp via le plugin Marketplace et le Website ID.");
       }
 
+      if (connectorId === "intercom") {
+        if (integration?.status === "connected") {
+          try {
+            const res = await fetch("/api/connectors/intercom/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation Intercom échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "Intercom",
+                );
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Synchronisation Intercom échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
+          return;
+        }
+
+        throw new Error("Connectez Intercom via OAuth.");
+      }
+
+      if (connectorId === "hubspot") {
+        if (integration?.status === "connected") {
+          try {
+            const res = await fetch("/api/connectors/hubspot/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation HubSpot échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "HubSpot",
+                );
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Synchronisation HubSpot échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
+          return;
+        }
+
+        throw new Error("Connectez HubSpot via OAuth.");
+      }
+
+      if (connectorId === "pipedrive") {
+        if (integration?.status === "connected") {
+          try {
+            const res = await fetch("/api/connectors/pipedrive/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation Pipedrive échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "Pipedrive",
+                );
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Synchronisation Pipedrive échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
+          return;
+        }
+
+        throw new Error("Connectez Pipedrive via OAuth.");
+      }
+
+      if (connectorId === "qonto") {
+        if (integration?.status === "connected") {
+          try {
+            const res = await fetch("/api/connectors/qonto/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation Qonto échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "Qonto",
+                );
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Synchronisation Qonto échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
+          return;
+        }
+
+        throw new Error("Connectez Qonto via OAuth.");
+      }
+
+      if (connectorId === "pennylane") {
+        if (integration?.status === "connected") {
+          try {
+            const res = await fetch("/api/connectors/pennylane/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation Pennylane échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "Pennylane",
+                );
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Synchronisation Pennylane échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
+          return;
+        }
+
+        throw new Error("Connectez Pennylane via token API ou OAuth.");
+      }
+
+      if (connectorId === "abby") {
+        if (integration?.status === "connected") {
+          try {
+            const res = await fetch("/api/connectors/abby/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation Abby échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "Abby",
+                );
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Synchronisation Abby échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
+          return;
+        }
+
+        throw new Error("Connectez Abby via clé API.");
+      }
+
+      if (connectorId === "better-stack") {
+        if (integration?.status === "connected") {
+          try {
+            const res = await fetch("/api/connectors/better-stack/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation Better Stack échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "Better Stack",
+                );
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Synchronisation Better Stack échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
+          return;
+        }
+      }
+
+      if (connectorId === "slack") {
+        if (integration?.status === "connected") {
+          try {
+            const res = await fetch("/api/connectors/slack/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation Slack échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "Slack",
+                );
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Synchronisation Slack échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
+          return;
+        }
+
+        throw new Error("Connectez Slack via OAuth et sélectionnez un canal.");
+      }
+
+      if (connectorId === "zendesk") {
+        if (integration?.status === "connected") {
+          try {
+            const res = await fetch("/api/connectors/zendesk/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation Zendesk échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "Zendesk",
+                );
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message =
+              err instanceof Error ? err.message : "Synchronisation Zendesk échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
+          return;
+        }
+
+        throw new Error("Connectez Zendesk via OAuth.");
+      }
+
       if (connectorId === "brevo") {
         if (integration?.status === "connected") {
           try {
@@ -2183,12 +4348,50 @@ export function PortfolioProvider({
           return;
         }
 
-        if (integration?.status === "demo") {
-          await connectIntegration(projectId, connectorId, { mode: "demo" });
+        throw new Error("Connectez Brevo via une clé API.");
+      }
+
+      if (connectorId === "resend") {
+        if (integration?.status === "connected") {
+          try {
+            const res = await fetch("/api/connectors/resend/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ projectId }),
+            });
+            const data = (await res.json()) as ConnectorSyncApiResponse & { error?: string };
+            if (!res.ok) {
+              throw new Error(data.error ?? "Synchronisation Resend échouée");
+            }
+
+            let updated: UserProject | undefined;
+            commit((prev) =>
+              prev.map((p) => {
+                if (p.id !== projectId) return p;
+                updated = applyConnectorSyncToProject(
+                  p,
+                  connectorId,
+                  data,
+                  "connected",
+                  data.accountLabel ?? integration.accountLabel ?? "Resend",
+                );
+                return updated;
+              }),
+            );
+            if (updated) queueProjectSync(updated);
+          } catch (err) {
+            const message = err instanceof Error ? err.message : "Synchronisation Resend échouée";
+            commit((prev) =>
+              prev.map((p) =>
+                p.id === projectId ? setIntegrationError(p, connectorId, message) : p,
+              ),
+            );
+            throw err;
+          }
           return;
         }
 
-        throw new Error("Connectez Brevo via une clé API.");
+        throw new Error("Connectez Resend via une clé API Full access.");
       }
 
       if (connectorId === "loops") {
@@ -2231,20 +4434,10 @@ export function PortfolioProvider({
           return;
         }
 
-        if (integration?.status === "demo") {
-          await connectIntegration(projectId, connectorId, { mode: "demo" });
-          return;
-        }
-
         throw new Error("Connectez Loops via une clé API et un webhook.");
       }
 
       if (connectorId === "vercel") {
-        if (integration?.status === "demo") {
-          await connectIntegration(projectId, connectorId, { mode: "demo" });
-          return;
-        }
-
         try {
           const res = await fetch("/api/connectors/vercel/sync", {
             method: "POST",
@@ -2290,9 +4483,41 @@ export function PortfolioProvider({
         return;
       }
 
-      await connectIntegration(projectId, connectorId, { mode: "demo" });
+      const profile = getConnectorConnectionProfile(connectorId);
+      const connectorName = getConnector(connectorId)?.name ?? connectorId;
+      if (profile.supportsDemo) {
+        await connectIntegration(projectId, connectorId, { mode: "demo" });
+        return;
+      }
+
+      throw new Error(`Connectez ${connectorName} via une connexion réelle.`);
     },
     [commit, connectIntegration, projects],
+  );
+
+  const syncProjectIntegrations = useCallback(
+    async (projectId: string, opts?: { force?: boolean }) => {
+      const project = projects.find((p) => p.id === projectId);
+      if (!project) return;
+
+      const connectorIds = listAutoSyncableConnectorIds(project.integrations ?? [], opts);
+      if (connectorIds.length === 0) return;
+
+      setAutoSyncState({ projectId, connectorIds });
+
+      try {
+        for (const connectorId of connectorIds) {
+          try {
+            await syncIntegration(projectId, connectorId);
+          } catch {
+            // Erreur déjà enregistrée sur l'intégration via syncIntegration.
+          }
+        }
+      } finally {
+        setAutoSyncState(null);
+      }
+    },
+    [projects, syncIntegration],
   );
 
   const removeGitHubRepo = useCallback(
@@ -2567,6 +4792,9 @@ export function PortfolioProvider({
       connectIntegration,
       disconnectIntegration,
       syncIntegration,
+      syncProjectIntegrations,
+      autoSyncingProjectId: autoSyncState?.projectId ?? null,
+      autoSyncingConnectors: autoSyncState?.connectorIds ?? [],
       removeGitHubRepo,
       patchIntegration,
       addCampaign,
@@ -2621,6 +4849,8 @@ export function PortfolioProvider({
       connectIntegration,
       disconnectIntegration,
       syncIntegration,
+      syncProjectIntegrations,
+      autoSyncState,
       removeGitHubRepo,
       patchIntegration,
       addCampaign,

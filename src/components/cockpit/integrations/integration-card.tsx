@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, Plug, RefreshCw, Unplug } from "lucide-react";
+import { Loader2, Plug, Unplug } from "lucide-react";
 import type { ConnectorDefinition } from "@/lib/connectors/types";
 import type { ConnectorId, Integration } from "@/lib/connectors/types";
 import type { ConnectorStreamPayload } from "@/lib/connectors/streams";
@@ -24,17 +24,36 @@ import { GoogleAdsConnectDialog } from "@/components/cockpit/integrations/google
 import { MetaAdsConnectDialog } from "@/components/cockpit/integrations/meta-ads-connect-dialog";
 import { TikTokAdsConnectDialog } from "@/components/cockpit/integrations/tiktok-ads-connect-dialog";
 import { LinkedInAdsConnectDialog } from "@/components/cockpit/integrations/linkedin-ads-connect-dialog";
+import { MicrosoftAdsConnectDialog } from "@/components/cockpit/integrations/microsoft-ads-connect-dialog";
 import { PlausibleConnectDialog } from "@/components/cockpit/integrations/plausible-connect-dialog";
+import { FathomConnectDialog } from "@/components/cockpit/integrations/fathom-connect-dialog";
+import { PostHogConnectDialog } from "@/components/cockpit/integrations/posthog-connect-dialog";
+import { MixpanelConnectDialog } from "@/components/cockpit/integrations/mixpanel-connect-dialog";
+import { GoogleAnalyticsConnectDialog } from "@/components/cockpit/integrations/google-analytics-connect-dialog";
 import { GitHubConnectDialog } from "@/components/cockpit/integrations/github-connect-dialog";
 import { LoopsConnectDialog } from "@/components/cockpit/integrations/loops-connect-dialog";
 import { BrevoConnectDialog } from "@/components/cockpit/integrations/brevo-connect-dialog";
+import { ResendConnectDialog } from "@/components/cockpit/integrations/resend-connect-dialog";
 import { LemonSqueezyConnectDialog } from "@/components/cockpit/integrations/lemon-squeezy-connect-dialog";
+import { PaddleConnectDialog } from "@/components/cockpit/integrations/paddle-connect-dialog";
+import { FreemiusConnectDialog } from "@/components/cockpit/integrations/freemius-connect-dialog";
 import { CrispConnectDialog } from "@/components/cockpit/integrations/crisp-connect-dialog";
+import { IntercomConnectDialog } from "@/components/cockpit/integrations/intercom-connect-dialog";
+import { ZendeskConnectDialog } from "@/components/cockpit/integrations/zendesk-connect-dialog";
+import { PipedriveConnectDialog } from "@/components/cockpit/integrations/pipedrive-connect-dialog";
+import { QontoConnectDialog } from "@/components/cockpit/integrations/qonto-connect-dialog";
+import { PennylaneConnectDialog } from "@/components/cockpit/integrations/pennylane-connect-dialog";
+import { AbbyConnectDialog } from "@/components/cockpit/integrations/abby-connect-dialog";
+import { BetterStackConnectDialog } from "@/components/cockpit/integrations/better-stack-connect-dialog";
+import { SlackConnectDialog } from "@/components/cockpit/integrations/slack-connect-dialog";
 import { VercelConnectDialog } from "@/components/cockpit/integrations/vercel-connect-dialog";
+import { SentryConnectDialog } from "@/components/cockpit/integrations/sentry-connect-dialog";
+import { HubSpotConnectDialog } from "@/components/cockpit/integrations/hubspot-connect-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { ConnectIntegrationOptions } from "@/contexts/portfolio-context";
+import { usePortfolio } from "@/contexts/portfolio-context";
 
 const CATEGORY_LABELS: Record<ConnectorDefinition["category"], string> = {
   payments: "Paiements",
@@ -67,6 +86,7 @@ const OAUTH_ADS_HEALTH_PATH: Partial<Record<ConnectorId, string>> = {
   "meta-ads": "meta-ads",
   "tiktok-ads": "tiktok-ads",
   "linkedin-ads": "linkedin-ads",
+  "microsoft-ads": "microsoft-ads",
 };
 
 function IntegrationStatusBadge({ status }: { status: IntegrationDisplayStatus }) {
@@ -111,7 +131,6 @@ type IntegrationCardActionsProps = {
   disconnecting: boolean;
   onOpenDialog: () => void;
   onConnect: (id: ConnectorId, options?: ConnectIntegrationOptions) => Promise<void>;
-  onSync: () => Promise<void>;
   onDisconnect: () => Promise<void>;
 };
 
@@ -124,16 +143,27 @@ function IntegrationCardActions({
   disconnecting,
   onOpenDialog,
   onConnect,
-  onSync,
   onDisconnect,
 }: IntegrationCardActionsProps) {
   if (!isActive) {
     if (profile.supportsReal) {
       return (
-        <Button size="sm" className="w-fit" onClick={onOpenDialog}>
-          <Plug className="h-4 w-4" />
-          Connecter
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" className="w-fit" onClick={onOpenDialog}>
+            <Plug className="h-4 w-4" />
+            Connecter
+          </Button>
+          {profile.supportsDemo ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-fit"
+              onClick={() => void onConnect(connectorId, { mode: "demo" })}
+            >
+              Essayer en démo
+            </Button>
+          ) : null}
+        </div>
       );
     }
 
@@ -151,19 +181,6 @@ function IntegrationCardActions({
           Reconnecter
         </Button>
       ) : null}
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => void onSync()}
-        disabled={syncing || disconnecting}
-      >
-        {syncing ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <RefreshCw className="h-4 w-4" />
-        )}
-        Synchroniser
-      </Button>
       <Button
         size="sm"
         variant="ghost"
@@ -190,8 +207,13 @@ export function IntegrationCard({
   onPatch = () => {},
 }: IntegrationCardProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [syncing, setSyncing] = useState(false);
+  const [oauthSyncing, setOauthSyncing] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const { autoSyncingProjectId, autoSyncingConnectors } = usePortfolio();
+
+  const autoSyncing =
+    autoSyncingProjectId === projectId && autoSyncingConnectors.includes(connector.id);
+  const syncing = oauthSyncing || autoSyncing;
 
   const profile = getConnectorConnectionProfile(connector.id);
   const displayStatus = getIntegrationDisplayStatus(integration);
@@ -213,6 +235,36 @@ export function IntegrationCard({
     if (profile.connectDialog === "linkedin-ads" && searchParams.get("linkedin_ads_oauth") === "1") {
       setDialogOpen(true);
     }
+    if (profile.connectDialog === "microsoft-ads" && searchParams.get("microsoft_ads_oauth") === "1") {
+      setDialogOpen(true);
+    }
+    if (profile.connectDialog === "intercom" && searchParams.get("intercom_oauth") === "1") {
+      setDialogOpen(true);
+    }
+    if (profile.connectDialog === "zendesk" && searchParams.get("zendesk_oauth") === "1") {
+      setDialogOpen(true);
+    }
+    if (profile.connectDialog === "qonto" && searchParams.get("qonto_oauth") === "1") {
+      setDialogOpen(true);
+    }
+    if (profile.connectDialog === "pennylane" && searchParams.get("pennylane_oauth") === "1") {
+      setDialogOpen(true);
+    }
+    if (profile.connectDialog === "slack" && searchParams.get("slack_oauth") === "1") {
+      setDialogOpen(true);
+    }
+    if (profile.connectDialog === "hubspot" && searchParams.get("hubspot_oauth") === "1") {
+      setDialogOpen(true);
+    }
+    if (profile.connectDialog === "pipedrive" && searchParams.get("pipedrive_oauth") === "1") {
+      setDialogOpen(true);
+    }
+    if (profile.connectDialog === "google-analytics" && searchParams.get("google_analytics_oauth") === "1") {
+      setDialogOpen(true);
+    }
+    if (profile.connectDialog === "sentry" && searchParams.get("sentry_oauth") === "1") {
+      setDialogOpen(true);
+    }
     if (profile.connectDialog === "github" && searchParams.get("github_oauth") === "1") {
       setDialogOpen(true);
     }
@@ -220,11 +272,11 @@ export function IntegrationCard({
       const vercelOauth = searchParams.get("vercel_oauth");
       if (vercelOauth === "connected") {
         void (async () => {
-          setSyncing(true);
+          setOauthSyncing(true);
           try {
             await onSync(connector.id);
           } finally {
-            setSyncing(false);
+            setOauthSyncing(false);
           }
         })();
         const params = new URLSearchParams(window.location.search);
@@ -270,15 +322,6 @@ export function IntegrationCard({
     onPatch,
     projectId,
   ]);
-
-  async function handleSync() {
-    setSyncing(true);
-    try {
-      await onSync(connector.id);
-    } finally {
-      setSyncing(false);
-    }
-  }
 
   async function handleDisconnect() {
     setDisconnecting(true);
@@ -338,6 +381,12 @@ export function IntegrationCard({
             {integration.accountLabel ? ` · ${integration.accountLabel}` : ""}
           </p>
         ) : null}
+        {syncing ? (
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Synchronisation…
+          </p>
+        ) : null}
         {integration?.lastError ? (
           <p className="mt-2 text-xs text-destructive">{integration.lastError}</p>
         ) : null}
@@ -352,7 +401,6 @@ export function IntegrationCard({
             disconnecting={disconnecting}
             onOpenDialog={() => setDialogOpen(true)}
             onConnect={onConnect}
-            onSync={handleSync}
             onDisconnect={handleDisconnect}
           />
         </div>
@@ -397,12 +445,52 @@ export function IntegrationCard({
           onConnect={(options) => onConnect("linkedin-ads", options)}
         />
       ) : null}
+      {connectDialogId === "microsoft-ads" ? (
+        <MicrosoftAdsConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("microsoft-ads", options)}
+        />
+      ) : null}
       {connectDialogId === "plausible" ? (
         <PlausibleConnectDialog
           projectId={projectId}
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           onConnect={(options) => onConnect("plausible", options)}
+        />
+      ) : null}
+      {connectDialogId === "fathom" ? (
+        <FathomConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("fathom", options)}
+        />
+      ) : null}
+      {connectDialogId === "posthog" ? (
+        <PostHogConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("posthog", options)}
+        />
+      ) : null}
+      {connectDialogId === "mixpanel" ? (
+        <MixpanelConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("mixpanel", options)}
+        />
+      ) : null}
+      {connectDialogId === "google-analytics" ? (
+        <GoogleAnalyticsConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("google-analytics", options)}
         />
       ) : null}
       {connectDialogId === "github" ? (
@@ -431,12 +519,35 @@ export function IntegrationCard({
           onConnect={(options) => onConnect("brevo", options)}
         />
       ) : null}
+      {connectDialogId === "resend" ? (
+        <ResendConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("resend", options)}
+        />
+      ) : null}
       {connectDialogId === "lemon-squeezy" ? (
         <LemonSqueezyConnectDialog
           projectId={projectId}
           open={dialogOpen}
           onOpenChange={setDialogOpen}
           onConnect={(options) => onConnect("lemon-squeezy", options)}
+        />
+      ) : null}
+      {connectDialogId === "paddle" ? (
+        <PaddleConnectDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("paddle", options)}
+        />
+      ) : null}
+      {connectDialogId === "freemius" ? (
+        <FreemiusConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("freemius", options)}
         />
       ) : null}
       {connectDialogId === "crisp" ? (
@@ -447,6 +558,78 @@ export function IntegrationCard({
           onConnect={(options) => onConnect("crisp", options)}
         />
       ) : null}
+      {connectDialogId === "intercom" ? (
+        <IntercomConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("intercom", options)}
+        />
+      ) : null}
+      {connectDialogId === "zendesk" ? (
+        <ZendeskConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("zendesk", options)}
+        />
+      ) : null}
+      {connectDialogId === "pipedrive" ? (
+        <PipedriveConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("pipedrive", options)}
+        />
+      ) : null}
+      {connectDialogId === "qonto" ? (
+        <QontoConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("qonto", options)}
+        />
+      ) : null}
+      {connectDialogId === "pennylane" ? (
+        <PennylaneConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("pennylane", options)}
+        />
+      ) : null}
+      {connectDialogId === "abby" ? (
+        <AbbyConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("abby", options)}
+        />
+      ) : null}
+      {connectDialogId === "better-stack" ? (
+        <BetterStackConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("better-stack", options)}
+        />
+      ) : null}
+      {connectDialogId === "slack" ? (
+        <SlackConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("slack", options)}
+        />
+      ) : null}
+      {connectDialogId === "hubspot" ? (
+        <HubSpotConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("hubspot", options)}
+        />
+      ) : null}
       {connectDialogId === "vercel" ? (
         <VercelConnectDialog
           projectId={projectId}
@@ -454,6 +637,14 @@ export function IntegrationCard({
           onOpenChange={setDialogOpen}
           onConnect={(options) => onConnect("vercel", options)}
           onSyncConnected={() => onSync("vercel")}
+        />
+      ) : null}
+      {connectDialogId === "sentry" ? (
+        <SentryConnectDialog
+          projectId={projectId}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onConnect={(options) => onConnect("sentry", options)}
         />
       ) : null}
     </div>

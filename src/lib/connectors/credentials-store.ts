@@ -20,7 +20,25 @@ export type ConnectorProvider =
   | "loops"
   | "lemon-squeezy"
   | "brevo"
-  | "crisp";
+  | "crisp"
+  | "paddle"
+  | "freemius"
+  | "microsoft-ads"
+  | "posthog"
+  | "google-analytics"
+  | "resend"
+  | "intercom"
+  | "fathom"
+  | "mixpanel"
+  | "zendesk"
+  | "qonto"
+  | "pennylane"
+  | "abby"
+  | "better-stack"
+  | "slack"
+  | "sentry"
+  | "hubspot"
+  | "pipedrive";
 
 export type StoredCredential<T> = {
   provider: ConnectorProvider;
@@ -117,4 +135,25 @@ export async function loadConnectorCredentialByProject<T extends Record<string, 
   if (!data?.credential_encrypted) return null;
 
   return JSON.parse(decryptCredential(data.credential_encrypted)) as T;
+}
+
+export type ConnectorCredentialRow = {
+  userId: string;
+  projectId: string;
+  provider: ConnectorProvider;
+};
+
+export async function listAllConnectorCredentials(): Promise<ConnectorCredentialRow[]> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("connector_credentials")
+    .select("user_id, project_id, provider");
+
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    userId: row.user_id as string,
+    projectId: row.project_id as string,
+    provider: row.provider as ConnectorProvider,
+  }));
 }

@@ -22,6 +22,8 @@ import { shouldShowLaunchPad } from "@/lib/build-launch";
 import { COCKPIT_MODULE_MAP, LaunchPad } from "@/lib/cockpit-module-loader";
 import { useCockpitSidebarCollapsed } from "@/hooks/use-cockpit-sidebar-collapsed";
 import { CockpitWelcomeBanner } from "@/components/cockpit/cockpit-welcome-banner";
+import { usePortfolio } from "@/contexts/portfolio-context";
+import { Loader2 } from "lucide-react";
 
 type CockpitShellProps = {
   project: UserProject;
@@ -74,6 +76,9 @@ export function CockpitShell({
   const welcomeIdea = searchParams.get("welcome") === "idea";
   const launchPadMode = shouldShowLaunchPad(project) && !paramModule && !welcomeIdea;
   const { collapsed, setCollapsed, hydrated } = useCockpitSidebarCollapsed();
+  const { autoSyncingProjectId, autoSyncingConnectors } = usePortfolio();
+  const isAutoSyncing =
+    autoSyncingProjectId === project.id && autoSyncingConnectors.length > 0;
   const initialModule = paramModule
     ? normalizeModuleId(paramModule)
     : DEFAULT_COCKPIT_MODULE;
@@ -184,6 +189,13 @@ export function CockpitShell({
           <CockpitModuleHeader activeModule={activeModule} opportunity={opportunity} project={project} />
 
           {data.metrics.hasDemoData ? <DemoModeBanner /> : null}
+
+          {isAutoSyncing ? (
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+              Mise à jour des connecteurs…
+            </div>
+          ) : null}
 
           <CockpitModuleBar
             activeModule={activeModule}

@@ -175,6 +175,7 @@ export type CreateIdeaProjectInput = {
   ideaBrief: ProjectIdeaBrief;
   ideaSeed: string;
   summary?: string;
+  productName?: string;
 };
 
 export type CreateGitHubProjectInput = {
@@ -311,15 +312,22 @@ function buildIdeaMilestones(brief: ProjectIdeaBrief): Milestone[] {
 
 export function createProjectFromIdea(input: CreateIdeaProjectInput): UserProject {
   const now = new Date().toISOString();
-  const { ideaBrief, ideaSeed, summary } = input;
+  const { ideaBrief, ideaSeed, summary, productName } = input;
+  const resolvedName = productName?.trim() || ideaBrief.identity.name;
 
   return {
     id: generateProjectId(),
     opportunitySlug: "",
     projectSource: "idea",
-    ideaBrief,
+    ideaBrief: {
+      ...ideaBrief,
+      identity: {
+        ...ideaBrief.identity,
+        name: resolvedName,
+      },
+    },
     ideaSeed: summary?.trim() || ideaSeed.trim(),
-    productName: ideaBrief.identity.name,
+    productName: resolvedName,
     startedAt: now.slice(0, 10),
     phase: "build",
     currentMrr: 0,
@@ -1326,6 +1334,14 @@ export function aggregateCampaigns(campaigns: AdCampaign[]) {
 }
 
 export function computeBurnRate(project: UserProject, month?: string): number {
+  const qontoIntegration = project.integrations?.find(
+    (i) => i.connectorId === "qonto" && i.status === "connected",
+  );
+  const qontoStream = project.connectorStreams?.qonto;
+  if (qontoIntegration && qontoStream?.type === "finance") {
+    return Math.max(0, qontoStream.monthlyOutflow - qontoStream.monthlyInflow);
+  }
+
   const key = month ?? new Date().toISOString().slice(0, 7);
   const expenses = (project.expenses ?? []).filter((e) => e.date.startsWith(key));
   const recurring = (project.expenses ?? []).filter((e) => e.recurring);
@@ -1337,7 +1353,14 @@ export function computeBurnRate(project: UserProject, month?: string): number {
 }
 
 export function computeRunwayMonths(project: UserProject): number | null {
-  const cash = project.cashOnHand ?? 0;
+  const qontoIntegration = project.integrations?.find(
+    (i) => i.connectorId === "qonto" && i.status === "connected",
+  );
+  const qontoStream = project.connectorStreams?.qonto;
+  const cash =
+    qontoIntegration && qontoStream?.type === "finance"
+      ? qontoStream.cashBalance
+      : (project.cashOnHand ?? 0);
   const burn = computeBurnRate(project);
   if (burn <= 0) return null;
   return Math.round((cash / burn) * 10) / 10;

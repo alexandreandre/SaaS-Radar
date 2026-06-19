@@ -17,6 +17,33 @@ const nextConfig = {
     SUPABASE_ANON_KEY: supabaseAnonKey,
   },
   transpilePackages: ["framer-motion", "motion-dom"],
+  experimental: {
+    optimizePackageImports: [
+      "lucide-react",
+      "@icons-pack/react-simple-icons",
+      "@radix-ui/react-checkbox",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-dropdown-menu",
+      "@radix-ui/react-select",
+      "@radix-ui/react-tabs",
+      "@radix-ui/react-tooltip",
+    ],
+  },
+  onDemandEntries: {
+    maxInactiveAge: 60 * 1000,
+    pagesBufferLength: 5,
+  },
+  webpack(config, { dev }) {
+    if (dev) {
+      // Cache mémoire : évite la corruption PackFileCacheStrategy du dossier .next en HMR.
+      config.cache = { type: "memory" };
+      config.watchOptions = {
+        ...config.watchOptions,
+        aggregateTimeout: 500,
+      };
+    }
+    return config;
+  },
   async headers() {
     return [
       {

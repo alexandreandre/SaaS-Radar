@@ -1,12 +1,13 @@
-import type { UserProject } from "@/lib/portfolio";
+import { migrateProject, type UserProject } from "@/lib/portfolio";
 
 export function queueProjectSync(project: UserProject) {
   if (typeof window === "undefined") return;
 
+  const payload = migrateProject(project);
   void fetch("/api/portfolio/metrics", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(project),
+    body: JSON.stringify(payload),
   }).catch(() => {});
 }
 
@@ -31,10 +32,11 @@ export async function fetchAccountProjects(): Promise<UserProject[]> {
 }
 
 export async function uploadAccountProject(project: UserProject): Promise<boolean> {
+  const payload = migrateProject(project);
   const res = await fetch("/api/portfolio/metrics", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(project),
+    body: JSON.stringify(payload),
   });
   return res.ok;
 }

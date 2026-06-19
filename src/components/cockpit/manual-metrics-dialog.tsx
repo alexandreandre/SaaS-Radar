@@ -70,10 +70,10 @@ export function ManualMetricsDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {trigger ?? (
-          <Tooltip>
-            <TooltipTrigger asChild>
+      {trigger ?? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DialogTrigger asChild>
               <Button
                 type="button"
                 variant="ghost"
@@ -86,11 +86,11 @@ export function ManualMetricsDialog({
                 <PenLine className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">Saisie manuelle</span>
               </Button>
-            </TooltipTrigger>
-            <TooltipContent>Saisir vos métriques à la main</TooltipContent>
-          </Tooltip>
-        )}
-      </DialogTrigger>
+            </DialogTrigger>
+          </TooltipTrigger>
+          <TooltipContent>Saisir vos métriques à la main</TooltipContent>
+        </Tooltip>
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>

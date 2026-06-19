@@ -11,35 +11,41 @@ const VALID_PHASES: ProjectPhase[] = ["build", "launch", "revenue", "paused"];
 
 function parseProject(body: unknown): UserProject | null {
   if (!body || typeof body !== "object") return null;
-  const b = body as Record<string, unknown>;
 
-  const id = typeof b.id === "string" ? b.id.trim() : "";
-  const opportunitySlug = typeof b.opportunitySlug === "string" ? b.opportunitySlug.trim() : "";
-  const phase = typeof b.phase === "string" ? b.phase : "";
-  const currentMrr = typeof b.currentMrr === "number" ? b.currentMrr : Number(b.currentMrr);
-  const startedAt = typeof b.startedAt === "string" ? b.startedAt : undefined;
-  const createdAt = typeof b.createdAt === "string" ? b.createdAt : undefined;
-  const targetScenario = b.targetScenario;
-  const hasIdeaBrief =
-    b.ideaBrief != null && typeof b.ideaBrief === "object";
-  const projectSource =
-    typeof b.projectSource === "string" ? b.projectSource : undefined;
+  const migrated = migrateProject(body as UserProject);
+  const now = new Date().toISOString();
+  const normalized: UserProject = {
+    ...migrated,
+    startedAt: migrated.startedAt ?? migrated.createdAt ?? now.slice(0, 10),
+    createdAt: migrated.createdAt ?? migrated.startedAt ?? now,
+    targetScenario: migrated.targetScenario ?? "Réaliste",
+    currentMrr: Number.isFinite(migrated.currentMrr) ? migrated.currentMrr : 0,
+  };
+
+  const id = normalized.id?.trim() ?? "";
+  const opportunitySlug = normalized.opportunitySlug?.trim() ?? "";
+  const phase = normalized.phase;
+  const hasIdeaBrief = normalized.ideaBrief != null;
+  const projectSource = normalized.projectSource;
   const isIdeaOrGithub =
     hasIdeaBrief || projectSource === "idea" || projectSource === "github";
 
-  if (!id || !VALID_PHASES.includes(phase as ProjectPhase)) {
+  if (!id || !VALID_PHASES.includes(phase)) {
     return null;
   }
   if (!isIdeaOrGithub && !opportunitySlug) {
     return null;
   }
-  if (!Number.isFinite(currentMrr) || currentMrr < 0) return null;
-  if (!startedAt || !createdAt) return null;
-  if (targetScenario !== "Prudent" && targetScenario !== "Réaliste" && targetScenario !== "Optimiste") {
+  if (normalized.currentMrr < 0) return null;
+  if (
+    normalized.targetScenario !== "Prudent" &&
+    normalized.targetScenario !== "Réaliste" &&
+    normalized.targetScenario !== "Optimiste"
+  ) {
     return null;
   }
 
-  return migrateProject(body as UserProject);
+  return normalized;
 }
 
 export async function PUT(request: Request) {

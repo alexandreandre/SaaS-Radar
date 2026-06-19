@@ -9,6 +9,7 @@ import { FavoritesProvider } from "@/contexts/favorites-context";
 import { getAllOpportunities } from "@/lib/opportunities";
 import { getCurrentUser, getTier, isAdmin } from "@/lib/auth";
 import { SessionProvider } from "@/contexts/session-context";
+import { DevChunkRecovery } from "@/components/dev-chunk-recovery";
 
 const sourceSans = Source_Sans_3({
   subsets: ["latin"],
@@ -35,6 +36,10 @@ export const metadata: Metadata = {
   title: "SaaS Radar — Intelligence SaaS pour la France",
   description:
     "Opportunités SaaS validées à l'étranger, scores France Fit et Buildability, carte mondiale et outil d'analyste pour entrepreneurs français.",
+  icons: {
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/apple-touch-icon.svg", type: "image/svg+xml" }],
+  },
 };
 
 export default async function RootLayout({
@@ -61,10 +66,11 @@ export default async function RootLayout({
       <body
         className={`${sourceSans.variable} ${newsreader.variable} ${plexMono.variable} font-sans`}
       >
+        {process.env.NODE_ENV === "development" ? <DevChunkRecovery /> : null}
         <ThemeProvider>
           <SessionProvider isAuthenticated={isAuthenticated} isAdmin={serverIsAdmin}>
             <TierProvider serverTier={serverTier} isAuthenticated={isAuthenticated}>
-              <PortfolioProvider opportunityCatalog={opportunityCatalog}>
+              <PortfolioProvider opportunityCatalog={opportunityCatalog} userId={user?.id ?? null}>
                 <FavoritesProvider>
                   <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
                 </FavoritesProvider>

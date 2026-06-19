@@ -14,6 +14,7 @@ import { syncBuildMilestones } from "@/lib/portfolio";
 import { CockpitProjectIdentity } from "@/components/cockpit/cockpit-project-identity";
 import { CockpitModuleSkeleton } from "@/components/cockpit/cockpit-module-skeleton";
 import { useCockpitData } from "@/hooks/use-cockpit-data";
+import { useAutoSyncIntegrations } from "@/hooks/use-auto-sync-integrations";
 
 const CockpitShell = dynamic(
   () => import("@/components/cockpit/cockpit-shell").then((m) => ({ default: m.CockpitShell })),
@@ -44,6 +45,8 @@ function CockpitLoaded({ project, opportunity, inLaunchPad }: CockpitLoadedProps
     setCashOnHand,
     completeOnboarding,
   } = usePortfolio();
+
+  useAutoSyncIntegrations(project.id);
 
   const data = useCockpitData(project, opportunity);
 

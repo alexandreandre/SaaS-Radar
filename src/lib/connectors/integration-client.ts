@@ -5,7 +5,7 @@ import {
 import type { ConnectorId, Integration, MetricsSnapshot } from "@/lib/connectors/types";
 import type { ConnectorStreamPayload } from "@/lib/connectors/streams";
 import { removeConnectorStream } from "@/lib/connectors/streams";
-import { PAYMENT_CONNECTOR_IDS } from "@/lib/revenue-helpers";
+import { PAYMENT_CONNECTOR_IDS, ACCOUNTING_CONNECTOR_IDS } from "@/lib/revenue-helpers";
 import type { UserProject } from "@/lib/portfolio";
 import type { GitHubConnection, GitHubTrackedRepo, ProductLogo } from "@/lib/portfolio";
 import { mergeDetectedProductLogo } from "@/lib/build/product-logo-client";
@@ -42,6 +42,24 @@ export function demoteOtherPaymentIntegrations(
   });
 }
 
+export function demoteOtherAccountingIntegrations(
+  integrations: Integration[],
+  activeId: ConnectorId,
+): Integration[] {
+  if (!ACCOUNTING_CONNECTOR_IDS.includes(activeId)) return integrations;
+
+  return integrations.map((i) => {
+    if (
+      i.connectorId !== activeId &&
+      ACCOUNTING_CONNECTOR_IDS.includes(i.connectorId) &&
+      (i.status === "demo" || i.status === "connected")
+    ) {
+      return { ...i, status: "disconnected" as const };
+    }
+    return i;
+  });
+}
+
 export function applyConnectorSyncToProject(
   project: UserProject,
   connectorId: ConnectorId,
@@ -62,7 +80,7 @@ export function applyConnectorSyncToProject(
     connectedAt: previous?.connectedAt ?? now,
     lastSyncAt: now,
     accountLabel,
-    syncSchedule: previous?.syncSchedule ?? "manual",
+    syncSchedule: previous?.syncSchedule ?? (status === "connected" ? "daily" : "manual"),
     lastError: undefined,
     tokenExpiresAt: result.tokenExpiresAt ?? previous?.tokenExpiresAt,
   };
@@ -70,7 +88,10 @@ export function applyConnectorSyncToProject(
   if (idx >= 0) integrations[idx] = entry;
   else integrations.push(entry);
 
-  const normalizedIntegrations = demoteOtherPaymentIntegrations(integrations, connectorId);
+  const normalizedIntegrations = demoteOtherAccountingIntegrations(
+    demoteOtherPaymentIntegrations(integrations, connectorId),
+    connectorId,
+  );
 
   let connectorStreams = project.connectorStreams ?? {};
   if (result.stream) {

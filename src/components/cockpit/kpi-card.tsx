@@ -76,8 +76,8 @@ function Sparkline({ data, height = 40 }: { data: number[]; height?: number }) {
   const chartColor = "#4a6f9a";
 
   return (
-    <div className="w-full" style={{ height }}>
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="w-full min-w-0" style={{ height }}>
+      <ResponsiveContainer width="100%" height={height} minWidth={0}>
         <AreaChart data={flat.map((v, i) => ({ i, v }))}>
           <defs>
             <linearGradient id="kpiSpark" x1="0" y1="0" x2="0" y2="1">

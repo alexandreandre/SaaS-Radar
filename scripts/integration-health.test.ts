@@ -46,6 +46,7 @@ describe("integration-health — oauth ads connectors", () => {
     assert.equal(isOAuthAdsConnector("google-ads"), true);
     assert.equal(isOAuthAdsConnector("tiktok-ads"), true);
     assert.equal(isOAuthAdsConnector("linkedin-ads"), true);
+    assert.equal(isOAuthAdsConnector("microsoft-ads"), true);
     assert.equal(isOAuthAdsConnector("stripe"), false);
   });
 

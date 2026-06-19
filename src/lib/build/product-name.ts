@@ -30,3 +30,14 @@ SaaS d'inspiration (NE PAS copier ce nom) : ${inspiration}
 
 Propose 3 noms originaux pour la version française de ce produit.`;
 }
+
+export function buildIdeaProductNameUserPrompt(input: {
+  initialIdea: string;
+  summary?: string;
+}): string {
+  const lines = [`Idée : ${input.initialIdea}`];
+  if (input.summary?.trim()) lines.push(`Résumé validé : ${input.summary.trim()}`);
+  return `${lines.join("\n")}
+
+Propose 3 noms originaux pour ce micro-SaaS sur le marché français.`;
+}

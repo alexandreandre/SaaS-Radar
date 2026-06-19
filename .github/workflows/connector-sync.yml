@@ -1,0 +1,34 @@
+name: Sync connecteurs
+
+on:
+  schedule:
+    # Toutes les 6 h à :05 UTC
+    - cron: "5 */6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: connector-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync connecteurs -> Supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run connector sync cron
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
+        run: node --require ./scripts/register-server-only-stub.cjs ./node_modules/tsx/dist/cli.mjs scripts/connector-sync-cron.ts

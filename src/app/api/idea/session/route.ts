@@ -31,7 +31,6 @@ export async function POST(request: Request) {
   const b = body as Record<string, unknown>;
   const initialIdea = typeof b.initialIdea === "string" ? b.initialIdea.trim() : "";
   const rawTurns = Array.isArray(b.turns) ? b.turns : [];
-  const answer = typeof b.answer === "string" ? b.answer.trim() : "";
 
   if (!initialIdea || initialIdea.length < 8) {
     return NextResponse.json(
@@ -46,13 +45,6 @@ export async function POST(request: Request) {
       return parsed.success ? parsed.data : null;
     })
     .filter((t): t is NonNullable<typeof t> => t != null && t.answer.trim().length > 0);
-
-  if (answer) {
-    const pendingQuestion = typeof b.pendingQuestion === "string" ? b.pendingQuestion.trim() : "";
-    if (pendingQuestion) {
-      turns.push({ question: pendingQuestion, answer });
-    }
-  }
 
   const draft = ideaDraftSchema.safeParse({ initialIdea, turns });
   if (!draft.success) {
@@ -72,8 +64,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       status: "clarify",
+      insight: result.insight,
+      dimension: result.dimension,
       question: result.question,
+      questionType: result.questionType,
       suggestions: result.suggestions,
+      allowCustom: result.allowCustom,
       draft: draft.data,
     });
   } catch (err) {

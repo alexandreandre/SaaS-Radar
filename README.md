@@ -221,6 +221,22 @@ Flux utilisateur : OAuth LinkedIn → sélection du compte publicitaire → sync
 
 Doc détaillée : [`docs/connectors/linkedin-ads.md`](docs/connectors/linkedin-ads.md)
 
+### Connecteur Microsoft Ads cockpit (acquisition Bing)
+
+Le connecteur Microsoft Ads (`/api/connectors/microsoft-ads/*`) synchronise **adSpend**,
+**impressions**, **clics** et **conversions** sur 12 mois via la Microsoft Advertising API v13.
+
+**Prérequis plateforme** (variables dans `.env`) :
+
+1. **Azure Portal** : app registration, redirect URI `https://<domaine>/api/connectors/microsoft-ads/callback`, permission déléguée `msads.manage`
+2. **Google Cloud Console** (optionnel) : OAuth client web pour les comptes Google liés à Microsoft Ads — mêmes redirect URI, scopes `profile email`
+3. **Developer token** Microsoft Advertising (obligatoire sur tous les appels API)
+4. `CREDENTIALS_ENCRYPTION_KEY` pour chiffrer les tokens utilisateur
+
+Flux utilisateur : choix Microsoft ou Google → OAuth → sélection du compte publicitaire → sync initiale (rapport asynchrone, peut prendre jusqu'à 2 minutes).
+
+**Comportement à l'expiration du token** : access token renouvelé via refresh token ; si refresh révoqué, reconnectez via OAuth. Les snapshots déjà synchronisés restent visibles.
+
 ### Connecteur Vercel cockpit (build & déploiements)
 
 Le connecteur Vercel (`/api/connectors/vercel/*`) alimente un **DevStream** : deploys 30j, état du dernier déploiement, taux de deploys OK et coûts infra optionnels (plan Pro+). Connexion possible depuis le **module Build** ou le **marketplace Intégrations** (credential unique).
@@ -234,6 +250,35 @@ Le connecteur Vercel (`/api/connectors/vercel/*`) alimente un **DevStream** : de
 5. `CREDENTIALS_ENCRYPTION_KEY` pour chiffrer le token long-lived
 
 **Flux utilisateur** : un clic → OAuth → connecté automatiquement si un seul projet (ou match repo GitHub). Sinon choix en un tap. **Démo** ou **URL manuelle** si OAuth plateforme indisponible.
+
+### Connecteur Sentry cockpit (monitoring erreurs)
+
+Le connecteur Sentry (`/api/connectors/sentry/*`) alimente un **DevStream** : issues ouvertes, taux d'erreur 24h, crash-free sessions (proxy uptime) et releases 30j. Consommé par le module **Build** et les alertes `sentry-spike`.
+
+**Prérequis plateforme** (setup une fois) :
+
+1. Créer une **Public Integration** dans Sentry → Settings → Developer Settings
+2. Permissions : `org:read`, `project:read`, `event:read`, `project:releases`
+3. Redirect URI : `https://<domaine>/api/connectors/sentry/callback`
+4. Webhook URL : `https://<domaine>/api/connectors/sentry/webhook`
+5. Variables : `SENTRY_CLIENT_ID`, `SENTRY_CLIENT_SECRET`, `SENTRY_REDIRECT_URI`, `SENTRY_APP_SLUG`
+6. `CREDENTIALS_ENCRYPTION_KEY` pour chiffrer les tokens (expiration ~8 h, refresh automatique)
+
+**Flux utilisateur** : OAuth external-install → sélection du projet Sentry → sync initiale. Mode **démo** conservé dans Intégrations.
+
+### Connecteur Better Stack cockpit (uptime / incidents)
+
+Le connecteur Better Stack (`/api/connectors/better-stack/*`) alimente un **DevStream** : **uptimePct** (SLA 30 j), **openIssues** (incidents actifs), **errorRate** dérivé et URL du monitor. Consommé par le module **Build** et l'alerte `uptime-low` (fallback si Vercel absent).
+
+**Prérequis utilisateur** :
+
+1. Compte Better Stack avec au moins un **monitor Uptime**
+2. Token **Uptime API** (team-scoped recommandé) ou Global API token — Better Stack → API tokens
+3. `CREDENTIALS_ENCRYPTION_KEY` pour chiffrer le token
+
+**Flux utilisateur** : coller le token → liste des monitors (suggestion auto si URL = production Vercel/host) → sync SLA + incidents. Mode **démo** conservé dans Intégrations.
+
+Doc API : [Better Stack Uptime API](https://betterstack.com/docs/uptime/api/getting-started-with-uptime-api/)
 
 ### Connecteur GitHub cockpit (dev / CI)
 
@@ -262,7 +307,90 @@ Le connecteur Plausible (`/api/connectors/plausible/*`) synchronise **signups** 
 
 Variable optionnelle : `PLAUSIBLE_API_BASE` (défaut `https://plausible.io`) pour instance self-hosted.
 
-Flux utilisateur : saisie clé + domaine → validation → sélection goal signup (optionnel) → sync initiale. Le mode **démo** reste disponible.
+Flux utilisateur : saisie clé + domaine → validation → sélection goal signup (optionnel) → sync initiale.
+
+### Connecteur Fathom cockpit (analytics web)
+
+Le connecteur Fathom (`/api/connectors/fathom/*`) synchronise **signups** (événement optionnel),
+**activeUsers**, **mau** et **dau** sur 12 mois via l'API v1 (`/v1/aggregations`).
+
+**Prérequis utilisateur** (pas de secret plateforme) :
+
+1. Compte Fathom Analytics actif
+2. Clé API créée sur [app.usefathom.com/api](https://app.usefathom.com/api) — **lecture seule** recommandée
+3. Site sélectionné parmi ceux accessibles par la clé
+4. Événement signup optionnel (sinon signups = 0)
+
+**Prérequis plateforme** : `CREDENTIALS_ENCRYPTION_KEY` pour chiffrer la clé utilisateur.
+
+**Quota** : chaque requête API compte dans le quota mensuel de pageviews Fathom. Limite agrégations : 10 req/min.
+
+Variable optionnelle : `FATHOM_API_BASE` (défaut `https://api.usefathom.com/v1`).
+
+Flux utilisateur : saisie clé → liste des sites → chargement des événements (optionnel) → sync initiale.
+
+### Connecteur PostHog cockpit (product analytics)
+
+Le connecteur PostHog (`/api/connectors/posthog/*`) synchronise **signups** (événement optionnel),
+**activeUsers**, **mau**, **dau** sur 12 mois via la Query API (HogQL), plus un stream produit
+(**activationRate**, **retentionD7**, **featureUsageTop**).
+
+**Prérequis utilisateur** (pas de secret plateforme) :
+
+1. Compte PostHog (US Cloud, EU Cloud ou self-hosted)
+2. **Personal API Key** avec scopes `query:read`, `project:read`, `event_definition:read`
+3. Project ID (Settings → Project)
+4. Événements signup / activation optionnels (sinon métriques associées = 0)
+5. SDK avec `identify()` pour des MAU/DAU fiables (`person_id`)
+
+**Prérequis plateforme** : `CREDENTIALS_ENCRYPTION_KEY` pour chiffrer la clé utilisateur.
+
+Variable optionnelle : `POSTHOG_APP_HOST` (défaut `https://us.posthog.com`) si l'instance n'est pas saisie dans le dialog.
+
+Flux utilisateur : clé + instance → sélection projet → événements optionnels → sync initiale. **Pas de mode démo.**
+
+### Connecteur Mixpanel cockpit (product analytics)
+
+Le connecteur Mixpanel (`/api/connectors/mixpanel/*`) synchronise **signups**, **activeUsers**, **mau**, **dau**
+sur 12 mois via la Query API (segmentation), plus un stream produit (**activationRate**, **retentionD7**,
+**featureUsageTop** via export JSONL).
+
+**Prérequis utilisateur** (pas de secret plateforme) :
+
+1. Compte Mixpanel (US, EU ou IN)
+2. **Service Account** avec rôle Analyst ou Admin sur le projet ([doc officielle](https://docs.mixpanel.com/docs/admin/organizations-and-projects/service-accounts))
+3. Project ID depuis l’URL (`mixpanel.com/project/{id}/…`)
+4. Plan **Growth ou Enterprise** pour la Query API (MAU, rétention)
+5. Événements activité / signup / activation configurables dans le dialog
+
+**Prérequis plateforme** : `CREDENTIALS_ENCRYPTION_KEY` pour chiffrer username + secret.
+
+Variable optionnelle dev : `MIXPANEL_CONNECTOR_FALLBACK=1` (sync sans appels API live).
+
+Flux utilisateur : Service Account + région → Project ID → événements → sync initiale.
+
+### Connecteur Google Analytics cockpit (GA4 web analytics)
+
+Le connecteur Google Analytics (`/api/connectors/google-analytics/*`) synchronise **signups** (événement configurable, défaut `sign_up`),
+**trials** (événement optionnel), **activeUsers**, **mau** et **dau** sur 12 mois via la GA4 Data API v1beta.
+
+**Prérequis plateforme** :
+
+1. Projet Google Cloud avec **Google Analytics Data API** et **Google Analytics Admin API** activées
+2. Client OAuth 2.0 (type Web) avec redirect URI `https://<domaine>/api/connectors/google-analytics/callback`
+3. Scope OAuth : `https://www.googleapis.com/auth/analytics.readonly`
+4. `CREDENTIALS_ENCRYPTION_KEY` pour chiffrer les tokens utilisateur
+
+Variables : `GOOGLE_ANALYTICS_CLIENT_ID`, `GOOGLE_ANALYTICS_CLIENT_SECRET`, `GOOGLE_ANALYTICS_REDIRECT_URI`.
+
+**Prérequis utilisateur** :
+
+1. Propriété **GA4** (Universal Analytics non pris en charge)
+2. Accès lecture à la propriété dans Google Analytics
+3. Événement `sign_up` recommandé GA4, ou événement custom pour les signups
+4. Événement trial optionnel (`begin_checkout`, `start_trial`, etc.)
+
+Flux utilisateur : OAuth Google → sélection propriété GA4 → mapping événements signup/trial → sync initiale. **Pas de mode démo.**
 
 ### Connecteur Lemon Squeezy cockpit (paiements MoR)
 
@@ -278,6 +406,37 @@ Le connecteur Lemon Squeezy (`/api/connectors/lemon-squeezy/*`) synchronise **MR
 **Prérequis plateforme** : `CREDENTIALS_ENCRYPTION_KEY` pour chiffrer la clé utilisateur.
 
 Flux utilisateur : saisie clé API → validation → sélection boutique → sync initiale. Connexion **réelle uniquement** (pas de mode démo). Les montants sont exprimés dans la devise de la boutique (souvent USD), sans conversion FX automatique.
+
+### Connecteur Paddle cockpit (paiements MoR)
+
+Le connecteur Paddle (`/api/connectors/paddle/*`) synchronise **MRR**, **newMrr**,
+**churnedMrr**, **clients actifs** et le stream **paiements** (échecs / récupérations) sur 12 mois via l'API Billing v1 (Metrics + abonnements).
+
+**Prérequis utilisateur** (pas de secret plateforme) :
+
+1. Compte [Paddle Billing](https://www.paddle.com/billing) avec abonnements actifs
+2. Clé **API** créée dans Developer tools → Authentication (`pdl_live_apikey_…` ou `pdl_sdbx_apikey_…`)
+3. Permissions minimales : `metrics.read`, `subscription.read`, `transaction.read`
+
+**Prérequis plateforme** : `CREDENTIALS_ENCRYPTION_KEY` pour chiffrer la clé utilisateur.
+
+Flux utilisateur : saisie clé API → sync initiale. Connexion **réelle uniquement** (pas de mode démo). Les montants sont dans la devise du compte Paddle (devise principale du solde).
+
+### Connecteur Freemius cockpit (paiements plugins WordPress)
+
+Le connecteur Freemius (`/api/connectors/freemius/*`) synchronise **MRR**, **newMrr**,
+**churnedMrr**, **clients actifs** et le stream **paiements** (échecs) sur 12 mois via l'API v1 (abonnements reconstruits localement).
+
+**Prérequis utilisateur** (pas de secret plateforme) :
+
+1. Compte [Freemius](https://freemius.com) avec un produit monétisé
+2. **ID produit** visible dans l'URL du Developer Dashboard
+3. **Bearer Token** généré dans Settings du produit → onglet API Token (scopé à ce produit)
+4. Abonnements récurrents actifs (`billing_cycle` > 0)
+
+**Prérequis plateforme** : `CREDENTIALS_ENCRYPTION_KEY` pour chiffrer le token utilisateur.
+
+Flux utilisateur : saisie ID produit + Bearer Token → validation → sync initiale. Connexion **réelle uniquement** (pas de mode démo). Les montants sont dans la devise des abonnements (USD, EUR, GBP).
 
 ### Connecteur Loops cockpit (email marketing)
 
@@ -296,7 +455,7 @@ Le connecteur Loops (`/api/connectors/loops/*`) synchronise **signups** et **con
 
 **Prérequis plateforme** : `CREDENTIALS_ENCRYPTION_KEY` + `NEXT_PUBLIC_APP_URL` (URL webhook affichée dans le dialog).
 
-Flux utilisateur : clé API → config webhook → liste conversion (optionnel) → sync initiale. Le mode **démo** reste disponible.
+Flux utilisateur : clé API → config webhook → liste conversion (optionnel) → sync initiale.
 
 ### Connecteur Brevo cockpit (email marketing)
 
@@ -313,7 +472,26 @@ Le connecteur Brevo (`/api/connectors/brevo/*`) synchronise **signups** (nouveau
 
 Doc détaillée : [docs/connectors/brevo.md](docs/connectors/brevo.md).
 
-Flux utilisateur : clé API → mode conversions → webhook (si liste) → sync initiale. Le mode **démo** reste disponible.
+Flux utilisateur : clé API → mode conversions → webhook (si liste) → sync initiale.
+
+### Connecteur Resend cockpit (email transactionnel)
+
+Le connecteur Resend (`/api/connectors/resend/*`) synchronise **signups** (contacts Resend par `created_at` sur 12 mois via API) et **conversions** selon deux modes :
+
+- **Clics email** (défaut) : webhook `email.clicked` + agrégation locale (pas d'historique rétroactif avant activation du webhook)
+- **Segment** : contacts du segment sélectionné comptés par mois via `GET /contacts?segment_id=…`
+
+**Prérequis** :
+
+1. Clé API Resend **Full access** (pas Sending access seul) — [resend.com/api-keys](https://resend.com/api-keys)
+2. Webhook Resend pointant vers  
+   `{NEXT_PUBLIC_APP_URL}/api/connectors/resend/webhook?projectId=…`  
+   avec événement `email.clicked` (obligatoire pour le mode clics)
+3. Signing secret `whsec_…` copié depuis le dashboard webhook Resend
+
+**Limitations** : compte transactionnel sans Audience → signups à 0 ; pas de backfill des clics avant configuration du webhook.
+
+Flux utilisateur : clé API → config webhook → segment conversion (optionnel) → sync initiale.
 
 ### Connecteur Crisp cockpit (support client)
 
@@ -333,6 +511,160 @@ Le connecteur Crisp (`/api/connectors/crisp/*`) synchronise **activeUsers** (vis
 3. Analytics Crisp (Essentials+) recommandé pour CSAT et temps de réponse
 
 Doc détaillée : [docs/connectors/crisp.md](docs/connectors/crisp.md).
+
+### Connecteur Intercom cockpit (support client)
+
+Le connecteur Intercom (`/api/connectors/intercom/*`) synchronise **activeUsers** (contacts actifs / mois via `last_request_at`) et un stream support : **conversations ouvertes**, **temps de réponse médian**, **CSAT** (ratings 4–5 / total).
+
+**Prérequis plateforme** :
+
+1. App OAuth dans [Intercom Developer Hub](https://developers.intercom.com/)
+2. `INTERCOM_CLIENT_ID`, `INTERCOM_CLIENT_SECRET`, `INTERCOM_REDIRECT_URI` dans `.env`
+3. Scopes OAuth : **Read conversations**, **Read and list users and companies**
+4. Redirect URI HTTPS : `{APP_URL}/api/connectors/intercom/callback`
+
+**Prérequis utilisateur** :
+
+1. Cliquer « Continuer avec Intercom » dans le marketplace Intégrations
+2. Autoriser l'app sur le workspace Intercom
+3. En cas de token révoqué (401), reconnecter via OAuth
+
+### Connecteur HubSpot cockpit (CRM B2B)
+
+Le connecteur HubSpot (`/api/connectors/hubspot/*`) alimente le stream CRM du module Clients : **pipelineValue**, **dealsWon**, **dealsLost** (30 derniers jours), **avgCycleDays** (90 derniers jours sur deals gagnés).
+
+**Prérequis plateforme** :
+
+1. App OAuth sur [HubSpot Developers](https://developers.hubspot.com/)
+2. `HUBSPOT_CLIENT_ID`, `HUBSPOT_CLIENT_SECRET` dans `.env` (+ `NEXT_PUBLIC_APP_URL` ou `HUBSPOT_REDIRECT_URI`)
+3. Scope OAuth : **crm.objects.deals.read**
+4. Redirect URI HTTPS : `{APP_URL}/api/connectors/hubspot/callback`
+
+**Prérequis utilisateur** :
+
+1. Cliquer « Continuer avec HubSpot » dans le marketplace Intégrations
+2. Autoriser l'app sur le portail HubSpot
+3. En cas de token révoqué, reconnecter via OAuth
+
+### Connecteur Pipedrive cockpit (CRM)
+
+Le connecteur Pipedrive (`/api/connectors/pipedrive/*`) alimente le stream CRM du module Clients : **pipelineValue** (deals ouverts), **dealsWon**, **dealsLost** (totaux non archivés) et **avgCycleDays** (moyenne sur les 200 deals gagnés les plus récents).
+
+**Prérequis plateforme** :
+
+1. App OAuth sur [Pipedrive Developer Hub](https://developers.pipedrive.com/)
+2. `PIPEDRIVE_CLIENT_ID`, `PIPEDRIVE_CLIENT_SECRET`, `PIPEDRIVE_REDIRECT_URI` dans `.env`
+3. Scope OAuth : **deals:read** (scope `base` inclus automatiquement)
+4. Redirect URI HTTPS : `{APP_URL}/api/connectors/pipedrive/callback`
+
+**Prérequis utilisateur** :
+
+1. Cliquer « Continuer avec Pipedrive » dans le marketplace Intégrations
+2. Autoriser l'app sur le compte Pipedrive
+3. En cas de token expiré (> 60 j sans refresh), reconnecter via OAuth
+
+### Connecteur Slack cockpit (alertes)
+
+Le connecteur Slack (`/api/connectors/slack/*`) pousse les **alertes cockpit** (MRR, churn, ROAS, intégrations) vers un canal Slack et alimente le stream **comms** : `alertsSent`, `lastAlertAt`.
+
+**Prérequis plateforme** :
+
+1. App Slack sur [api.slack.com/apps](https://api.slack.com/apps)
+2. `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET` dans `.env` (+ `NEXT_PUBLIC_APP_URL` ou `SLACK_REDIRECT_URI`)
+3. Bot scopes : **chat:write**, **channels:read**, **groups:read**, **chat:write.public**
+4. Redirect URI HTTPS : `{APP_URL}/api/connectors/slack/callback`
+
+**Prérequis utilisateur** :
+
+1. Cliquer « Continuer avec Slack » dans le marketplace Intégrations
+2. Autoriser l'app sur le workspace
+3. Choisir le canal d'alertes (inviter le bot si canal privé)
+4. En cas de token révoqué, reconnecter via OAuth
+
+### Connecteur Zendesk cockpit (support client)
+
+Le connecteur Zendesk (`/api/connectors/zendesk/*`) synchronise **activeUsers** (end-users actifs / mois) et un stream support : **tickets ouverts**, **temps de réponse médian**, **CSAT** (legacy satisfaction ratings good/bad).
+
+**Prérequis plateforme** :
+
+1. Global OAuth client approuvé via le [Zendesk Marketplace portal](https://developer.zendesk.com/documentation/marketplace/building-a-marketplace-app/set-up-a-global-oauth-client/) (préfixe `zdg-` sur compte `d3v-*`)
+2. `ZENDESK_CLIENT_ID`, `ZENDESK_CLIENT_SECRET`, `ZENDESK_REDIRECT_URI` dans `.env`
+3. Scope OAuth : **read**
+4. Redirect URI HTTPS : `{APP_URL}/api/connectors/zendesk/callback`
+5. Client kind : **Confidential** (secret côté serveur)
+
+**Prérequis utilisateur** :
+
+1. Saisir le **subdomain** Zendesk (ex. `acme` pour `acme.zendesk.com`)
+2. Cliquer « Continuer avec Zendesk » et autoriser l'app
+3. CSAT legacy activé sur le compte pour alimenter le score (sinon `csat: 0`)
+4. En cas de token expiré, reconnecter via OAuth
+
+### Connecteur Qonto cockpit (finance)
+
+Le connecteur Qonto (`/api/connectors/qonto/*`) alimente un stream **finance** : **trésorerie** (somme des comptes Qonto), **flux entrants/sortants** du mois courant et **runway** calculé depuis le burn net bancaire.
+
+**Prérequis plateforme** :
+
+1. App OAuth sur le [Qonto Developer Portal](https://docs.qonto.com/get-started/business-api/authentication/introduction)
+2. `QONTO_CLIENT_ID`, `QONTO_CLIENT_SECRET`, `QONTO_REDIRECT_URI` dans `.env`
+3. Scopes OAuth : **organization.read** et **offline_access**
+4. Redirect URI HTTPS : `{APP_URL}/api/connectors/qonto/callback`
+
+**Prérequis utilisateur** :
+
+1. Cliquer « Connecter avec Qonto » dans le marketplace Intégrations
+2. Autoriser l'app sur l'organisation Qonto (owner/admin pour les soldes complets)
+3. En cas de token expiré (> 90 j sans refresh), reconnecter via OAuth
+
+### Connecteur Pennylane cockpit (compta FR)
+
+Le connecteur Pennylane (`/api/connectors/pennylane/*`) alimente un stream **accounting** : **CA comptable**, **charges comptables** et **TVA due** du mois en cours (balance générale API v2).
+
+**Prérequis utilisateur**
+
+1. Compte Pennylane plan Essential+ (onglet Développeurs visible)
+2. Token API V2 en **lecture seule** avec permission « Balance générale » (`trial_balance:readonly`)
+3. Génération : Paramètres → Connectivité → Développeurs → Générer un token API
+
+**OAuth plateforme (optionnel)**
+
+1. App enregistrée auprès de [Pennylane Partenariats](https://www.pennylane.com/fr/partenaires)
+2. Variables `PENNYLANE_CLIENT_ID`, `PENNYLANE_CLIENT_SECRET`, `PENNYLANE_REDIRECT_URI`
+3. Redirect URI : `{APP_URL}/api/connectors/pennylane/callback`
+
+### Connecteur Abby cockpit (compta FR indie)
+
+Le connecteur Abby (`/api/connectors/abby/*`) alimente un stream **accounting** : **CA comptable**, **charges comptables** et **TVA due** du mois en cours depuis [Abby.fr](https://abby.fr) (facturation + livre des achats).
+
+**Prérequis utilisateur**
+
+1. Compte Abby actif
+2. Clé API générée dans [Paramètres → Intégrations](https://app.abby.fr/settings/integrations)
+3. Factures et achats saisis dans Abby pour le mois courant
+
+**Flux cockpit**
+
+1. Marketplace Intégrations → Abby → coller la clé API
+2. Validation via `GET /v2/company/me`, puis sync initiale
+3. Re-sync manuelle ou auto (cron) via `/api/connectors/abby/sync`
+
+Le CA comptable est agrégé depuis les endpoints billing Abby (`/v2/billings` ou `/v2/billing/statistics`) ; les charges depuis `/v3/purchaseRegister/list`. Si la lecture factures n'est pas disponible sur votre clé, le cockpit affiche les charges synchronisées et `revenueBooked = 0`.
+
+## Sync automatique des connecteurs
+
+Les connecteurs se synchronisent **sans action manuelle** :
+
+- **Client** : à l’ouverture du cockpit et au retour sur l’onglet (si dernière sync > 1 h).
+- **Serveur** : cron GitHub Actions toutes les 6 h sur tous les `connector_credentials`.
+
+```bash
+npm run connector-sync   # même logique que le cron CI (local / debug)
+```
+
+Automatisation : `.github/workflows/connector-sync.yml` (cron + `workflow_dispatch`).
+
+Secrets CI requis (en plus de Supabase) : `CREDENTIALS_ENCRYPTION_KEY` (identique à la prod).
 
 ## Pipeline de sourcing
 

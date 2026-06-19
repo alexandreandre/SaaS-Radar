@@ -34,17 +34,27 @@ export async function POST(request: Request) {
     );
   }
 
+  const productName = draft.productName?.trim();
+  if (!productName) {
+    return NextResponse.json(
+      { error: "Choisissez un nom pour votre SaaS avant de générer la fiche." },
+      { status: 400 },
+    );
+  }
+
   try {
     const ideaBrief = await generateIdeaBrief({
       initialIdea: draft.initialIdea,
       turns: draft.turns.filter((t) => t.answer.trim()),
       summary: draft.summary,
+      productName,
     });
 
     const project = createProjectFromIdea({
       ideaBrief,
       ideaSeed: draft.initialIdea,
       summary: draft.summary,
+      productName,
     });
 
     await syncUserProject(user.id, project);

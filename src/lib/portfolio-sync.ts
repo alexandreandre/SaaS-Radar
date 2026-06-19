@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { UserProject } from "@/lib/portfolio";
 import { migrateProject } from "@/lib/portfolio";
 
@@ -62,6 +63,24 @@ export async function loadUserProject(
   return rowToUserProject(data as UserProjectRow);
 }
 
+/** Charge un projet via service role — cron CLI, workers (hors contexte requête Next.js). */
+export async function loadUserProjectAsService(
+  userId: string,
+  projectId: string,
+): Promise<UserProject | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("user_projects")
+    .select("id, opportunity_slug, name, phase, mrr_cents, payload, created_at")
+    .eq("id", projectId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) return null;
+  return rowToUserProject(data as UserProjectRow);
+}
+
 export async function loadUserProjects(userId: string): Promise<UserProject[]> {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
@@ -94,6 +113,32 @@ export async function syncUserProject(userId: string, project: UserProject) {
       updated_at: new Date().toISOString(),
     },
     { onConflict: "id" }
+  );
+
+  if (error) throw error;
+}
+
+/** Persiste un projet via service role — cron CLI, workers (hors contexte requête Next.js). */
+export async function syncUserProjectAsService(userId: string, project: UserProject) {
+  const supabase = createAdminClient();
+  const migrated = migrateProject(project);
+
+  const { error } = await supabase.from("user_projects").upsert(
+    {
+      id: migrated.id,
+      user_id: userId,
+      opportunity_slug: migrated.opportunitySlug,
+      name:
+        migrated.productName?.trim() ||
+        migrated.ideaBrief?.identity.name ||
+        migrated.opportunitySlug ||
+        "Mon SaaS",
+      phase: migrated.phase,
+      mrr_cents: Math.round(migrated.currentMrr * 100),
+      payload: migrated,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "id" },
   );
 
   if (error) throw error;
