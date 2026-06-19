@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import type { CockpitModuleId } from "@/lib/cockpit-modules";
 
 const WELCOME_KEY = "saas-radar:cockpit-welcome-dismissed";
@@ -12,6 +11,26 @@ type CockpitWelcomeBannerProps = {
   onModuleChange: (module: CockpitModuleId) => void;
   onDismiss?: () => void;
 };
+
+function ModuleLink({
+  module,
+  label,
+  onNavigate,
+}: {
+  module: CockpitModuleId;
+  label: string;
+  onNavigate: (module: CockpitModuleId) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onNavigate(module)}
+      className="font-medium text-primary underline-offset-2 transition-colors hover:text-primary/80 hover:underline"
+    >
+      {label}
+    </button>
+  );
+}
 
 export function CockpitWelcomeBanner({
   projectId,
@@ -31,35 +50,33 @@ export function CockpitWelcomeBanner({
     onDismiss?.();
   }, [projectId, onDismiss]);
 
+  const navigate = useCallback(
+    (module: CockpitModuleId) => {
+      onModuleChange(module);
+    },
+    [onModuleChange],
+  );
+
   if (!visible) return null;
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-      <p className="text-sm leading-relaxed">
-        Votre fiche est prête — business model, concurrence et plan dans{" "}
-        <strong className="font-medium text-foreground">Idée</strong>.
+    <div className="flex items-start gap-3 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3">
+      <p className="flex-1 text-sm leading-relaxed text-muted-foreground">
+        Fiche générée — avancez sur{" "}
+        <ModuleLink module="build" label="Build" onNavigate={navigate} />{" "}
+        (roadmap, prompts IA, suivi quotidien). Business model, concurrence et plan détaillé dans{" "}
+        <ModuleLink module="playbook" label="Idée" onNavigate={navigate} />. Pour lancer
+        l&apos;acquisition, passez par{" "}
+        <ModuleLink module="campagne" label="Campagne" onNavigate={navigate} />.
       </p>
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <Button type="button" size="sm" onClick={() => { dismiss(); onModuleChange("build"); }}>
-          Commencer le build
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={() => { dismiss(); onModuleChange("playbook"); }}
-        >
-          Voir ma fiche
-        </Button>
-        <button
-          type="button"
-          onClick={dismiss}
-          className="rounded-sm p-1 text-muted-foreground hover:text-foreground"
-          aria-label="Fermer"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={dismiss}
+        className="shrink-0 rounded-sm p-1 text-muted-foreground hover:text-foreground"
+        aria-label="Fermer"
+      >
+        <X className="h-4 w-4" />
+      </button>
     </div>
   );
 }
