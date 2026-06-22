@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { BRAND_NAME } from "@/lib/brand";
+import { LogoMark } from "@/components/brand/logo-mark";
 import {
-  Activity,
   BookOpen,
   CreditCard,
   Globe2,
@@ -50,9 +51,9 @@ export function AdminNav({ role, email }: { role: AdminRole; email: string | nul
     <aside className="sticky top-0 flex h-screen w-64 shrink-0 flex-col border-r border-border bg-card">
       <div className="border-b border-border px-4 py-5">
         <div className="flex items-center gap-2">
-          <Activity className="h-5 w-5 text-primary" />
+          <LogoMark className="h-5" aria-hidden />
           <div>
-            <p className="text-sm font-semibold">SaaS Radar Admin</p>
+            <p className="text-sm font-semibold">{BRAND_NAME} Admin</p>
             <p className="text-xs text-muted-foreground">{ADMIN_ROLE_LABELS[role]}</p>
           </div>
         </div>
@@ -88,7 +89,7 @@ export function AdminNav({ role, email }: { role: AdminRole; email: string | nul
       </nav>
       <div className="border-t border-border p-3">
         <Link
-          href="/mes-saas"
+          href="/"
           className="text-xs text-muted-foreground hover:text-foreground"
         >
           ← Retour au produit

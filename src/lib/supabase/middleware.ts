@@ -1,5 +1,13 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { adminAccessRedirectPath, adminGateRedirectPath } from '@/lib/admin/gate-redirect'
+import { evaluateAdminSessionGate, isAdminConsolePath, isAdminLoginPath } from '@/lib/admin/session-gate'
+import {
+  hasAdminGateFromRequest,
+  isAdminAccessPage,
+  isAdminGateApiPath,
+  requiresAdminAccessToken,
+} from '@/lib/admin/access-token'
 import { hasAdminAccess, normalizeAdminRole } from '@/lib/admin/rbac'
 import { isCockpitEnabled, isCheckoutEnabled } from '@/lib/product-phase'
 import { getSupabaseAnonKey, getSupabaseUrl } from './env'
@@ -60,12 +68,14 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
   } = await supabase.auth.getUser()
 
   let isAdminUser = false
+  let profile: { is_admin?: boolean | null; admin_role?: string | null } | null = null
   if (user) {
-    const { data: profile } = await supabase
+    const { data } = await supabase
       .from('profiles')
       .select('is_admin, admin_role')
       .eq('id', user.id)
       .maybeSingle()
+    profile = data
     isAdminUser = hasAdminAccess(
       normalizeAdminRole(profile?.admin_role, profile?.is_admin),
     )
@@ -102,6 +112,29 @@ export async function updateSession(request: NextRequest): Promise<NextResponse>
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('next', pathname || '/mes-saas')
     return NextResponse.redirect(loginUrl)
+  }
+
+  if (
+    requiresAdminAccessToken(pathname) &&
+    !isAdminGateApiPath(pathname) &&
+    !hasAdminGateFromRequest(request)
+  ) {
+    return NextResponse.redirect(new URL(adminAccessRedirectPath(pathname), request.url))
+  }
+
+  if (isAdminConsolePath(pathname)) {
+    const gate = await evaluateAdminSessionGate(supabase, user, profile)
+    const redirectPath = adminGateRedirectPath(gate, pathname)
+    if (redirectPath) {
+      return NextResponse.redirect(new URL(redirectPath, request.url))
+    }
+  }
+
+  if (isAdminLoginPath(pathname) && !isAdminAccessPage(pathname)) {
+    const gate = await evaluateAdminSessionGate(supabase, user, profile)
+    if (gate.status === 'ok') {
+      return NextResponse.redirect(new URL('/admin', request.url))
+    }
   }
 
   return response

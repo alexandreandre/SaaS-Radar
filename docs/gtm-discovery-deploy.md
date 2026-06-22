@@ -21,7 +21,7 @@ Workflow : développer sur `dev-alex`, merger vers `main` pour contenu discovery
 
 ## Checklist avant lancement Instagram
 
-- [ ] Home : carte interactive sans clic, pas de CTA build/GitHub
+- [ ] Home : titre hero + « Clique sur la carte », pas de CTA build/GitHub
 - [ ] `/opportunities` : liste complète, filtres pays OK
 - [ ] Fiche : éditorial Builder visible sans compte
 - [ ] Fiche : prompt + guide → teaser newsletter

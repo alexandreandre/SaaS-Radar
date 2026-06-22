@@ -3,10 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Shield } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { LogoMark } from "@/components/brand/logo-mark";
 import { sanitizeAdminNext } from "@/lib/auth/callback-url";
+import { ADMIN_LOGIN_GENERIC_ERROR } from "@/lib/admin/access-policy";
 import { Button } from "@/components/ui/button";
+
+type LoginResponse = { status: "ok" } | { error: string };
 
 export function AdminLoginClient({
   forbidden = false,
@@ -24,10 +26,8 @@ export function AdminLoginClient({
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "loading">("idle");
   const [error, setError] = useState<string | null>(
-    hasAuthError ? "Connexion impossible. Vérifiez vos identifiants." : null
+    hasAuthError ? ADMIN_LOGIN_GENERIC_ERROR : null
   );
-
-  const supabase = createClient();
 
   const handlePasswordLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,19 +35,26 @@ export function AdminLoginClient({
     setStatus("loading");
     setError(null);
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const res = await fetch("/api/admin/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = (await res.json()) as LoginResponse;
 
-    if (signInError) {
-      setError(signInError.message);
+      if (!res.ok || "error" in data) {
+        setError(ADMIN_LOGIN_GENERIC_ERROR);
+        setStatus("idle");
+        return;
+      }
+
+      router.push(next);
+      router.refresh();
+    } catch {
+      setError(ADMIN_LOGIN_GENERIC_ERROR);
       setStatus("idle");
-      return;
     }
-
-    router.push(next);
-    router.refresh();
   };
 
   if (forbidden) {
@@ -91,7 +98,7 @@ export function AdminLoginClient({
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="admin@votredomaine.fr"
-          autoComplete="email"
+          autoComplete="username"
           className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
         />
         <label
@@ -119,10 +126,6 @@ export function AdminLoginClient({
           {error}
         </p>
       )}
-
-      <p className="mt-6 text-center text-xs text-muted-foreground">
-        Connexion réservée aux opérateurs autorisés
-      </p>
     </AdminLoginShell>
   );
 }
@@ -132,18 +135,15 @@ function AdminLoginShell({ children }: { children: React.ReactNode }) {
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#0a0c10] px-4 text-foreground">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-white/5">
-            <Shield className="h-6 w-6 text-primary" aria-hidden />
+          <div className="flex h-12 w-12 items-center justify-center rounded-md border border-white/10 bg-white/5">
+            <LogoMark className="h-7" onDarkBackground aria-hidden={false} />
           </div>
           <div className="text-center">
-            <p className="font-data text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              SaaS Radar
-            </p>
-            <h1 className="mt-1 font-display text-2xl font-medium tracking-tight text-white">
-              Administration
+            <h1 className="font-display text-2xl font-medium tracking-tight text-white">
+              Console opérateur
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Accès réservé aux opérateurs autorisés.
+              Connexion réservée aux opérateurs autorisés.
             </p>
           </div>
         </div>
