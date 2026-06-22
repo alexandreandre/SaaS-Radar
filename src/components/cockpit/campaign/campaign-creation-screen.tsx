@@ -7,7 +7,6 @@ import type { AcquisitionStage } from "@/lib/campaign/stages";
 import type { ExtendedChannelKey } from "@/lib/campaign/channels";
 import type { MarketingProfile } from "@/lib/campaign/tools";
 import type { CampaignTool } from "@/lib/campaign/tools";
-import type { GtmMotion } from "@/lib/campaign/gtm-engine";
 import { recommendGtmMotion } from "@/lib/campaign/gtm-engine";
 import { CampaignInfraGates } from "@/components/cockpit/campaign/campaign-infra-gates";
 import { CampaignKitSection } from "@/components/cockpit/campaign/campaign-kit-section";

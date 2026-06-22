@@ -1,9 +1,6 @@
 import type { UserProject } from "@/lib/portfolio";
 import type { CampaignSetup } from "@/lib/campaign/kits";
-import {
-  hasCampaignKit,
-  isTrackingConfigured,
-} from "@/lib/campaign/kits";
+import { hasCampaignKit } from "@/lib/campaign/kits";
 import { sequenceProgressPercent } from "@/lib/campaign/sequences";
 import { canAccessDiffusionPhase } from "@/lib/campaign/infra-gates";
 import { recommendGtmMotion } from "@/lib/campaign/gtm-engine";
@@ -35,10 +32,9 @@ export function isCreationComplete(project: UserProject): boolean {
   return hasCampaignKit(project) || (setup.assetChecklist?.filter(Boolean).length ?? 0) >= 2;
 }
 
-export function isDiffusionComplete(project: UserProject, stage: AcquisitionStage): boolean {
+export function isDiffusionComplete(project: UserProject): boolean {
   const setup = project.campaignSetup;
   if (!setup) return false;
-  const motion = recommendGtmMotion(stage, setup.primaryChannel, setup);
   const seqDone = sequenceProgressPercent(setup) >= 30;
   const distributionOk = Boolean(setup.distributionAcknowledgedAt);
   return seqDone || distributionOk || setup.actionItems.some((a) => a.phase === "execute" && a.done);
@@ -59,7 +55,7 @@ export function resolveCampaignPhase(
   const channel = setup?.primaryChannel ?? "linkedin";
   const motion = recommendGtmMotion(stage, channel, setup);
   if (!canAccessDiffusionPhase(project, motion)) return "creation";
-  if (!isDiffusionComplete(project, stage)) return "diffusion";
+  if (!isDiffusionComplete(project)) return "diffusion";
   if (!isMeasureComplete(setup)) return "measure";
   return "measure";
 }
@@ -88,7 +84,7 @@ export function canAdvanceToPhase(
     return { ok: true };
   }
   if (target === "measure") {
-    if (!isDiffusionComplete(project, stage)) {
+    if (!isDiffusionComplete(project)) {
       return { ok: false, reason: "Exécutez au moins une étape de la séquence." };
     }
     return { ok: true };

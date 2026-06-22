@@ -4,7 +4,6 @@ import type { Opportunity } from "@/types/opportunity";
 import type { UserProject } from "@/lib/portfolio";
 import type { AcquisitionStage } from "@/lib/campaign/stages";
 import type { ExtendedChannelKey } from "@/lib/campaign/channels";
-import type { GtmMotion } from "@/lib/campaign/gtm-engine";
 import { recommendGtmMotion } from "@/lib/campaign/gtm-engine";
 import { canAccessDiffusionPhase, getDiffusionBlockers } from "@/lib/campaign/infra-gates";
 import { CampaignSequenceBoard } from "@/components/cockpit/campaign/campaign-sequence-board";
@@ -31,7 +30,6 @@ type CampaignDiffusionScreenProps = {
 
 export function CampaignDiffusionScreen({
   project,
-  opportunity,
   stage,
   channel,
   onToggleSequenceStep,

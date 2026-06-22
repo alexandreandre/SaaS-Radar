@@ -1,5 +1,5 @@
 import type { Opportunity } from "@/types/opportunity";
-import { resolveExtendedChannelKey, type ExtendedChannelKey } from "@/lib/campaign/channels";
+import type { ExtendedChannelKey } from "@/lib/campaign/channels";
 import type { CampaignActionItem } from "@/lib/campaign/stages";
 import type { AcquisitionStage } from "@/lib/campaign/stages";
 import { getLaunchPlaybook } from "@/lib/campaign/launch-playbooks";

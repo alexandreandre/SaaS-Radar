@@ -11,10 +11,7 @@ import { profileFromStage } from "@/lib/campaign/stages";
 
 const ASSET_CHECKLIST_SIZE = 8;
 
-function migrateLaunchChecklistToAssets(
-  project: UserProject,
-  setup: CampaignSetup,
-): boolean[] {
+function migrateLaunchChecklistToAssets(project: UserProject): boolean[] {
   const done = project.launchChecklistDone ?? [];
   const assets: boolean[] = Array.from({ length: ASSET_CHECKLIST_SIZE }, () => false);
   for (let i = 0; i < ASSET_CHECKLIST_SIZE; i++) {
@@ -83,7 +80,7 @@ export function migrateCampaignSetupV2(
     assetChecklist:
       setup.assetChecklist?.length === ASSET_CHECKLIST_SIZE
         ? setup.assetChecklist
-        : migrateLaunchChecklistToAssets(project, setup),
+        : migrateLaunchChecklistToAssets(project),
     attributionQuestionEnabled: setup.attributionQuestionEnabled ?? false,
     messageMarketFitNotes: setup.messageMarketFitNotes ?? [],
     infraGates: setup.infraGates ?? {},

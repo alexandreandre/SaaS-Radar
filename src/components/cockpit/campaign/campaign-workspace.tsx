@@ -27,7 +27,6 @@ import { CampaignDiffusionScreen } from "@/components/cockpit/campaign/campaign-
 import { CampaignMeasureScreen } from "@/components/cockpit/campaign/campaign-measure-screen";
 import { getCockpitHref } from "@/lib/cockpit-modules";
 import type { ConnectorId } from "@/lib/connectors/types";
-import type { CampaignToolId } from "@/lib/campaign/tools";
 import type { CockpitData } from "@/hooks/use-cockpit-data";
 import type { CampaignActionItem } from "@/lib/campaign/stages";
 

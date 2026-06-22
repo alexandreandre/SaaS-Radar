@@ -1,5 +1,4 @@
 import type { UserProject } from "@/lib/portfolio";
-import type { CampaignSetup } from "@/lib/campaign/kits";
 import { getBuildJourneyState } from "@/lib/build/journey";
 import { isTrackingConfigured } from "@/lib/campaign/kits";
 import type { GtmMotion } from "@/lib/campaign/gtm-engine";
