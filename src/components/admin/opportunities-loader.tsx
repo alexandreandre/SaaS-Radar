@@ -41,5 +41,11 @@ export async function AdminOpportunitiesLoader({
     initialError = err instanceof Error ? err.message : String(err);
   }
 
-  return <AdminOpportunitiesClient initialData={initialData} initialError={initialError} />;
+  return (
+    <AdminOpportunitiesClient
+      initialStatus={status}
+      initialData={initialData}
+      initialError={initialError}
+    />
+  );
 }

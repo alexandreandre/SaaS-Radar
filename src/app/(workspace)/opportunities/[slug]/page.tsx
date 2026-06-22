@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { BRAND_NAME } from "@/lib/brand";
 import { getEnrichedOpportunityBySlug } from "@/lib/opportunities";
 import { getCurrentUser, getTier } from "@/lib/auth";
 import { gateOpportunityForTier } from "@/lib/opportunity-access";
@@ -31,7 +32,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   const o = await getEnrichedOpportunityBySlug(params.slug);
   if (!o) return { title: "Opportunité introuvable" };
   return {
-    title: `${o.name} — SaaS Radar`,
+    title: `${o.name} — ${BRAND_NAME}`,
     description: o.pitch,
   };
 }

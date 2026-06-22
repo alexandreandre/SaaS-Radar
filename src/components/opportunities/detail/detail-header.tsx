@@ -8,6 +8,15 @@ import { getFranceCompetitionLabel } from "@/components/opportunities/detail/det
 import { ScoreCircle } from "@/components/opportunities/detail/score-circle";
 import { BuildOpportunityCta } from "@/components/cockpit/build-opportunity-cta";
 import { FavoriteButton } from "@/components/opportunities/favorite-button";
+import { isDiscoveryPhase } from "@/lib/product-phase";
+import {
+  SCORE_AXIS_LABELS,
+  SCORE_AXIS_TOOLTIPS,
+  SCORE_GLOBAL_TOOLTIP,
+  SUB_SCORE_KEYS,
+} from "@/lib/scoring/rubric";
+import { cn } from "@/lib/utils";
+
 export type DetailHeaderMeta = {
   publishedAt?: string;
   sourceVerified?: boolean;
@@ -24,37 +33,49 @@ export function DetailHeader({
   meta?: DetailHeaderMeta;
   existingProjectId?: string | null;
 }) {
+  const discovery = isDiscoveryPhase();
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-      className="mb-8 mt-4 overflow-visible"
+      className={cn("overflow-visible", discovery ? "mb-6 mt-0" : "mb-8 mt-4")}
     >
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-          Analysé par Radar
-        </span>
-        {meta?.sourceVerified && (
+      {!discovery ? (
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+            Analysé par Build Road
+          </span>
+          {meta?.sourceVerified && (
+            <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600">
+              Source vérifiée
+            </span>
+          )}
+          {meta?.publishedAt && (
+            <span className="text-xs text-muted-foreground">
+              Ajouté le{" "}
+              {new Date(meta.publishedAt).toLocaleDateString("fr-FR", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+              })}
+            </span>
+          )}
+        </div>
+      ) : meta?.sourceVerified ? (
+        <div className="mb-2 flex flex-wrap items-center gap-2">
           <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600">
             Source vérifiée
           </span>
-        )}
-        {meta?.publishedAt && (
-          <span className="text-xs text-muted-foreground">
-            Ajouté le{" "}
-            {new Date(meta.publishedAt).toLocaleDateString("fr-FR", {
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-            })}
-          </span>
-        )}
-      </div>
+        </div>
+      ) : null}
 
       <h1 className="mb-2 text-4xl font-bold text-foreground">{opportunity.name}</h1>
       <p className="mb-1 text-xl text-foreground/80">{opportunity.pitch}</p>
-      <p className="text-sm text-muted-foreground">Pour : {opportunity.targetClient}</p>
+      <p className="text-sm text-muted-foreground">
+        <span className="text-foreground/80">Clients :</span> {opportunity.targetClient}
+      </p>
 
       {meta?.showOriginalLink && opportunity.url && (
         <p className="mt-3">
@@ -76,36 +97,20 @@ export function DetailHeader({
             value={opportunity.scores.opportunity}
             max={100}
             size={80}
-            label="Score global"
+            label={SCORE_AXIS_LABELS.opportunity}
+            tooltip={SCORE_GLOBAL_TOOLTIP}
           />
-          <ScoreCircle
-            value={opportunity.scores.franceFit}
-            max={10}
-            size={64}
-            label="Adapté France"
-            delay={0.08}
-          />
-          <ScoreCircle
-            value={opportunity.scores.buildability}
-            max={10}
-            size={64}
-            label="Facile à créer"
-            delay={0.16}
-          />
-          <ScoreCircle
-            value={opportunity.scores.margin}
-            max={10}
-            size={64}
-            label="Rentabilité"
-            delay={0.24}
-          />
-          <ScoreCircle
-            value={opportunity.scores.competitionGap}
-            max={10}
-            size={64}
-            label="Concurrence"
-            delay={0.32}
-          />
+          {SUB_SCORE_KEYS.map((key, index) => (
+            <ScoreCircle
+              key={key}
+              value={opportunity.scores[key]}
+              max={10}
+              size={64}
+              label={SCORE_AXIS_LABELS[key]}
+              tooltip={SCORE_AXIS_TOOLTIPS[key]}
+              delay={(index + 1) * 0.08}
+            />
+          ))}
         </div>
 
         <div className="min-w-[240px] rounded-2xl border border-border bg-card p-5 lg:ml-auto">
@@ -124,7 +129,9 @@ export function DetailHeader({
       </div>
 
       <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-        <FavoriteButton slug={opportunity.slug} size="md" variant="pill" />
+        {!discovery ? (
+          <FavoriteButton slug={opportunity.slug} size="md" variant="pill" />
+        ) : null}
         {!meta?.hideCta && (
           <BuildOpportunityCta
             opportunity={opportunity}

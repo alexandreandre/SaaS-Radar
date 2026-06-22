@@ -22,6 +22,12 @@ export const scoreColorClass: Record<ScoreColorVariant, string> = {
   muted: "text-muted-foreground",
 };
 
+export const scoreStrokeClass: Record<ScoreColorVariant, string> = {
+  success: "stroke-success",
+  primary: "stroke-primary",
+  muted: "stroke-muted-foreground",
+};
+
 /** Convertit un score (ex. /10) en note entière sur 5 pour affichage étoiles. */
 export function scoreToFive(value: number, max: number): number {
   return Math.min(5, Math.max(0, Math.round((value / max) * 5)));

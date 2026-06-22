@@ -1,8 +1,18 @@
 /**
- * Déclenche la revalidation ISR de l'app déployée après un upsert de sourcing.
- * No-op si SOURCING_REVALIDATE_URL ou REVALIDATE_SECRET sont absents (cas local).
+ * Déclenche la revalidation ISR après un upsert de sourcing.
+ * En contexte Next.js (API admin / process-queue), invalide le cache in-process.
+ * Hors Next.js (CLI), tente POST /api/revalidate si REVALIDATE_SECRET est défini.
  */
 export async function triggerRevalidation(): Promise<void> {
+  try {
+    const { revalidateOpportunitiesCache } = await import("@/lib/admin/weekly-pick");
+    revalidateOpportunitiesCache();
+    console.log("🔁 Revalidation catalogue (in-process)");
+    return;
+  } catch {
+    // Script CLI ou worker hors runtime Next — fallback HTTP ci-dessous.
+  }
+
   const secret = process.env.REVALIDATE_SECRET;
   if (!secret) {
     console.log("🔁 Revalidation ignorée (REVALIDATE_SECRET non défini)");

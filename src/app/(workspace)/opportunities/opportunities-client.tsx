@@ -28,6 +28,7 @@ import { flagFromAlpha2 } from "@/lib/country-code";
 import { getPresentSectorChips, getSectorFilterKey } from "@/data/sectors";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Filter, Search, SearchX, X } from "lucide-react";
+import { isDiscoveryPhase } from "@/lib/product-phase";
 
 const SectorSearchPicker = dynamic(
   () =>
@@ -150,6 +151,7 @@ function OpportunitiesFallback() {
 function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const discovery = isDiscoveryPhase();
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const { favoriteSlugs, guestHint, clearGuestHint } = useFavorites();
@@ -199,9 +201,9 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
     setFilters((f) => ({
       ...f,
       countryCode: country ? country.toUpperCase() : null,
-      favoritesOnly: favorites === "1",
+      favoritesOnly: !discovery && favorites === "1",
     }));
-  }, [searchParams]);
+  }, [searchParams, discovery]);
 
   const countryOptions = useMemo(() => {
     const counts = new Map<string, number>();
@@ -235,11 +237,11 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
 
   const filtered = useMemo(() => {
     let result = filterOpportunities(opportunities, filters);
-    if (filters.favoritesOnly) {
+    if (!discovery && filters.favoritesOnly) {
       result = result.filter((o) => favoriteSet.has(o.slug));
     }
     return result;
-  }, [opportunities, filters, favoriteSet]);
+  }, [opportunities, filters, favoriteSet, discovery]);
 
   const topPickId = useMemo(() => {
     const weekly = filtered.find((o) => o.weeklyPick);
@@ -310,7 +312,7 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
         onRemove: () => setFilters((f) => ({ ...f, search: "" })),
       });
     }
-    if (filters.favoritesOnly) {
+    if (!discovery && filters.favoritesOnly) {
       chips.push({
         key: "favorites",
         label: "Favoris",
@@ -340,7 +342,7 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
     }
 
     return chips;
-  }, [filters, setCountryFilter, setFavoritesFilter]);
+  }, [filters, setCountryFilter, setFavoritesFilter, discovery]);
 
   const toggleSector = (sector: Sector) => {
     setFilters((f) => ({
@@ -373,7 +375,7 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
     <>
       <Navbar />
       <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-        <div className="mb-8">
+        <div id="opportunities-hero" className="mb-8">
           <p className="label-data">Opportunités</p>
           <h1 className="mt-2 font-display text-3xl font-medium tracking-tight">
             Trouve ton idée dès maintenant
@@ -401,7 +403,7 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
           )}
         </div>
 
-        {guestHint && (
+        {guestHint && !discovery && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
             <span>{guestHint}</span>
             <button
@@ -521,16 +523,18 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
                   Raccourcis
                 </p>
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <Label htmlFor="favoritesOnly" className="text-sm font-normal text-muted-foreground">
-                      Mes favoris
-                    </Label>
-                    <Switch
-                      id="favoritesOnly"
-                      checked={filters.favoritesOnly}
-                      onCheckedChange={setFavoritesFilter}
-                    />
-                  </div>
+                  {!discovery ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <Label htmlFor="favoritesOnly" className="text-sm font-normal text-muted-foreground">
+                        Mes favoris
+                      </Label>
+                      <Switch
+                        id="favoritesOnly"
+                        checked={filters.favoritesOnly}
+                        onCheckedChange={setFavoritesFilter}
+                      />
+                    </div>
+                  ) : null}
                   <div className="flex items-center justify-between gap-3">
                     <Label htmlFor="thisWeek" className="text-sm font-normal text-muted-foreground">
                       Nouveautés cette semaine
@@ -673,7 +677,7 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
                 <SearchX className="mx-auto size-8 text-muted-foreground/60" aria-hidden />
                 <p className="mt-3 font-medium">Aucun résultat</p>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  {filters.favoritesOnly
+                  {!discovery && filters.favoritesOnly
                     ? favoriteSlugs.length === 0
                       ? "Aucun favori — clique ♥ sur une fiche pour l'ajouter."
                       : "Aucune de vos fiches favorites ne correspond aux autres filtres."

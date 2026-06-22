@@ -1,6 +1,7 @@
 import { MODELS } from "./constants";
 import { callOpenRouter, extractJsonObject, type CostTracker } from "./openrouter";
 import type { FactualLead } from "./schema";
+import { buildRubricPromptBlock } from "@/lib/scoring/rubric";
 
 const GEMINI_SYSTEM = [
   "Tu es un analyste produit/go-to-market spécialiste de l'adaptation de MICRO-SaaS au marché français.",
@@ -78,6 +79,12 @@ function buildStructurePrompt(
           buildability: 7.5,
           margin: 8.5,
           competitionGap: 8.8,
+        },
+        subScoreRationales: {
+          franceFit: "Le problème est documenté dans les signaux de traction du lead.",
+          buildability: "MVP ciblé faisable en 30j avec Next.js + Supabase.",
+          margin: "Pricing B2B 49–79€/mois crédible pour la niche.",
+          competitionGap: "Peu de SaaS dominant identifié en France.",
         },
         franceFitCriteria: {
           problemExists: true,
@@ -184,7 +191,7 @@ function buildStructurePrompt(
     ),
     "",
     "CONTRAINTES IMPÉRATIVES :",
-    "- subScores : chacun entre 0 et 10. NE PRODUIS PAS de score 'opportunity' (il est calculé ailleurs).",
+    buildRubricPromptBlock(),
     "- buildableUnder30Days : évalue HONNÊTEMENT si un solo dev peut livrer le MVP France en ~30 jours.",
     "  Si le produit source est une plateforme trop large (suite complète, EHR, 50k+ users), mets false.",
     "- financialScenarios : projections pour un développeur français qui lance SEUL, sur 12-18 mois,",
@@ -210,6 +217,14 @@ function buildStructurePrompt(
     "- buildPrompts.buildPrompt par étape : prompts EXÉCUTABLES (fichiers à créer, stack, contraintes), pas des descriptions vagues.",
     "- ANCRAGE FAITS : ne contredis JAMAIS les faits du JSON lead fourni.",
     "  Si tu doutes, baisse les subScores et mets buildableUnder30Days=false.",
+    "- PROFONDEUR OBLIGATOIRE (rejette le remplissage générique) :",
+    "  • franceAnalysis : EXACTEMENT 3 points ou plus, chacun concret (chiffre, acteur, contrainte FR ou signal du lead).",
+    "  • whyItWorks : EXACTEMENT 3 faits structurés { fact, detail, source } ancrés sur tractionSignals du lead.",
+    "  • franceFitCriteria : chaque champ (regulation, competitors, cultureFit) ≥ 35 caractères, spécifique à la niche.",
+    "  • subScoreRationales : justification concrète pour chaque sous-score (pas de « bon fit » vague).",
+    "  • foreignMarketProfile : keyFeatures ≥ 3, whyItWorksThere ≥ 2, problemSolved et howItWorks détaillés.",
+    "  • acquisition : ≥ 2 canaux, chacun avec ≥ 2 tactiques actionnables (pas « faire du marketing »).",
+    "  • claudePrompt : prompt exécutable ≥ 180 caractères, pas un résumé marketing.",
     "- foreignMarketProfile.tractionHighlights : reprends UNIQUEMENT les tractionSignals du lead (pas de nouveaux chiffres inventés).",
     "- foreignMarketProfile.keyFeatures : fonctionnalités du produit SUR LE MARCHÉ D'ORIGINE (3-5 items),",
     "  DISTINCTES de mvpPlan.features (périmètre MVP France). Ne recopie pas le roadmap FR.",

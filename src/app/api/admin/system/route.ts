@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import { revalidatePath, revalidateTag } from "next/cache";
-import { requireAdminApi, withAdminAudit } from "@/lib/admin/guard";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { OPPORTUNITIES_CACHE_TAG } from "@/lib/opportunities";
+import { revalidateOpportunitiesCache } from "@/lib/admin/weekly-pick";
 import { getAdminSystemData } from "@/lib/admin/system";
 
 export const runtime = "nodejs";
@@ -29,9 +26,7 @@ export async function POST(request: Request) {
   const body = await request.json();
 
   if (body.action === "revalidate") {
-    revalidatePath("/");
-    revalidateTag(OPPORTUNITIES_CACHE_TAG);
-    revalidatePath("/opportunities", "page");
+    revalidateOpportunitiesCache();
     await withAdminAudit(auth.ctx, { action: "system.revalidate", targetType: "cache" });
     return NextResponse.json({ ok: true });
   }

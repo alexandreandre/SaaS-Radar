@@ -9,14 +9,15 @@ import { ScoreGauge } from "@/components/scores/score-gauge";
 import { ScoreStars } from "@/components/scores/score-stars";
 import { formatCurrency, cn, excerptForCard } from "@/lib/utils";
 import { sectorLabels } from "@/data/opportunities";
+import { isDiscoveryPhase } from "@/lib/product-phase";
+import { SCORE_AXIS_SHORT_LABELS, SUB_SCORE_KEYS } from "@/lib/scoring/rubric";
 import { ArrowRight } from "lucide-react";
 
-const subScores: { key: keyof OpportunityListItem["scores"]; label: string; max: number }[] = [
-  { key: "franceFit", label: "FR Fit", max: 10 },
-  { key: "buildability", label: "Build", max: 10 },
-  { key: "margin", label: "Marge", max: 10 },
-  { key: "competitionGap", label: "Comp.", max: 10 },
-];
+const subScores = SUB_SCORE_KEYS.map((key) => ({
+  key,
+  label: SCORE_AXIS_SHORT_LABELS[key],
+  max: 10 as const,
+}));
 
 export function OpportunityCard({
   opportunity,
@@ -28,6 +29,7 @@ export function OpportunityCard({
   isTopPick?: boolean;
 }) {
   const mounted = useMounted();
+  const discovery = isDiscoveryPhase();
   const sectorLabel = sectorLabels[opportunity.sector] ?? opportunity.sector;
   const showTopBadge = isTopPick || opportunity.weeklyPick;
   const cardTarget = excerptForCard(opportunity.targetClient, 84);
@@ -61,7 +63,7 @@ export function OpportunityCard({
                 {opportunity.originCountry}
                 <span className="mx-1.5">·</span>
                 {sectorLabel}
-                {opportunity.publishedAt && (
+                {!discovery && opportunity.publishedAt && (
                   <>
                     <span className="mx-1.5">·</span>
                     {new Date(opportunity.publishedAt).toLocaleDateString("fr-FR", {
@@ -75,7 +77,7 @@ export function OpportunityCard({
                 {opportunity.name}
               </h3>
               <p className="mt-1 text-sm leading-snug text-muted-foreground">
-                {cardTarget}
+                <span className="text-foreground/80">Clients :</span> {cardTarget}
               </p>
             </div>
 
@@ -98,15 +100,18 @@ export function OpportunityCard({
             </p>
           )}
 
-          <div className="mt-3 hidden flex-wrap gap-x-3 gap-y-1 font-data text-[10px] sm:flex">
-            {subScores.map(({ key, label, max }) => (
-              <ScoreStars key={key} label={label} value={opportunity.scores[key]} max={max} />
-            ))}
-          </div>
-          <p className="mt-3 font-data text-[10px] leading-relaxed text-muted-foreground sm:hidden">
-            FR {opportunity.scores.franceFit}/10 · Build {opportunity.scores.buildability}/10 · Marge{" "}
-            {opportunity.scores.margin}/10
-          </p>
+          {!discovery ? (
+            <>
+              <div className="mt-3 hidden flex-wrap gap-x-3 gap-y-1 font-data text-[10px] sm:flex">
+                {subScores.map(({ key, label, max }) => (
+                  <ScoreStars key={key} label={label} value={opportunity.scores[key]} max={max} />
+                ))}
+              </div>
+              <p className="mt-3 font-data text-[10px] leading-relaxed text-muted-foreground sm:hidden">
+                {SUB_SCORE_KEYS.map((key) => `${SCORE_AXIS_SHORT_LABELS[key]} ${opportunity.scores[key]}/10`).join(" · ")}
+              </p>
+            </>
+          ) : null}
 
           <div className="mt-auto flex flex-col gap-3 pt-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">
@@ -121,7 +126,9 @@ export function OpportunityCard({
               </p>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
-              <FavoriteButton slug={opportunity.slug} size="sm" variant="pill" stopNavigation />
+              {!discovery ? (
+                <FavoriteButton slug={opportunity.slug} size="sm" variant="pill" stopNavigation />
+              ) : null}
               <span className="inline-flex items-center gap-1 text-sm font-medium text-primary transition-transform group-hover:translate-x-0.5">
                 Voir le plan
                 <ArrowRight className="h-3.5 w-3.5" aria-hidden />

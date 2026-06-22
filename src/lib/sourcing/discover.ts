@@ -80,6 +80,8 @@ function buildDiscoveryPrompt(params: DiscoverParams): string {
     "- PAS : « logiciel de gestion de cabinet complet », « plateforme de télésanté tout-en-un ».",
     "",
     "CONSERVATISME SUR LA TRACTION (critique) :",
+    "- Chaque lead DOIT inclure une url produit réelle et joignable (site officiel du micro-SaaS).",
+    "- Ne propose JAMAIS un produit sans URL officielle vérifiable.",
     "- Ne rapporte que des chiffres que tu peux réellement sourcer.",
     "- Si tu n'es pas sûr d'un chiffre, ne l'invente pas — OMETS-LE.",
     "- Préfère MOINS de signaux réels à PLUS de signaux incertains.",

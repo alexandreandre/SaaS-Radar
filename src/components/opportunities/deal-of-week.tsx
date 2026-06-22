@@ -10,16 +10,18 @@ import { CountdownTimer } from "@/components/opportunities/countdown-timer";
 import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { sectorLabels } from "@/data/opportunities";
+import { SCORE_AXIS_LABELS, SUB_SCORE_KEYS } from "@/lib/scoring/rubric";
 
 export function DealOfWeekCard({ opportunity, dark = false }: { opportunity: Opportunity; dark?: boolean }) {
   const mounted = useMounted();
   const sectorLabel = sectorLabels[opportunity.sector] ?? opportunity.sector;
   const scores = [
-    { label: "Opportunité", value: opportunity.scores.opportunity, max: 100 },
-    { label: "France Fit", value: opportunity.scores.franceFit, max: 10 },
-    { label: "Buildability", value: opportunity.scores.buildability, max: 10 },
-    { label: "Marge", value: opportunity.scores.margin, max: 10 },
-    { label: "Competition", value: opportunity.scores.competitionGap, max: 10 },
+    { label: SCORE_AXIS_LABELS.opportunity, value: opportunity.scores.opportunity, max: 100 },
+    ...SUB_SCORE_KEYS.map((key) => ({
+      label: SCORE_AXIS_LABELS[key],
+      value: opportunity.scores[key],
+      max: 10 as const,
+    })),
   ];
 
   return (

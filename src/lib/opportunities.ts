@@ -23,22 +23,29 @@ async function fetchOpportunityListItemsFromDb(): Promise<OpportunityListItem[]>
 }
 
 const getCachedOpportunityListItems = unstable_cache(
-  async () => {
-    try {
-      return await fetchOpportunityListItemsFromDb()
-    } catch (err) {
-      console.warn(
-        `[opportunities] getOpportunityListItems indisponible — fallback []: ${err instanceof Error ? err.message : err}`
-      )
-      return []
-    }
-  },
-  ['opportunity-list-items'],
-  { tags: [OPPORTUNITIES_CACHE_TAG], revalidate: 3600 }
+  fetchOpportunityListItemsFromDb,
+  ['opportunity-list-items-v2'],
+  {
+    tags: [OPPORTUNITIES_CACHE_TAG],
+    revalidate: process.env.NODE_ENV === 'development' ? 30 : 3600,
+  }
 )
 
 /** Projection légère pour la page catalogue (cartes + filtres client). */
-export const getOpportunityListItems = cache(getCachedOpportunityListItems)
+export const getOpportunityListItems = cache(async (): Promise<OpportunityListItem[]> => {
+  try {
+    return await getCachedOpportunityListItems()
+  } catch (err) {
+    console.warn(
+      `[opportunities] getOpportunityListItems indisponible — fallback direct: ${err instanceof Error ? err.message : err}`
+    )
+    try {
+      return await fetchOpportunityListItemsFromDb()
+    } catch {
+      return []
+    }
+  }
+})
 
 async function fetchAllOpportunitiesFromDb(): Promise<Opportunity[]> {
   const supabase = createDataSupabaseClient()
@@ -57,22 +64,29 @@ async function fetchAllOpportunitiesFromDb(): Promise<Opportunity[]> {
  * alors que les fiches /opportunities/[slug] (dynamicParams) se régénéraient à la volée.
  */
 const getCachedAllOpportunities = unstable_cache(
-  async () => {
-    try {
-      return await fetchAllOpportunitiesFromDb()
-    } catch (err) {
-      console.warn(
-        `[opportunities] getAllOpportunities indisponible — fallback []: ${err instanceof Error ? err.message : err}`
-      )
-      return []
-    }
-  },
-  ['all-opportunities'],
-  { tags: [OPPORTUNITIES_CACHE_TAG], revalidate: 3600 }
+  fetchAllOpportunitiesFromDb,
+  ['all-opportunities-v2'],
+  {
+    tags: [OPPORTUNITIES_CACHE_TAG],
+    revalidate: process.env.NODE_ENV === 'development' ? 30 : 3600,
+  }
 )
 
 /** Déduplication intra-requête (layout + page) + cache ISR taggé. */
-export const getAllOpportunities = cache(getCachedAllOpportunities)
+export const getAllOpportunities = cache(async (): Promise<Opportunity[]> => {
+  try {
+    return await getCachedAllOpportunities()
+  } catch (err) {
+    console.warn(
+      `[opportunities] getAllOpportunities indisponible — fallback direct: ${err instanceof Error ? err.message : err}`
+    )
+    try {
+      return await fetchAllOpportunitiesFromDb()
+    } catch {
+      return []
+    }
+  }
+})
 
 export async function getOpportunityBySlug(slug: string): Promise<Opportunity | null> {
   const supabase = createDataSupabaseClient()

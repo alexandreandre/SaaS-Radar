@@ -10,6 +10,7 @@ import {
 } from "@/lib/sourcing/countries";
 import { enqueueSourcingBatch } from "@/lib/admin/sourcing-job-queue";
 import { withPromptVersion } from "@/lib/sourcing/prompt-version";
+import { getWrittenSlugsFromConfig } from "@/lib/admin/sourcing-cancel";
 
 export type SourcingBatchOptions = Omit<RunOptions, "runId" | "originCountryCode"> & {
   countries: string[];
@@ -198,6 +199,58 @@ export async function recoverStaleRuns(maxAgeMinutes = 30): Promise<number> {
   const cutoff = new Date(Date.now() - maxAgeMinutes * 60_000).toISOString();
   let recovered = 0;
 
+  const { data: activeRuns } = await admin
+    .from("sourcing_runs")
+    .select("id, status, count_requested, count_written, config, started_at")
+    .in("status", ["running", "queued"]);
+
+  for (const row of activeRuns ?? []) {
+    const requested = Number(row.count_requested) || 0;
+    const writtenSlugs = getWrittenSlugsFromConfig(row.config);
+    const written = Math.max(Number(row.count_written) || 0, writtenSlugs.length);
+    const cappedWritten = requested > 0 ? Math.min(written, requested) : written;
+
+    const { data: jobs } = await admin
+      .from("sourcing_job_queue")
+      .select("status")
+      .eq("run_id", row.id);
+    const jobStatuses = (jobs ?? []).map((j) => j.status as string);
+    const hasActiveJob = jobStatuses.some((s) => s === "pending" || s === "processing");
+    const jobFinished =
+      jobStatuses.length > 0 &&
+      jobStatuses.every((s) => s === "done" || s === "cancelled" || s === "failed");
+
+    if (requested > 0 && written >= requested && !hasActiveJob) {
+      await admin
+        .from("sourcing_runs")
+        .update({
+          status: cappedWritten >= requested ? "ok" : "partial",
+          count_written: cappedWritten,
+          finished_at: new Date().toISOString(),
+          config: {
+            ...((row.config ?? {}) as Record<string, unknown>),
+            written_slugs: writtenSlugs.slice(0, requested),
+          },
+        })
+        .eq("id", row.id);
+      recovered++;
+      continue;
+    }
+
+    if (row.status === "running" && jobFinished) {
+      await admin
+        .from("sourcing_runs")
+        .update({
+          status: cappedWritten > 0 ? (cappedWritten >= requested ? "ok" : "partial") : "empty",
+          count_written: cappedWritten,
+          finished_at: new Date().toISOString(),
+        })
+        .eq("id", row.id);
+      recovered++;
+      continue;
+    }
+  }
+
   const { data: running } = await admin
     .from("sourcing_runs")
     .select("id")
@@ -243,6 +296,30 @@ export async function recoverStaleRuns(maxAgeMinutes = 30): Promise<number> {
         .eq("id", row.id);
       recovered++;
     }
+  }
+
+  const { data: inflated } = await admin
+    .from("sourcing_runs")
+    .select("id, count_requested, count_written, config")
+    .gt("count_written", 0);
+
+  for (const row of inflated ?? []) {
+    const requested = Number(row.count_requested) || 0;
+    const written = Number(row.count_written) || 0;
+    if (requested <= 0 || written <= requested) continue;
+
+    const writtenSlugs = getWrittenSlugsFromConfig(row.config);
+    await admin
+      .from("sourcing_runs")
+      .update({
+        count_written: requested,
+        config: {
+          ...((row.config ?? {}) as Record<string, unknown>),
+          written_slugs: writtenSlugs.slice(0, requested),
+        },
+      })
+      .eq("id", row.id);
+    recovered++;
   }
 
   return recovered;

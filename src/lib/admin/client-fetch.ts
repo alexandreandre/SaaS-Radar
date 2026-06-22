@@ -32,9 +32,9 @@ export async function adminFetchJson<T = unknown>(
 
   if (isGet && !skipCache) {
     const hit = cache.get(url);
-    if (hit && Date.now() - hit.fetchedAt < ttl) {
+    if (hit && Date.now() - hit.fetchedAt < ttl && hit.status >= 200 && hit.status < 300) {
       return {
-        ok: hit.status >= 200 && hit.status < 300,
+        ok: true,
         status: hit.status,
         data: hit.data as T,
       };
@@ -54,7 +54,7 @@ export async function adminFetchJson<T = unknown>(
     const res = await fetch(url, init);
     const data = await res.json().catch(() => ({}));
     const entry: CacheEntry = { data, status: res.status, fetchedAt: Date.now() };
-    if (isGet && !skipCache) cache.set(url, entry);
+    if (isGet && !skipCache && res.ok) cache.set(url, entry);
     if (!isGet) invalidateAdminCache();
     return entry;
   };

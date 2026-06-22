@@ -3,13 +3,15 @@
 import { motion } from "framer-motion";
 import { useMounted } from "@/hooks/use-mounted";
 import type { Scores } from "@/types/opportunity";
+import { SCORE_AXIS_LABELS, SUB_SCORE_KEYS } from "@/lib/scoring/rubric";
 
 const labels: { key: keyof Scores; label: string; max: number }[] = [
-  { key: "opportunity", label: "Opportunité", max: 100 },
-  { key: "franceFit", label: "France Fit", max: 10 },
-  { key: "buildability", label: "Buildability", max: 10 },
-  { key: "margin", label: "Marge", max: 10 },
-  { key: "competitionGap", label: "Competition Gap", max: 10 },
+  { key: "opportunity", label: SCORE_AXIS_LABELS.opportunity, max: 100 },
+  ...SUB_SCORE_KEYS.map((key) => ({
+    key,
+    label: SCORE_AXIS_LABELS[key],
+    max: 10,
+  })),
 ];
 
 export function ScoreBars({ scores, compact = false }: { scores: Scores; compact?: boolean }) {
@@ -18,7 +20,9 @@ export function ScoreBars({ scores, compact = false }: { scores: Scores; compact
   return (
     <div className={compact ? "space-y-1.5" : "space-y-2"}>
       {labels.map(({ key, label, max }, i) => {
-        const value = scores[key];
+        const raw = scores[key];
+        if (typeof raw !== "number") return null;
+        const value = raw;
         const pct = (value / max) * 100;
         return (
           <div key={key} className="flex items-center gap-2">

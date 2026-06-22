@@ -6,8 +6,7 @@ import {
   MAX_DISCOVERY_REQUEST,
   MAX_DISCOVERY_ROUNDS,
   MODELS,
-  OVERFETCH_FACTOR,
-  OVERFETCH_MIN,
+  resolveSourcingScale,
 } from "./constants";
 import { CostTracker, assertModelsActive } from "./openrouter";
 import { discoverLeads } from "./discover";
@@ -15,12 +14,13 @@ import { structureLead } from "./structure";
 import {
   assembleOpportunity,
   checkMrrSanity,
-  computeHybridOpportunityScore,
   getMinScore,
   meetsScoreGate,
   normalizeLead,
   slugify,
 } from "./assemble";
+import { previewOpportunityScore } from "@/lib/scoring/compute";
+import { detectCountryMismatch } from "./traction-quality";
 import {
   analyticalSchema,
   formatZodError,
@@ -36,11 +36,18 @@ import {
   type RunSkip,
   type SourcingEvent,
 } from "./logger";
-import { findDedupMatches, loadExistingForDedup } from "@/lib/admin/sourcing-dedup";
+import { findDedupMatches, loadExistingForDedup, registerOpportunityInDedupIndex, isBlockedByDedupIndex } from "@/lib/admin/sourcing-dedup";
+import { normalizeUrlKey, rootDomainFromUrl, type DedupIndex } from "@/lib/admin/sourcing-dedup.shared";
 import { processDraftsAutoPublish } from "@/lib/admin/process-draft-auto-publish";
 import { loadPublishSettings } from "@/lib/admin/publish-policy";
-import { verifyLeadSources, passesUrlGate, type SourceVerification } from "./verify-sources";
-import { verifyLeadFacts, type FactVerification } from "./verify-facts";
+import {
+  verifyLeadSources,
+  passesUrlGate,
+  pruneTractionSignals,
+  passesTractionGate,
+  type SourceVerification,
+} from "./verify-sources";
+import { verifyLeadFacts, passesFactCheckGate, inferFactVerificationFromSources, type FactVerification } from "./verify-facts";
 import { verifyPremiumFields } from "./premium-verify";
 import { assertWithinMonthlyCostCap } from "./cost-guard";
 import { notifyPendingDraftsIfEnabled } from "./notify-pending";
@@ -49,7 +56,6 @@ import { withPromptVersion } from "./prompt-version";
 import { mapWithConcurrency } from "./concurrency";
 import { getCachedLeads, setCachedLeads } from "./discover-cache";
 import { loadDynamicExclusions } from "./dynamic-exclusions";
-import type { ScoreFactsContext } from "./assemble";
 import {
   assertValidCountryCode,
   DEFAULT_SOURCING_COUNTRY,
@@ -63,6 +69,13 @@ import {
   countCoveredCategories,
   needsTractionEnrichment,
 } from "./traction-quality";
+import {
+  discardRunOpportunities,
+  getWrittenSlugsFromConfig,
+  isRunCancelRequested,
+  shouldDiscardOnCancel,
+  SourcingCancelledError,
+} from "@/lib/admin/sourcing-cancel";
 
 export type { PipelineProfile } from "./pipeline-profile.shared";
 export { isCatalogueProfile } from "./pipeline-profile.shared";
@@ -155,7 +168,13 @@ async function finishRunRecord(
   supabase: Supabase,
   id: string | null,
   report: RunReport,
-  extras?: { costUsd?: number; tokensInput?: number; tokensOutput?: number; events?: unknown[] }
+  extras?: {
+    costUsd?: number;
+    tokensInput?: number;
+    tokensOutput?: number;
+    events?: unknown[];
+    error?: string | null;
+  }
 ): Promise<void> {
   if (!id) return;
   try {
@@ -173,6 +192,7 @@ async function finishRunRecord(
         tokens_input: extras?.tokensInput ?? 0,
         tokens_output: extras?.tokensOutput ?? 0,
         events: extras?.events ?? [],
+        ...(extras?.error !== undefined ? { error: extras.error } : {}),
       })
       .eq("id", id);
     if (error) throw new Error(error.message);
@@ -261,6 +281,134 @@ async function loadMarketAvgMrr(
   }
 }
 
+async function patchRunProgress(
+  supabase: Supabase,
+  runId: string | null,
+  patch: Partial<{
+    count_discovered: number;
+    count_structured: number;
+    count_written: number;
+    events: SourcingEvent[];
+  }>
+): Promise<void> {
+  if (!runId || Object.keys(patch).length === 0) return;
+  try {
+    const { error } = await supabase.from("sourcing_runs").update(patch).eq("id", runId);
+    if (error) throw new Error(error.message);
+  } catch (err) {
+    console.warn(
+      `[sourcing_runs] patch progress ignoré : ${err instanceof Error ? err.message : err}`
+    );
+  }
+}
+
+async function appendRunWrittenSlug(
+  supabase: Supabase,
+  runId: string,
+  slug: string,
+  structuredCount?: number,
+  maxCount?: number
+): Promise<number> {
+  const { data } = await supabase
+    .from("sourcing_runs")
+    .select("config, count_structured")
+    .eq("id", runId)
+    .maybeSingle();
+  if (!data) return 0;
+
+  const config = (data.config ?? {}) as Record<string, unknown>;
+  const slugs = getWrittenSlugsFromConfig(config);
+  if (slugs.includes(slug)) return slugs.length;
+  if (maxCount != null && slugs.length >= maxCount) return slugs.length;
+
+  const nextSlugs = [...slugs, slug];
+  const nextStructured = Math.max(
+    Number(data.count_structured) || 0,
+    structuredCount ?? 0,
+    nextSlugs.length
+  );
+  await supabase
+    .from("sourcing_runs")
+    .update({
+      count_written: nextSlugs.length,
+      count_structured: nextStructured,
+      config: { ...config, written_slugs: nextSlugs },
+    })
+    .eq("id", runId);
+  return nextSlugs.length;
+}
+
+async function getRunWrittenCount(supabase: Supabase, runId: string): Promise<number> {
+  const { data } = await supabase
+    .from("sourcing_runs")
+    .select("config, count_written")
+    .eq("id", runId)
+    .maybeSingle();
+  if (!data) return 0;
+  const fromConfig = getWrittenSlugsFromConfig(data.config).length;
+  const fromColumn = Number(data.count_written) || 0;
+  return Math.max(fromConfig, fromColumn);
+}
+
+async function persistDirectOpportunity(
+  supabase: Supabase,
+  opportunity: Opportunity,
+  runId: string | null,
+  structuredCount?: number,
+  maxCount?: number,
+  dedupIndex?: DedupIndex
+): Promise<boolean> {
+  if (runId && maxCount != null) {
+    const current = await getRunWrittenCount(supabase, runId);
+    if (current >= maxCount) return false;
+  }
+
+  const { data: existing } = await supabase
+    .from("opportunities")
+    .select("status")
+    .eq("slug", opportunity.slug)
+    .maybeSingle();
+  if (existing?.status === "archived") {
+    return false;
+  }
+
+  if (
+    dedupIndex &&
+    !dedupIndex.slugs.has(opportunity.slug) &&
+    isBlockedByDedupIndex(dedupIndex, {
+      slug: opportunity.slug,
+      name: opportunity.name,
+      url: opportunity.url,
+    })
+  ) {
+    return false;
+  }
+
+  const row = {
+    ...toOpportunityRow(opportunity),
+    status: "published",
+    published_at: new Date().toISOString(),
+  };
+  const { error } = await supabase
+    .from("opportunities")
+    .upsert(row, { onConflict: "slug" });
+  if (error) throw new Error(`Upsert opportunity : ${error.message}`);
+  if (dedupIndex) {
+    registerOpportunityInDedupIndex(dedupIndex, {
+      slug: opportunity.slug,
+      name: opportunity.name,
+      url: opportunity.url,
+    });
+  }
+  if (runId) {
+    const before = await getRunWrittenCount(supabase, runId);
+    await appendRunWrittenSlug(supabase, runId, opportunity.slug, structuredCount, maxCount);
+    const after = await getRunWrittenCount(supabase, runId);
+    return after > before;
+  }
+  return true;
+}
+
 /** Étape A + filtrage : collecte des leads valides, avec over-fetch et 2nd round. */
 async function collectLeads(opts: {
   count: number;
@@ -276,7 +424,8 @@ async function collectLeads(opts: {
   nicheHints?: string[];
   maxLeads?: number;
   maxRounds?: number;
-  overfetchFactor?: number;
+  shouldCancel?: () => Promise<boolean>;
+  onDiscoveryProgress?: (discovered: number) => Promise<void>;
 }): Promise<FactualLead[]> {
   const {
     count,
@@ -292,19 +441,21 @@ async function collectLeads(opts: {
     nicheHints,
     maxLeads = count,
     maxRounds = MAX_DISCOVERY_ROUNDS,
-    overfetchFactor = OVERFETCH_FACTOR,
+    shouldCancel,
+    onDiscoveryProgress,
   } = opts;
   const targetCode = originCountry.code;
-  const requested = Math.min(
-    Math.max(count * overfetchFactor, OVERFETCH_MIN),
-    MAX_DISCOVERY_REQUEST
-  );
+  const requested = resolveSourcingScale(count).discoveryRequest;
   const seenNames = new Set<string>();
   const selected: FactualLead[] = [];
 
   const dynamicExclusions = await loadDynamicExclusions(targetCode, sector);
 
   for (let round = 1; round <= maxRounds && selected.length < maxLeads; round++) {
+    if (shouldCancel && (await shouldCancel())) {
+      throw new SourcingCancelledError();
+    }
+
     const exclusions = Array.from(existingNames)
       .concat(Array.from(seenNames))
       .concat(dynamicExclusions.productNames);
@@ -335,6 +486,7 @@ async function collectLeads(opts: {
     }
 
     log({ type: "round", round, leads: leads.length });
+    await onDiscoveryProgress?.(selected.length);
 
     for (const lead of leads) {
       const slug = slugify(lead.name);
@@ -352,17 +504,20 @@ async function collectLeads(opts: {
       if (seenNames.has(nameKey)) continue;
       if (sector && lead.sector !== sector) continue;
 
+      if (!lead.url) {
+        log({
+          type: "lead-skip",
+          name: lead.name,
+          reason: "URL produit absente",
+        });
+        continue;
+      }
+
       if (lead.url) {
-        const urlKey = lead.url.toLowerCase().trim();
+        const urlKey = normalizeUrlKey(lead.url);
         if (existingUrls.has(urlKey)) continue;
-        try {
-          const host = new URL(lead.url).hostname.replace(/^www\./, "");
-          const parts = host.split(".");
-          const domain = parts.length >= 2 ? parts.slice(-2).join(".") : host;
-          if (domainToSlug.has(domain)) continue;
-        } catch {
-          /* ignore invalid url */
-        }
+        const domain = rootDomainFromUrl(lead.url);
+        if (domain && domainToSlug.has(domain)) continue;
       }
 
       seenNames.add(nameKey);
@@ -402,14 +557,18 @@ async function buildForLead(
   let feedback: string | undefined;
   const usePremium = ctx.premium;
 
-  const factsCtx: ScoreFactsContext = {
+  const factsCtx = {
     sourceVerified: ctx.sourceCheck.verified,
     factConfidence: ctx.factVerification.confidence,
     tractionCount: lead.tractionSignals.length,
     tractionCategoriesCovered: countCoveredCategories(assessTractionQuality(lead)),
+    verificationLevel: ctx.sourceCheck.verificationLevel,
+    validUrlCount: ctx.sourceCheck.validCount,
+    invalidUrlCount: ctx.sourceCheck.invalidUrls.length,
+    countryMismatch: detectCountryMismatch(lead),
   };
 
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  for (let attempt = 1; attempt <= (ctx.catalogue ? 1 : 2); attempt++) {
     let raw: unknown;
     try {
       raw = await structureLead(lead, ctx.tracker, {
@@ -436,10 +595,30 @@ async function buildForLead(
       };
     }
 
-    const earlyScore = computeHybridOpportunityScore(analytical.data.subScores, {
-      ...factsCtx,
-      techComplexity: analytical.data.techComplexity,
-      franceCompetition: analytical.data.franceCompetition,
+    const prudentScenario =
+      analytical.data.financialScenarios.find((s) => s.name === "Prudent") ??
+      analytical.data.financialScenarios[0];
+    const optimisteScenario =
+      analytical.data.financialScenarios.find((s) => s.name === "Optimiste") ??
+      analytical.data.financialScenarios[analytical.data.financialScenarios.length - 1];
+
+    const earlyScore = previewOpportunityScore({
+      rawSubScores: analytical.data.subScores,
+      subScoreRationales: analytical.data.subScoreRationales,
+      coherence: {
+        subScores: analytical.data.subScores,
+        franceCompetition: analytical.data.franceCompetition,
+        buildableUnder30Days: analytical.data.buildableUnder30Days,
+        techComplexity: analytical.data.techComplexity,
+        problemExists: analytical.data.franceFitCriteria.problemExists,
+        prudentMrr: Math.round(prudentScenario.clients * prudentScenario.avgPrice),
+        optimisteMrr: Math.round(optimisteScenario.clients * optimisteScenario.avgPrice),
+      },
+      facts: {
+        ...factsCtx,
+        techComplexity: analytical.data.techComplexity,
+        franceCompetition: analytical.data.franceCompetition,
+      },
     });
     if (!ctx.catalogue && ctx.minScore > 0 && earlyScore < ctx.minScore - 10) {
       return {
@@ -484,7 +663,7 @@ async function buildForLead(
  */
 export async function runSourcing(options: RunOptions): Promise<RunReport> {
   const log = options.onLog ?? consoleLogger();
-  const premium = true;
+  const premium = options.premium ?? false;
   const catalogue = isCatalogueProfile(options);
   const minScore = catalogue ? 0 : (options.minScore ?? getMinScore());
   const settings = await loadPublishSettings();
@@ -508,6 +687,8 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
   const supabase = createAdminClient();
   const discoveryModel = settings.discovery_model ?? MODELS.discovery;
   const structureModel = settings.structure_model ?? MODELS.structure;
+  const verifyModel = MODELS.verify;
+  const scale = resolveSourcingScale(options.count);
   const runConfig = withPromptVersion({
     ...(options.config ?? {}),
     discoveryModel,
@@ -553,6 +734,34 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
   }
 
   async function execute(): Promise<RunReport> {
+  const shouldCancel = runId ? () => isRunCancelRequested(runId) : undefined;
+  const assertNotCancelled = async () => {
+    if (shouldCancel && (await shouldCancel())) {
+      throw new SourcingCancelledError();
+    }
+  };
+  const incrementalDirect = mode === "direct" && runId != null;
+  const writeTarget = options.count;
+  let writtenCount =
+    incrementalDirect && runId ? await getRunWrittenCount(supabase, runId) : 0;
+  let structuredCount = 0;
+  const processConcurrency = 1;
+
+  const syncProgress = async (
+    patch: Partial<{
+      count_discovered: number;
+      count_structured: number;
+      count_written: number;
+    }>
+  ) => {
+    if (!runId) return;
+    await patchRunProgress(supabase, runId, {
+      ...patch,
+      events: events.slice(-50),
+    });
+  };
+
+  try {
   await assertModelsActive([discoveryModel, structureModel]);
   onLog({ type: "models-ok", models: [discoveryModel, structureModel] });
 
@@ -577,11 +786,15 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
     log: onLog,
     discoveryModel,
     nicheHints,
-    maxLeads: catalogue ? Math.max(options.count * 3, OVERFETCH_MIN) : options.count,
-    maxRounds: catalogue ? 3 : MAX_DISCOVERY_ROUNDS,
-    overfetchFactor: catalogue ? 6 : OVERFETCH_FACTOR,
+    maxLeads: scale.maxLeads,
+    maxRounds: scale.maxRounds,
+    shouldCancel,
+    onDiscoveryProgress: runId
+      ? async (discovered) => syncProgress({ count_discovered: discovered })
+      : undefined,
   });
   onLog({ type: "leads-selected", count: selected.length });
+  await syncProgress({ count_discovered: selected.length });
 
   const batchSlugs = new Set<string>();
   type ProcessedLead = {
@@ -593,7 +806,11 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
     premiumVerified: boolean | null;
   };
 
-  const processed = await mapWithConcurrency(selected, 2, async (rawLead) => {
+  const processed = await mapWithConcurrency(selected, processConcurrency, async (rawLead) => {
+    await assertNotCancelled();
+    if (writtenCount >= writeTarget) {
+      return null;
+    }
     if (maxCostUsd != null && tracker.totalCostUsd() >= maxCostUsd) {
       return null;
     }
@@ -603,7 +820,8 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
     let tractionStillMissing = tractionReport.missing;
 
     if (needsTractionEnrichment(tractionReport)) {
-      const enriched = await enrichTractionSignals(lead, tractionReport, tracker, discoveryModel);
+      const enriched = await enrichTractionSignals(lead, tractionReport, tracker, verifyModel);
+      await assertNotCancelled();
       lead = enriched.lead;
       tractionReport = assessTractionQuality(lead);
       tractionStillMissing = enriched.stillMissing;
@@ -620,51 +838,66 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
       tractionStillMissing = tractionReport.missing;
     }
 
-    const sourceCheck: SourceVerification = catalogue
-      ? {
-          verified: true,
-          invalidUrls: [],
-          validCount: 1,
-          totalCount: 1,
-          verificationLevel: "partial",
-        }
-      : await verifyLeadSources(lead);
+    const sourceCheck: SourceVerification = await verifyLeadSources(lead);
+    await assertNotCancelled();
     if (!catalogue && !passesUrlGate(sourceCheck)) {
-      skipped.push({
-        name: lead.name,
-        reason: `URLs invalides (${sourceCheck.invalidUrls.join(", ") || "aucune URL valide"})`,
-      });
-      onLog({
-        type: "lead-skip",
-        name: lead.name,
-        reason: `URLs invalides — ${sourceCheck.validCount}/${sourceCheck.totalCount} joignables`,
-      });
+      const reason = !sourceCheck.productUrlValid
+        ? "URL produit injoignable"
+        : !sourceCheck.productCrossCheckOk
+          ? "URL produit non vérifiée (domaine parqué ou incohérent)"
+          : "URL produit absente";
+      skipped.push({ name: lead.name, reason });
+      onLog({ type: "lead-skip", name: lead.name, reason });
       return null;
     }
 
-    const factVerification: FactVerification = catalogue
-      ? {
-          confidence: "medium",
-          confirmed: true,
-          tractionVerified: true,
-        }
-      : await verifyLeadFacts(lead, tracker, discoveryModel);
+    if (!catalogue) {
+      lead = pruneTractionSignals(lead, sourceCheck.validUrls);
+      lead = normalizeLead(lead);
+      tractionReport = assessTractionQuality(lead);
+      tractionStillMissing = tractionReport.missing;
+
+      const tractionGate = passesTractionGate(lead);
+      if (!tractionGate.ok) {
+        skipped.push({ name: lead.name, reason: tractionGate.reason ?? "traction non sourcable" });
+        onLog({
+          type: "lead-skip",
+          name: lead.name,
+          reason: tractionGate.reason ?? "traction non sourcable",
+        });
+        return null;
+      }
+    }
+
+    const inferredFacts = inferFactVerificationFromSources(lead, sourceCheck);
+    const factVerification: FactVerification =
+      inferredFacts ??
+      (catalogue
+        ? {
+            confidence: "medium",
+            confirmed: true,
+            tractionVerified: true,
+            countryConsistent: !detectCountryMismatch(lead),
+          }
+        : await verifyLeadFacts(lead, tracker, verifyModel));
+    await assertNotCancelled();
     const needsReview =
       !catalogue &&
-      (factVerification.confidence === "low" ||
-        !factVerification.confirmed ||
+      (factVerification.confidence === "medium" ||
         !factVerification.tractionVerified ||
         tractionStillMissing.length > 0);
 
-    if (
-      !catalogue &&
-      factVerification.confidence === "low" &&
-      !factVerification.confirmed &&
-      !factVerification.tractionVerified
-    ) {
-      skipped.push({ name: lead.name, reason: "fact-check Sonar négatif" });
-      onLog({ type: "lead-skip", name: lead.name, reason: "fact-check Sonar négatif" });
-      return null;
+    if (!catalogue) {
+      const factGate = passesFactCheckGate(factVerification);
+      if (!factGate.ok) {
+        skipped.push({ name: lead.name, reason: factGate.reason ?? "fact-check Sonar négatif" });
+        onLog({
+          type: "lead-skip",
+          name: lead.name,
+          reason: factGate.reason ?? "fact-check Sonar négatif",
+        });
+        return null;
+      }
     }
 
     const result = await buildForLead(lead, {
@@ -678,6 +911,7 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
       minScore,
       catalogue,
     });
+    await assertNotCancelled();
 
     if (!result.ok) {
       skipped.push({ name: lead.name, reason: result.reason });
@@ -718,6 +952,39 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
       score: opportunity.scores.opportunity,
     });
 
+    structuredCount++;
+    await syncProgress({
+      count_discovered: selected.length,
+      count_structured: structuredCount,
+      count_written: writtenCount,
+    });
+
+    if (incrementalDirect) {
+      const published = await persistDirectOpportunity(
+        supabase,
+        opportunity,
+        runId,
+        structuredCount,
+        writeTarget,
+        dedupIndex
+      );
+      if (published) {
+        writtenCount = await getRunWrittenCount(supabase, runId!);
+        await syncProgress({
+          count_discovered: selected.length,
+          count_structured: structuredCount,
+          count_written: writtenCount,
+        });
+        if (options.revalidate !== false && writtenCount === 1) {
+          await triggerRevalidation();
+        }
+      }
+    }
+
+    if (writtenCount >= writeTarget) {
+      return null;
+    }
+
     return {
       opportunity,
       lead,
@@ -742,6 +1009,7 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
 
   for (const item of processed) {
     if (!item) continue;
+    if (opportunities.length >= writeTarget) break;
     opportunities.push(item.opportunity);
     leadBySlug.set(item.opportunity.slug, item.lead);
     metaBySlug.set(item.opportunity.slug, {
@@ -863,14 +1131,18 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
     status: "published",
     published_at: new Date().toISOString(),
   }));
-  const { error: upsertError } = await supabase
-    .from("opportunities")
-    .upsert(rowsWithStatus, { onConflict: "slug" });
-  if (upsertError) {
-    throw new Error(`Upsert opportunities : ${upsertError.message}`);
-  }
 
-  onLog({ type: "upsert-ok", count: rows.length });
+  if (!incrementalDirect) {
+    const { error: upsertError } = await supabase
+      .from("opportunities")
+      .upsert(rowsWithStatus.slice(0, writeTarget), { onConflict: "slug" });
+    if (upsertError) {
+      throw new Error(`Upsert opportunities : ${upsertError.message}`);
+    }
+    onLog({ type: "upsert-ok", count: Math.min(rows.length, writeTarget) });
+  } else {
+    onLog({ type: "upsert-ok", count: writtenCount });
+  }
 
   if (options.manageWeeklyPick === true) {
     const best = [...opportunities].sort(
@@ -879,7 +1151,11 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
     if (best) await promoteWeeklyPick(supabase, best.slug, onLog);
   }
 
-  onLog({ type: "done", written: rows.length, requested: options.count, costLine });
+  const finalWritten = incrementalDirect
+    ? Math.min(writtenCount, writeTarget)
+    : Math.min(rows.length, writeTarget);
+
+  onLog({ type: "done", written: finalWritten, requested: options.count, costLine });
 
   if (options.revalidate !== false) {
     await triggerRevalidation();
@@ -887,12 +1163,52 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
 
   const report: RunReport = {
     ...baseReport,
-    written: rows.length,
-    status: opportunities.length < options.count ? "partial" : "ok",
+    written: finalWritten,
+    structured: Math.min(structuredCount, writeTarget),
+    status: finalWritten < options.count ? "partial" : "ok",
     finishedAt: new Date().toISOString(),
   };
   await finishRunRecord(supabase, runId, report, finishExtras);
   await recordRunMetrics(report, { costUsd });
   return report;
+  } catch (err) {
+    if (err instanceof SourcingCancelledError) {
+      if (runId && (await shouldDiscardOnCancel(runId))) {
+        await discardRunOpportunities([runId]);
+        writtenCount = 0;
+      }
+
+      onLog({ type: "warn", message: "Run annulé par l'utilisateur" });
+      const costLine = tracker.formatCostLine();
+      const costUsdVal = tracker.totalCostUsd();
+      const tokens = tracker.totalTokens();
+      const finishExtrasOnCancel = {
+        costUsd: costUsdVal > 0 ? costUsdVal : undefined,
+        tokensInput: tokens.input,
+        tokensOutput: tokens.output,
+        events,
+      };
+      const report: RunReport = {
+        startedAt,
+        requested: options.count,
+        sector: options.sector,
+        premium,
+        discovered: 0,
+        structured: Math.min(structuredCount, options.count),
+        written: Math.min(writtenCount, options.count),
+        skipped,
+        costLine,
+        status: writtenCount > 0 ? "partial" : "empty",
+        finishedAt: new Date().toISOString(),
+      };
+      await finishRunRecord(supabase, runId, report, {
+        ...finishExtrasOnCancel,
+        error: "Annulé par l'utilisateur",
+      });
+      await recordRunMetrics(report, { costUsd: costUsdVal });
+      throw err;
+    }
+    throw err;
+  }
   }
 }

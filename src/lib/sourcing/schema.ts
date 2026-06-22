@@ -16,6 +16,21 @@ export const franceCompetitionEnum = z.enum(FRANCE_COMPETITION);
 
 const SCENARIO_NAMES = ["Prudent", "Réaliste", "Optimiste"] as const;
 
+/** Texte substantiel (anti-contenu creux). */
+function substantiveText(min = 30) {
+  return z.string().min(min);
+}
+
+const GENERIC_FILLER =
+  /^(n\/a|na|tbd|à définir|a definir|placeholder|lorem|test|todo|generic|générique|generique)$/i;
+
+function isGenericText(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed.length < 12) return true;
+  if (GENERIC_FILLER.test(trimmed)) return true;
+  return false;
+}
+
 // ── Étape A : sortie Sonar (faits vérifiables) ───────────────────────────────
 export const tractionSignalSchema = z.object({
   label: z.string().min(1),
@@ -29,7 +44,7 @@ export const tractionSignalSchema = z.object({
 export const factualLeadSchema = z.object({
   name: z.string().min(1),
   pitch: z.string().min(1),
-  url: z.string().url().optional(),
+  url: z.string().url(),
   originCountry: z.string().min(1),
   originCountryCode: z.string().min(2).max(2),
   originFlag: z.string().min(1),
@@ -43,20 +58,17 @@ export type FactualLead = z.infer<typeof factualLeadSchema>;
 
 // ── Briques partagées ────────────────────────────────────────────────────────
 export const whyItWorksStructuredItemSchema = z.object({
-  fact: z.string().min(1),
-  detail: z.string().optional(),
-  source: z.string().optional(),
+  fact: substantiveText(20),
+  detail: substantiveText(30).optional(),
+  source: z.string().min(2).optional(),
   sourceUrl: z.string().url().optional(),
 });
 
-export const whyItWorksItemSchema = z.union([
-  z.string().min(1),
-  whyItWorksStructuredItemSchema,
-]);
+export const whyItWorksItemSchema = whyItWorksStructuredItemSchema;
 
 export const whyItWorksNormalizedSchema = z
   .array(whyItWorksItemSchema)
-  .min(1)
+  .min(3)
   .transform((items) => items.map(normalizeWhyItWorksItem));
 
 const tractionHighlightSchema = z.object({
@@ -67,19 +79,19 @@ const tractionHighlightSchema = z.object({
 });
 
 export const foreignMarketProfileSchema = z.object({
-  productName: z.string().min(1),
-  country: z.string().min(1),
+  productName: z.string().min(2),
+  country: z.string().min(2),
   flag: z.string().min(1),
-  tagline: z.string().min(1),
-  problemSolved: z.string().min(1),
-  targetUsers: z.string().min(1),
-  businessModel: z.string().min(1),
-  pricing: z.string().min(1),
-  keyFeatures: z.array(z.string().min(1)).min(1),
-  howItWorks: z.string().min(1),
-  whyItWorksThere: z.array(z.string().min(1)).min(1),
+  tagline: substantiveText(20),
+  problemSolved: substantiveText(40),
+  targetUsers: substantiveText(25),
+  businessModel: substantiveText(25),
+  pricing: substantiveText(15),
+  keyFeatures: z.array(substantiveText(15)).min(3),
+  howItWorks: substantiveText(40),
+  whyItWorksThere: z.array(substantiveText(25)).min(2),
   tractionHighlights: z.array(tractionHighlightSchema).min(1),
-  franceAdaptation: z.array(z.string().min(1)).optional(),
+  franceAdaptation: z.array(substantiveText(20)).min(2).optional(),
 });
 
 const roadmapStepSchema = z.object({
@@ -112,19 +124,19 @@ const buildPromptsSchema = z.object({
 });
 
 const mvpPlanAnalyticalSchema = z.object({
-  features: z.array(z.string().min(1)).min(1),
-  notYet: z.array(z.string().min(1)),
+  features: z.array(substantiveText(15)).min(3).max(5),
+  notYet: z.array(substantiveText(10)).min(2),
   stackExtras: z.array(z.string().min(1)).optional().default([]),
-  roadmap: z.array(roadmapStepSchema).min(1),
-  stackGuide: z.array(stackGuideEntrySchema).min(1).optional(),
-  pitfalls: z.array(z.string().min(1)).min(1).optional(),
-  launchChecklist: z.array(z.string().min(1)).min(1).optional(),
+  roadmap: z.array(roadmapStepSchema).min(4),
+  stackGuide: z.array(stackGuideEntrySchema).min(3).optional(),
+  pitfalls: z.array(substantiveText(20)).min(3).optional(),
+  launchChecklist: z.array(substantiveText(15)).min(4).optional(),
 });
 
 const acquisitionTabSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
-  tactics: z.array(z.string().min(1)).min(1),
+  tactics: z.array(substantiveText(20)).min(2),
 });
 
 // ── Champs enrichis (optionnels) — demandés à chaque génération ───────────────
@@ -153,9 +165,9 @@ const emailTemplateSchema = z.object({
 
 const franceFitCriteriaSchema = z.object({
   problemExists: z.boolean(),
-  regulation: z.string().min(1),
-  competitors: z.string().min(1),
-  cultureFit: z.string().min(1),
+  regulation: substantiveText(35),
+  competitors: substantiveText(35),
+  cultureFit: substantiveText(35),
 });
 
 // Scénario généré par Gemini : SANS mrr (recalculé par le code).
@@ -167,46 +179,98 @@ const scenarioInputSchema = z.object({
 });
 
 // ── Étape B : sortie Gemini (analyse structurante) ───────────────────────────
-export const analyticalSchema = z.object({
-  clientType: clientTypeEnum,
-  techComplexity: techComplexityEnum,
-  franceCompetition: franceCompetitionEnum,
-  boringBusiness: z.boolean(),
-  aiPowered: z.boolean(),
-  /** Évalué honnêtement par Gemini : MVP France buildable par un solo dev en ~30 jours ? */
-  buildableUnder30Days: z.boolean(),
-  entrepreneursBuilding: z.number().int().min(0),
-  // Gemini NE produit PAS scores.opportunity (calculé par le code).
-  subScores: z.object({
-    franceFit: z.number().min(0).max(10),
-    buildability: z.number().min(0).max(10),
-    margin: z.number().min(0).max(10),
-    competitionGap: z.number().min(0).max(10),
-  }),
-  franceFitCriteria: franceFitCriteriaSchema,
-  franceAnalysis: z.array(z.string().min(1)).min(1),
-  whyItWorks: whyItWorksNormalizedSchema,
-  financialScenarios: z.array(scenarioInputSchema).length(3),
-  mvpPlan: mvpPlanAnalyticalSchema,
-  acquisition: z.array(acquisitionTabSchema).min(1),
-  claudePrompt: z.string().min(1),
-  buildPrompts: buildPromptsSchema.optional(),
-  foreignMarketProfile: foreignMarketProfileSchema,
-  // Champs enrichis (optionnels) — présents seulement si Gemini les a produits valides.
-  frenchCompetitors: z.array(frenchCompetitorSchema).min(1).optional(),
-  launchTimeline: z.array(launchWeekSchema).length(4).optional(),
-  emailTemplates: z.array(emailTemplateSchema).min(1).optional(),
-});
+export const analyticalSchema = z
+  .object({
+    clientType: clientTypeEnum,
+    techComplexity: techComplexityEnum,
+    franceCompetition: franceCompetitionEnum,
+    boringBusiness: z.boolean(),
+    aiPowered: z.boolean(),
+    /** Évalué honnêtement par Gemini : MVP France buildable par un solo dev en ~30 jours ? */
+    buildableUnder30Days: z.boolean(),
+    entrepreneursBuilding: z.number().int().min(0),
+    // Gemini NE produit PAS scores.opportunity (calculé par le code).
+    subScores: z.object({
+      franceFit: z.number().min(0).max(10),
+      buildability: z.number().min(0).max(10),
+      margin: z.number().min(0).max(10),
+      competitionGap: z.number().min(0).max(10),
+    }),
+    subScoreRationales: z.object({
+      franceFit: substantiveText(25),
+      buildability: substantiveText(25),
+      margin: substantiveText(25),
+      competitionGap: substantiveText(25),
+    }),
+    franceFitCriteria: franceFitCriteriaSchema,
+    franceAnalysis: z.array(substantiveText(40)).min(3),
+    whyItWorks: whyItWorksNormalizedSchema,
+    financialScenarios: z.array(scenarioInputSchema).length(3),
+    mvpPlan: mvpPlanAnalyticalSchema,
+    acquisition: z.array(acquisitionTabSchema).min(2),
+    claudePrompt: substantiveText(180),
+    buildPrompts: buildPromptsSchema.optional(),
+    foreignMarketProfile: foreignMarketProfileSchema,
+    // Champs enrichis (optionnels) — présents seulement si Gemini les a produits valides.
+    frenchCompetitors: z.array(frenchCompetitorSchema).min(1).optional(),
+    launchTimeline: z.array(launchWeekSchema).length(4).optional(),
+    emailTemplates: z.array(emailTemplateSchema).min(1).optional(),
+  })
+  .superRefine((data, ctx) => {
+    for (const [index, point] of data.franceAnalysis.entries()) {
+      if (isGenericText(point)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "franceAnalysis trop générique ou trop court",
+          path: ["franceAnalysis", index],
+        });
+      }
+    }
+    for (const [index, item] of data.whyItWorks.entries()) {
+      const text = typeof item === "string" ? item : item.fact;
+      if (isGenericText(text)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "whyItWorks trop générique — ancrer sur les signaux du lead",
+          path: ["whyItWorks", index],
+        });
+      }
+    }
+  });
 
 export type AnalyticalData = z.infer<typeof analyticalSchema>;
 
 // ── Étape C : raw Opportunity assemblé (autorité de validation finale) ────────
+const scoreMetaSchema = z.object({
+  geminiWeighted: z.number().min(0).max(100),
+  factsScore: z.number().min(0).max(100),
+  opportunity: z.number().min(0).max(100),
+  adjustments: z.array(z.string()),
+  rawSubScores: z
+    .object({
+      franceFit: z.number(),
+      buildability: z.number(),
+      margin: z.number(),
+      competitionGap: z.number(),
+    })
+    .optional(),
+  subScoreRationales: z
+    .object({
+      franceFit: z.string(),
+      buildability: z.string(),
+      margin: z.string(),
+      competitionGap: z.string(),
+    })
+    .optional(),
+});
+
 export const scoresSchema = z.object({
   opportunity: z.number().min(0).max(100),
   franceFit: z.number().min(0).max(10),
   buildability: z.number().min(0).max(10),
   margin: z.number().min(0).max(10),
   competitionGap: z.number().min(0).max(10),
+  _meta: scoreMetaSchema.optional(),
 });
 
 const financialScenarioSchema = scenarioInputSchema

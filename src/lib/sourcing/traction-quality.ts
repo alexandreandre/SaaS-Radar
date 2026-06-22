@@ -1,5 +1,6 @@
 import type { TractionSignal } from "@/types/opportunity";
 import type { FactualLead } from "./schema";
+import { MIN_TRACTION_CATEGORIES } from "./constants";
 
 export type TractionCategory = "mrr" | "authority" | "community";
 
@@ -127,5 +128,7 @@ export function countCoveredCategories(report: TractionQualityReport): number {
 }
 
 export function needsTractionEnrichment(report: TractionQualityReport): boolean {
-  return report.missing.length > 0 || report.countryMismatch;
+  if (report.countryMismatch) return true;
+  if (countCoveredCategories(report) >= MIN_TRACTION_CATEGORIES) return false;
+  return report.missing.length > 0;
 }

@@ -145,13 +145,13 @@ export async function enrichTractionSignals(
   let workingLead = { ...lead };
   let lastFeedback: string | undefined;
 
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  for (let attempt = 1; attempt <= 1; attempt++) {
     const retrySuffix = lastFeedback
       ? `\n\nRETRY — réponse invalide : ${lastFeedback}\nRéponds uniquement avec le JSON demandé.`
       : "";
 
     const { content, usage } = await callOpenRouter({
-      model: model ?? MODELS.discovery,
+      model: model ?? MODELS.verify,
       system: ENRICH_SYSTEM,
       user: buildEnrichPrompt(workingLead, report) + retrySuffix,
       temperature: 0.1,

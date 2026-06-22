@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminPageHeader, AdminTable, KpiCard } from "@/components/admin/admin-ui";
@@ -9,7 +10,7 @@ import { sectorLabels } from "@/data/opportunities";
 import { SECTORS } from "@/lib/sourcing/constants";
 import { canEditAdmin } from "@/lib/admin/rbac";
 import { useAdminRole } from "@/contexts/admin-role-context";
-import { adminFetchJson } from "@/lib/admin/client-fetch";
+import { adminFetchJson, invalidateAdminCache } from "@/lib/admin/client-fetch";
 import { cn } from "@/lib/utils";
 import type { CatalogueStats } from "@/lib/admin/catalogue-stats.shared";
 import type { AdminOpportunitiesPageData } from "@/lib/admin/opportunities";
@@ -20,7 +21,7 @@ type OpportunityRow = {
   sector: string;
   origin_country_code: string;
   origin_flag: string;
-  status: string;
+  status: "published" | "archived" | "draft";
   weekly_pick: boolean;
   created_at: string;
   published_at: string | null;
@@ -32,6 +33,23 @@ type OpportunityRow = {
     buildability?: number;
   };
 };
+
+function normalizeOpportunityRow(raw: Record<string, unknown>): OpportunityRow {
+  return {
+    slug: String(raw.slug ?? ""),
+    name: String(raw.name ?? ""),
+    sector: String(raw.sector ?? ""),
+    origin_country_code: String(raw.origin_country_code ?? ""),
+    origin_flag: String(raw.origin_flag ?? ""),
+    status: normalizeRowStatus(raw.status),
+    weekly_pick: Boolean(raw.weekly_pick),
+    created_at: String(raw.created_at ?? ""),
+    published_at: raw.published_at ? String(raw.published_at) : null,
+    buildable_under_30_days: Boolean(raw.buildable_under_30_days),
+    ai_powered: Boolean(raw.ai_powered),
+    scores: (raw.scores as OpportunityRow["scores"] | undefined) ?? {},
+  };
+}
 
 type ListResponse = {
   opportunities: OpportunityRow[];
@@ -52,26 +70,58 @@ function parseApiError(json: { error?: string }): string {
   return json.error ?? "Erreur inconnue";
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  published: "Publiée",
+  archived: "Archivée",
+  draft: "Brouillon",
+};
+
+function normalizeRowStatus(value: unknown): OpportunityRow["status"] {
+  if (value === "archived" || value === "draft" || value === "published") return value;
+  return "published";
+}
+
+function StatusBadge({ rowStatus }: { rowStatus: OpportunityRow["status"] }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+        rowStatus === "published" && "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+        rowStatus === "archived" && "bg-muted text-muted-foreground",
+        rowStatus === "draft" && "bg-amber-500/10 text-amber-700 dark:text-amber-300"
+      )}
+    >
+      {STATUS_LABELS[rowStatus] ?? rowStatus}
+    </span>
+  );
+}
+
 export function AdminOpportunitiesClient({
+  initialStatus = "published",
   initialData = null,
   initialError = null,
 }: {
+  initialStatus?: string;
   initialData?: AdminOpportunitiesPageData | null;
   initialError?: string | null;
 }) {
-  const skipListFetch = useRef(initialData != null || initialError != null);
-  const skipStatsFetch = useRef(initialData?.stats != null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const role = useAdminRole();
   const canEdit = canEditAdmin(role);
 
-  const [items, setItems] = useState<OpportunityRow[]>(
-    () => (initialData?.list.opportunities as OpportunityRow[] | undefined) ?? [],
+  const [items, setItems] = useState<OpportunityRow[]>(() =>
+    ((initialData?.list.opportunities as Record<string, unknown>[] | undefined) ?? []).map(
+      normalizeOpportunityRow
+    )
   );
   const [stats, setStats] = useState<CatalogueStats | null>(initialData?.stats ?? null);
   const [total, setTotal] = useState(initialData?.list.total ?? 0);
   const [offset, setOffset] = useState(initialData?.list.offset ?? 0);
 
-  const [status, setStatus] = useState("published");
+  const [statusFilter, setStatusFilter] = useState<OpportunityRow["status"]>(() =>
+    initialStatus === "archived" ? "archived" : "published"
+  );
   const [q, setQ] = useState("");
   const [sector, setSector] = useState("");
   const [country, setCountry] = useState("");
@@ -83,21 +133,38 @@ export function AdminOpportunitiesClient({
   const [error, setError] = useState<string | null>(initialError);
   const [message, setMessage] = useState<string | null>(null);
   const [actionSlug, setActionSlug] = useState<string | null>(null);
+  const loadSeqRef = useRef(0);
 
   const queryString = useMemo(() => {
-    const params = new URLSearchParams({ status, sort, limit: String(PAGE_SIZE), offset: String(offset) });
+    const params = new URLSearchParams({
+      status: statusFilter,
+      sort,
+      limit: String(PAGE_SIZE),
+      offset: String(offset),
+    });
     if (q.trim()) params.set("q", q.trim());
     if (sector) params.set("sector", sector);
     if (country.trim()) params.set("country", country.trim());
     if (minScore.trim()) params.set("minScore", minScore.trim());
     return params.toString();
-  }, [status, sort, offset, q, sector, country, minScore]);
+  }, [statusFilter, sort, offset, q, sector, country, minScore]);
+
+  const syncStatusInUrl = useCallback(
+    (nextStatus: OpportunityRow["status"]) => {
+      const params = new URLSearchParams(searchParams?.toString() ?? "");
+      params.set("status", nextStatus);
+      params.delete("offset");
+      router.replace(`/admin/opportunities?${params.toString()}`, { scroll: false });
+    },
+    [router, searchParams]
+  );
 
   const loadStats = useCallback(async () => {
     setStatsLoading(true);
     try {
       const { ok, data: json } = await adminFetchJson<{ stats?: CatalogueStats; error?: string }>(
-        "/api/admin/opportunities/stats"
+        "/api/admin/opportunities/stats",
+        { skipCache: true }
       );
       if (!ok) throw new Error(parseApiError(json));
       setStats(json.stats ?? null);
@@ -109,37 +176,42 @@ export function AdminOpportunitiesClient({
   }, []);
 
   const load = useCallback(async () => {
+    const seq = ++loadSeqRef.current;
     setLoading(true);
     setError(null);
     try {
       const { ok, data: json } = await adminFetchJson<ListResponse & { error?: string }>(
-        `/api/admin/opportunities?${queryString}`
+        `/api/admin/opportunities?${queryString}`,
+        { skipCache: true }
       );
+      if (seq !== loadSeqRef.current) return;
       if (!ok) throw new Error(parseApiError(json));
-      setItems(json.opportunities ?? []);
-      setTotal(json.total ?? 0);
+
+      const rows = ((json.opportunities ?? []) as Record<string, unknown>[]).map(
+        normalizeOpportunityRow
+      );
+      const matching = rows.filter((row) => row.status === statusFilter);
+      setItems(matching);
+      setTotal(
+        matching.length !== rows.length || rows.length === 0
+          ? matching.length
+          : (json.total ?? matching.length)
+      );
     } catch (err) {
+      if (seq !== loadSeqRef.current) return;
       setError(err instanceof Error ? err.message : String(err));
       setItems([]);
       setTotal(0);
     } finally {
-      setLoading(false);
+      if (seq === loadSeqRef.current) setLoading(false);
     }
-  }, [queryString]);
+  }, [queryString, statusFilter]);
 
   useEffect(() => {
-    if (skipStatsFetch.current) {
-      skipStatsFetch.current = false;
-      return;
-    }
     void loadStats();
   }, [loadStats]);
 
   useEffect(() => {
-    if (skipListFetch.current) {
-      skipListFetch.current = false;
-      return;
-    }
     void load();
   }, [load]);
 
@@ -152,25 +224,27 @@ export function AdminOpportunitiesClient({
     setOffset(0);
   };
 
-  const refreshAll = async () => {
-    await Promise.all([load(), loadStats()]);
-  };
-
   const archive = async (slug: string, name: string) => {
     if (!canEdit) return;
-    if (!window.confirm(`Archiver « ${name} » ? La fiche disparaîtra du catalogue public.`)) return;
 
     setActionSlug(slug);
     setMessage(null);
     setError(null);
     try {
-      const res = await fetch(`/api/admin/opportunities?slug=${encodeURIComponent(slug)}`, {
-        method: "DELETE",
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(parseApiError(json));
+      const { ok, data: json } = await adminFetchJson<{ error?: string }>(
+        `/api/admin/opportunities?slug=${encodeURIComponent(slug)}`,
+        { method: "DELETE" }
+      );
+      if (!ok) throw new Error(parseApiError(json));
+      invalidateAdminCache("/api/admin/opportunities");
+      setItems((prev) =>
+        statusFilter === "published"
+          ? prev.filter((o) => o.slug !== slug)
+          : prev.map((o) => (o.slug === slug ? { ...o, status: "archived" } : o))
+      );
+      setTotal((t) => (statusFilter === "published" ? Math.max(0, t - 1) : t));
       setMessage(`« ${name} » archivée.`);
-      await refreshAll();
+      void loadStats();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -184,15 +258,21 @@ export function AdminOpportunitiesClient({
     setMessage(null);
     setError(null);
     try {
-      const res = await fetch("/api/admin/opportunities", {
+      const { ok, data: json } = await adminFetchJson<{ error?: string }>("/api/admin/opportunities", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slug, status: "published" }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(parseApiError(json));
+      if (!ok) throw new Error(parseApiError(json));
+      invalidateAdminCache("/api/admin/opportunities");
+      setItems((prev) =>
+        statusFilter === "archived"
+          ? prev.filter((o) => o.slug !== slug)
+          : prev.map((o) => (o.slug === slug ? { ...o, status: "published" } : o))
+      );
+      setTotal((t) => (statusFilter === "archived" ? Math.max(0, t - 1) : t));
       setMessage(`« ${name} » republiée.`);
-      await refreshAll();
+      void loadStats();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -206,15 +286,15 @@ export function AdminOpportunitiesClient({
     setMessage(null);
     setError(null);
     try {
-      const res = await fetch("/api/admin/opportunities", {
+      const { ok, data: json } = await adminFetchJson<{ error?: string }>("/api/admin/opportunities", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ slug, weekly_pick: !weekly_pick }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(parseApiError(json));
+      if (!ok) throw new Error(parseApiError(json));
       setMessage(!weekly_pick ? "Pick de la semaine mis à jour." : "Pick retiré.");
-      await refreshAll();
+      void loadStats();
+      void load();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -229,7 +309,8 @@ export function AdminOpportunitiesClient({
 
   const tableHeaders = [
     "Nom",
-    "Publié le",
+    "Statut",
+    statusFilter === "archived" ? "Publiée le" : "Publié le",
     "Pays",
     "Secteur",
     "Score",
@@ -436,12 +517,16 @@ export function AdminOpportunitiesClient({
                 key={value}
                 type="button"
                 onClick={() => {
-                  setStatus(value);
+                  const nextStatus = value as OpportunityRow["status"];
+                  if (statusFilter === nextStatus) return;
+                  setStatusFilter(nextStatus);
                   setOffset(0);
+                  setItems([]);
+                  syncStatusInUrl(nextStatus);
                 }}
                 className={cn(
                   "rounded px-3 py-1.5 text-sm transition-colors",
-                  status === value
+                  statusFilter === value
                     ? "bg-primary/10 font-medium text-primary"
                     : "text-muted-foreground hover:text-foreground"
                 )}
@@ -557,14 +642,14 @@ export function AdminOpportunitiesClient({
           </div>
         ) : items.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-            {status === "published" ? (
+            {statusFilter === "published" ? (
               <>
                 Aucune fiche publiée.
                 <Link href="/admin/sourcing" className="ml-1 text-primary hover:underline">
                   Voir le sourcing
                 </Link>
               </>
-            ) : status === "archived" ? (
+            ) : statusFilter === "archived" ? (
               "Aucune fiche archivée."
             ) : (
               "Aucun résultat pour ces filtres."
@@ -589,6 +674,9 @@ export function AdminOpportunitiesClient({
                       Pick semaine
                     </span>
                   )}
+                </td>
+                <td className="px-3 py-2">
+                  <StatusBadge rowStatus={o.status} />
                 </td>
                 <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
                   {formatDate(o.published_at ?? o.created_at)}
@@ -618,7 +706,7 @@ export function AdminOpportunitiesClient({
                 {canEdit && (
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-1">
-                      {status === "published" && (
+                      {statusFilter === "published" && (
                         <>
                           <Button
                             size="sm"
@@ -638,7 +726,7 @@ export function AdminOpportunitiesClient({
                           </Button>
                         </>
                       )}
-                      {status === "archived" && (
+                      {statusFilter === "archived" && (
                         <Button
                           size="sm"
                           variant="outline"

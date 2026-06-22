@@ -24,8 +24,8 @@ export async function loadDynamicExclusions(
   let query = admin
     .from("opportunities")
     .select("name, sector, pitch, origin_country_code")
-    .eq("status", "published")
-    .limit(80);
+    .in("status", ["published", "archived"])
+    .limit(120);
 
   if (sector) query = query.eq("sector", sector);
 

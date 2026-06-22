@@ -19,7 +19,7 @@ describe("product-phase", () => {
     assert.equal(mod.isDiscoveryPhase(), true);
     assert.equal(mod.isCockpitEnabled(), false);
     assert.equal(mod.isCheckoutEnabled(), false);
-    assert.equal(mod.isMapDefaultUnlocked(), true);
+    assert.equal(mod.isMapDefaultUnlocked(), false);
   });
 
   it("full active cockpit et checkout", async () => {

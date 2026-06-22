@@ -55,7 +55,7 @@ export async function claimNextJob(): Promise<QueuedJob | null> {
 
 export async function completeJob(
   jobId: string,
-  status: "done" | "failed",
+  status: "done" | "failed" | "cancelled",
   error?: string
 ): Promise<void> {
   const admin = createAdminClient();

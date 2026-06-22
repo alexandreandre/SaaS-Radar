@@ -1,7 +1,12 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Opportunity } from "@/types/opportunity";
-import type { DedupMatch } from "@/lib/admin/sourcing-dedup.shared";
+import type { DedupMatch, DedupIndex } from "@/lib/admin/sourcing-dedup.shared";
+import {
+  normalizeUrlKey,
+  registerOpportunityInDedupIndex,
+  rootDomainFromUrl,
+} from "@/lib/admin/sourcing-dedup.shared";
 
 export type { DedupMatch } from "@/lib/admin/sourcing-dedup.shared";
 
@@ -29,14 +34,7 @@ function nameSimilarity(a: string, b: string): number {
 }
 
 function rootDomain(url: string): string | null {
-  try {
-    const host = new URL(url).hostname.replace(/^www\./, "");
-    const parts = host.split(".");
-    if (parts.length < 2) return host;
-    return parts.slice(-2).join(".");
-  } catch {
-    return null;
-  }
+  return rootDomainFromUrl(url);
 }
 
 export function findDedupMatches(
@@ -100,34 +98,28 @@ export function findDedupMatches(
 
 export async function loadExistingForDedup(
   supabase: ReturnType<typeof createAdminClient>
-): Promise<{
-  slugs: Set<string>;
-  names: Set<string>;
-  urls: Set<string>;
-  nameToSlug: Map<string, string>;
-  domainToSlug: Map<string, string>;
-}> {
-  const { data, error } = await supabase.from("opportunities").select("slug,name,url");
+): Promise<DedupIndex> {
+  const { data, error } = await supabase.from("opportunities").select("slug,name,url,status");
   if (error) throw new Error(error.message);
-  const slugs = new Set<string>();
-  const names = new Set<string>();
-  const urls = new Set<string>();
-  const nameToSlug = new Map<string, string>();
-  const domainToSlug = new Map<string, string>();
+  const index: DedupIndex = {
+    slugs: new Set<string>(),
+    names: new Set<string>(),
+    urls: new Set<string>(),
+    nameToSlug: new Map<string, string>(),
+    domainToSlug: new Map<string, string>(),
+  };
 
   for (const row of data ?? []) {
     const r = row as { slug?: string; name?: string; url?: string | null };
-    if (r.slug) slugs.add(r.slug);
-    if (r.name) {
-      const key = r.name.toLowerCase().trim();
-      names.add(key);
-      if (r.slug) nameToSlug.set(key, r.slug);
-    }
-    if (r.url) {
-      urls.add(r.url.toLowerCase().trim());
-      const domain = rootDomain(r.url);
-      if (domain && r.slug) domainToSlug.set(domain, r.slug);
-    }
+    if (!r.slug || !r.name) continue;
+    registerOpportunityInDedupIndex(index, {
+      slug: r.slug,
+      name: r.name,
+      url: r.url,
+    });
   }
-  return { slugs, names, urls, nameToSlug, domainToSlug };
+  return index;
 }
+
+export { registerOpportunityInDedupIndex, isBlockedByDedupIndex } from "@/lib/admin/sourcing-dedup.shared";
+export { normalizeUrlKey, rootDomainFromUrl } from "@/lib/admin/sourcing-dedup.shared";

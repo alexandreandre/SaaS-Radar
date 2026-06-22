@@ -22,8 +22,9 @@ export function isCheckoutEnabled(): boolean {
   return getProductPhase() === "full";
 }
 
+/** Carte interactive : clic requis (discovery et full). */
 export function isMapDefaultUnlocked(): boolean {
-  return isDiscoveryPhase();
+  return false;
 }
 
 /**

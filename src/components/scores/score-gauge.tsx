@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { useMounted } from "@/hooks/use-mounted";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { scoreColor, scoreStrokeClass } from "@/lib/scores";
 import { cn } from "@/lib/utils";
 
 interface ScoreGaugeProps {
@@ -45,6 +46,7 @@ export function ScoreGauge({
   const offset = circumference - (pct / 100) * circumference;
   const dim = diameter ?? (radius + stroke) * 2;
   const isCompact = dim <= 68;
+  const strokeTone = scoreStrokeClass[scoreColor(value, max)];
 
   const viewPad = stroke / 2;
 
@@ -71,7 +73,7 @@ export function ScoreGauge({
             cy={radius + stroke}
             r={radius}
             fill="none"
-            className="stroke-primary"
+            className={cn(strokeTone)}
             strokeWidth={stroke}
             strokeLinecap="round"
             strokeDasharray={circumference}

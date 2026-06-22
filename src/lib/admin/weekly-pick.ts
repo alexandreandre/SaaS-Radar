@@ -13,4 +13,5 @@ export function revalidateOpportunitiesCache(): void {
   revalidatePath("/");
   revalidateTag(OPPORTUNITIES_CACHE_TAG);
   revalidatePath("/opportunities", "page");
+  revalidatePath("/opportunities/[slug]", "page");
 }

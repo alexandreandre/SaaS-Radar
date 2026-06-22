@@ -12,12 +12,36 @@ export type ClientType = "b2b" | "b2c";
 export type TechComplexity = "low" | "medium" | "high";
 export type FranceCompetition = "none" | "low" | "medium" | "high";
 
+export type SubScoreRationales = {
+  franceFit: string;
+  buildability: string;
+  margin: string;
+  competitionGap: string;
+};
+
+/** Métadonnées de scoring — admin / persistance, jamais affichées sur la fiche publique. */
+export type ScoreMeta = {
+  geminiWeighted: number;
+  factsScore: number;
+  opportunity: number;
+  adjustments: string[];
+  rawSubScores?: {
+    franceFit: number;
+    buildability: number;
+    margin: number;
+    competitionGap: number;
+  };
+  subScoreRationales?: SubScoreRationales;
+};
+
 export interface Scores {
   opportunity: number;
   franceFit: number;
   buildability: number;
   margin: number;
   competitionGap: number;
+  /** Décomposition hybride et corrections — optionnel, absent sur fiches legacy. */
+  _meta?: ScoreMeta;
 }
 
 export interface FranceFitCriteria {

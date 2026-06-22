@@ -160,7 +160,7 @@ export function BusinessPlanSection({
       doc.setFontSize(8);
       doc.setTextColor(100, 100, 120);
       doc.text(
-        `SaaS Radar  |  saasradar.fr  |  ${new Date().toLocaleDateString("fr-FR")}`,
+        `The Build Road  |  ${new Date().toLocaleDateString("fr-FR")}`,
         margin,
         31,
       );
@@ -278,7 +278,7 @@ export function BusinessPlanSection({
         doc.rect(0, 287, 4, 10, "F");
         doc.setFontSize(7);
         doc.setTextColor(80, 80, 100);
-        doc.text("SaaS Radar — saasradar.fr", margin, 293);
+        doc.text("The Build Road", margin, 293);
         doc.setTextColor(100, 100, 120);
         doc.text(`Page ${i}/${pageCount}`, pageWidth - margin, 293, { align: "right" });
       }

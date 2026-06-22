@@ -2,7 +2,10 @@ import type { CacChannel } from "@/types/opportunity";
 
 /** Slugs OpenRouter — vérifiés actifs via assertModelsActive() au démarrage. */
 export const MODELS = {
+  /** Recherche web initiale (1 appel par run, volume ∝ count). */
   discovery: "perplexity/sonar-pro",
+  /** Fact-check / enrichissement traction ciblé (sonar standard, ~10× moins cher que pro). */
+  verify: "perplexity/sonar",
   structure: "google/gemini-2.5-flash",
 } as const;
 
@@ -66,24 +69,59 @@ export const CANONICAL_CAC: CacChannel[] = [
   { channel: "Referral", estimate: 30, note: "Partenariats cabinets / associations" },
 ];
 
-/**
- * Pondération de scores.opportunity (0-100) à partir des 4 sous-scores (0-10).
- * franceFit + competitionGap (axes produit/marché) pèsent plus lourd que
- * margin + buildability (facilitateurs d'exécution). Somme = 1.0.
- */
-export const SCORE_WEIGHTS = {
-  franceFit: 0.3,
-  competitionGap: 0.3,
-  margin: 0.2,
-  buildability: 0.2,
-} as const;
+/** @deprecated Import depuis @/lib/scoring/rubric — conservé pour rétrocompat. */
+export { SCORE_WEIGHTS } from "@/lib/scoring/rubric";
 
 /** Paramètres de run par défaut. */
 export const DEFAULT_COUNT = 3;
-/** Facteur d'over-fetch Sonar pour absorber exclusion + filtre + Zod. */
+/** @deprecated Utiliser resolveSourcingScale — conservé pour scripts legacy. */
 export const OVERFETCH_FACTOR = 4;
+/** @deprecated Utiliser resolveSourcingScale. */
 export const OVERFETCH_MIN = 12;
 /** Plafond de leads demandés à Sonar par appel (évite JSON tronqué). */
 export const MAX_DISCOVERY_REQUEST = 24;
-/** Nombre maximum de rounds Sonar avant d'écrire ce qu'on a. */
+/** Nombre maximum de rounds Sonar (runs volumineux uniquement). */
 export const MAX_DISCOVERY_ROUNDS = 2;
+/** Signaux de traction sourcés minimum après élagage des URLs mortes. */
+export const MIN_TRACTION_SIGNALS = 2;
+/** Catégories traction minimum (mrr, authority, community). */
+export const MIN_TRACTION_CATEGORIES = 2;
+
+export type SourcingScale = {
+  /** Leads demandés à Sonar (recherche web, 1 appel / round). */
+  discoveryRequest: number;
+  /** Candidats max structurés (Gemini) — plafond d'écriture = count. */
+  maxLeads: number;
+  /** Rounds de découverte Sonar. */
+  maxRounds: number;
+};
+
+/**
+ * Dimensionnement linéaire du run : coût ≈ O(count).
+ * count=1 → Sonar ~3 leads, Gemini ≤2 tentatives max.
+ * count=5 → Sonar ~7 leads, etc.
+ */
+export function resolveSourcingScale(count: number): SourcingScale {
+  const target = Math.max(1, count);
+  const processBuffer = Math.min(Math.max(1, Math.ceil(target / 3)), 3);
+  const maxLeads = target + processBuffer;
+  return {
+    maxLeads,
+    discoveryRequest: Math.min(maxLeads + 1, MAX_DISCOVERY_REQUEST),
+    maxRounds: target <= 5 ? 1 : MAX_DISCOVERY_ROUNDS,
+  };
+}
+
+/** @deprecated Préférer resolveSourcingScale().maxLeads */
+export function resolveMaxLeadsToProcess(count: number, _catalogue?: boolean): number {
+  return resolveSourcingScale(count).maxLeads;
+}
+
+/** @deprecated Préférer resolveSourcingScale().discoveryRequest */
+export function resolveDiscoveryRequestCount(count: number, _overfetchFactor?: number): number {
+  return resolveSourcingScale(count).discoveryRequest;
+}
+
+export function resolveMaxDiscoveryRounds(count: number): number {
+  return resolveSourcingScale(count).maxRounds;
+}

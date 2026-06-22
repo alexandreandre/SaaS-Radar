@@ -7,10 +7,11 @@ interface ScoreCircleProps {
   max: number;
   size: number;
   label: string;
+  tooltip?: string;
   delay?: number;
 }
 
-export function ScoreCircle({ value, max, size, label, delay = 0 }: ScoreCircleProps) {
+export function ScoreCircle({ value, max, size, label, tooltip, delay = 0 }: ScoreCircleProps) {
   return (
     <ScoreGauge
       label={label}
@@ -18,6 +19,7 @@ export function ScoreCircle({ value, max, size, label, delay = 0 }: ScoreCircleP
       max={max}
       diameter={size}
       delay={delay}
+      tooltip={tooltip}
       showMax={max === 100}
     />
   );

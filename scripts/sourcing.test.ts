@@ -7,7 +7,8 @@ import assert from "node:assert/strict";
 import { z } from "zod";
 
 import { slugify, safeBaseSlug, getMinScore, meetsScoreGate, computeFactsScore, computeHybridOpportunityScore, normalizeLead } from "../src/lib/sourcing/assemble";
-import { passesUrlGate } from "../src/lib/sourcing/verify-sources";
+import { passesUrlGate, pruneTractionSignals, passesTractionGate } from "../src/lib/sourcing/verify-sources";
+import { passesFactCheckGate } from "../src/lib/sourcing/verify-facts";
 import { hasBlockingDedup } from "../src/lib/admin/sourcing-dedup.shared";
 import { matchesCountryQuery, enrichCountry, buildSearchableCountries } from "../src/lib/sourcing/country-search";
 import { getSourcingCountryCatalog } from "../src/data/sourcing-country-catalog";
@@ -18,6 +19,7 @@ import {
   assessTractionQuality,
   classifySignal,
   detectCountryMismatch,
+  needsTractionEnrichment,
   slotSignalsByCategory,
 } from "../src/lib/sourcing/traction-quality";
 import { mergeTractionSignals } from "../src/lib/sourcing/enrich-traction";
@@ -112,14 +114,17 @@ test("computeHybridOpportunityScore pondère faits et Gemini", () => {
   assert.ok(score >= 70 && score <= 100);
 });
 
-test("passesUrlGate rejette si aucune URL valide", () => {
+test("passesUrlGate exige URL produit joignable et cross-check OK", () => {
   assert.equal(
     passesUrlGate({
       verified: false,
       invalidUrls: ["https://x.com"],
+      validUrls: [],
       validCount: 0,
       totalCount: 1,
       verificationLevel: "none",
+      productUrlValid: false,
+      productCrossCheckOk: false,
     }),
     false
   );
@@ -127,10 +132,112 @@ test("passesUrlGate rejette si aucune URL valide", () => {
     passesUrlGate({
       verified: true,
       invalidUrls: [],
-      validCount: 2,
-      totalCount: 2,
+      validUrls: ["https://product.com"],
+      validCount: 1,
+      totalCount: 1,
       verificationLevel: "full",
+      productUrlValid: true,
+      productCrossCheckOk: true,
     }),
+    true
+  );
+  assert.equal(
+    passesUrlGate({
+      verified: true,
+      invalidUrls: [],
+      validUrls: ["https://product.com"],
+      validCount: 1,
+      totalCount: 1,
+      verificationLevel: "full",
+      productUrlValid: true,
+      productCrossCheckOk: false,
+    }),
+    false
+  );
+});
+
+test("pruneTractionSignals retire les sources mortes", () => {
+  const lead = sampleLead({
+    url: "https://product.com",
+    tractionSignals: [
+      {
+        label: "MRR estimé",
+        value: "$18k",
+        source: "GetLatka",
+        sourceUrl: "https://getlatka.com/acme",
+        kind: "metric",
+      },
+      {
+        label: "Blog mort",
+        value: "mention",
+        source: "Blog",
+        sourceUrl: "https://dead.example/blog",
+        kind: "narrative",
+      },
+    ],
+  });
+  const pruned = pruneTractionSignals(lead, ["https://product.com", "https://getlatka.com/acme"]);
+  assert.equal(pruned.tractionSignals.length, 1);
+  assert.equal(pruned.tractionSignals[0]?.sourceUrl, "https://getlatka.com/acme");
+});
+
+test("passesTractionGate exige signaux sourcés et catégories", () => {
+  const weak = sampleLead({
+    url: "https://product.com",
+    tractionSignals: [
+      {
+        label: "MRR estimé",
+        value: "$18k",
+        source: "GetLatka",
+        sourceUrl: "https://getlatka.com/acme",
+        kind: "metric",
+      },
+    ],
+  });
+  assert.equal(passesTractionGate(weak).ok, false);
+
+  const strong = sampleLead({
+    url: "https://product.com",
+    foreignInspiration: "Deadline Reminder (Royaume-Uni) — rappels fiscaux",
+    tractionSignals: [
+      {
+        label: "MRR estimé",
+        value: "$18k",
+        source: "GetLatka",
+        sourceUrl: "https://getlatka.com/acme",
+        kind: "metric",
+      },
+      {
+        label: "Mentions Reddit",
+        value: "47",
+        source: "Reddit",
+        sourceUrl: "https://reddit.com/r/saas",
+        kind: "metric",
+      },
+    ],
+  });
+  assert.equal(passesTractionGate(strong).ok, true);
+});
+
+test("passesFactCheckGate rejette produit non confirmé, confiance basse ou pays incohérent", () => {
+  assert.equal(passesFactCheckGate({ confirmed: false, confidence: "high", tractionVerified: true }).ok, false);
+  assert.equal(passesFactCheckGate({ confirmed: true, confidence: "low", tractionVerified: true }).ok, false);
+  assert.equal(
+    passesFactCheckGate({
+      confirmed: true,
+      confidence: "medium",
+      tractionVerified: true,
+      countryConsistent: false,
+    }).ok,
+    false
+  );
+  assert.equal(
+    passesFactCheckGate({
+      confirmed: true,
+      confidence: "high",
+      tractionVerified: true,
+      countryConsistent: true,
+    }).ok,
     true
   );
 });
@@ -162,6 +269,83 @@ test("catalog ISO complet — france trouvable même si markets partiel", () => 
   );
 });
 
+test("resolveSourcingScale croît linéairement avec count", () => {
+  assert.deepEqual(resolveSourcingScale(1), {
+    maxLeads: 2,
+    discoveryRequest: 3,
+    maxRounds: 1,
+  });
+  assert.deepEqual(resolveSourcingScale(3), {
+    maxLeads: 4,
+    discoveryRequest: 5,
+    maxRounds: 1,
+  });
+  assert.equal(resolveSourcingScale(10).maxLeads, 13);
+  assert.equal(resolveSourcingScale(10).maxRounds, 2);
+});
+
+test("inferFactVerificationFromSources évite un appel Sonar si URLs et traction OK", () => {
+  const sourceCheck = {
+    verified: true,
+    invalidUrls: [],
+    validUrls: ["https://product.com", "https://getlatka.com/acme"],
+    validCount: 2,
+    totalCount: 2,
+    verificationLevel: "full" as const,
+    productUrlValid: true,
+    productCrossCheckOk: true,
+  };
+  const lead = sampleLead({
+    url: "https://product.com",
+    foreignInspiration: "Deadline Reminder (Royaume-Uni) — rappels fiscaux",
+    tractionSignals: [
+      {
+        label: "MRR estimé",
+        value: "$18k",
+        source: "GetLatka",
+        sourceUrl: "https://getlatka.com/acme",
+        kind: "metric",
+      },
+      {
+        label: "Mentions Reddit",
+        value: "47",
+        source: "Reddit",
+        sourceUrl: "https://reddit.com/r/saas",
+        kind: "metric",
+      },
+    ],
+  });
+  const inferred = inferFactVerificationFromSources(lead, sourceCheck);
+  assert.equal(inferred?.confidence, "high");
+  assert.equal(inferred?.confirmed, true);
+});
+
+test("needsTractionEnrichment ignore une catégorie manquante si le minimum est couvert", () => {
+  const report = assessTractionQuality(
+    sampleLead({
+      url: "https://product.com",
+      foreignInspiration: "Deadline Reminder (Royaume-Uni) — rappels fiscaux",
+      tractionSignals: [
+        {
+          label: "MRR estimé",
+          value: "$18k",
+          source: "GetLatka",
+          sourceUrl: "https://getlatka.com/acme",
+          kind: "metric",
+        },
+        {
+          label: "Mentions Reddit",
+          value: "47",
+          source: "Reddit",
+          sourceUrl: "https://reddit.com/r/saas",
+          kind: "metric",
+        },
+      ],
+    })
+  );
+  assert.equal(needsTractionEnrichment(report), false);
+});
+
 test("isCatalogueProfile détecte le profil catalogue via option ou config", () => {
   assert.equal(isCatalogueProfile({ pipelineProfile: "catalogue" }), true);
   assert.equal(isCatalogueProfile({ config: { pipelineProfile: "catalogue" } }), true);
@@ -177,6 +361,7 @@ test("mergeFavoriteSlugs déduplique et préserve l'ordre", () => {
 const sampleLead = (overrides: Partial<FactualLead> = {}): FactualLead => ({
   name: "Deadline Reminder",
   pitch: "Rappels fiscaux pour freelancers",
+  url: "https://deadlinereminder.example",
   originCountry: "Royaume-Uni",
   originCountryCode: "GB",
   originFlag: "🇬🇧",
@@ -252,7 +437,8 @@ import {
   normalizeAcquisitionTitle,
   normalizeAcquisitionTabs,
 } from "../src/lib/acquisition-channels";
-import { CANONICAL_CAC } from "../src/lib/sourcing/constants";
+import { CANONICAL_CAC, resolveSourcingScale } from "../src/lib/sourcing/constants";
+import { inferFactVerificationFromSources } from "../src/lib/sourcing/verify-facts";
 
 test("normalizeAcquisitionTitle aligne les titres sur les canaux CAC canoniques", () => {
   assert.equal(normalizeAcquisitionTitle("Cold Email"), "Cold email");

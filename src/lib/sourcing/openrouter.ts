@@ -12,7 +12,7 @@ function baseHeaders(): Record<string, string> {
   return {
     Authorization: `Bearer ${getApiKey()}`,
     "Content-Type": "application/json",
-    "X-Title": "SaaS-Radar Sourcing",
+    "X-Title": "The Build Road Sourcing",
   };
 }
 

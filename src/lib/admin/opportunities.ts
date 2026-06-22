@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCatalogueStats } from "@/lib/admin/catalogue-stats";
+import { resolvePublishedArchivedDuplicates } from "@/lib/admin/catalogue-dedup";
 
 const LIST_COLUMNS =
   "slug, name, sector, origin_country_code, origin_flag, status, weekly_pick, created_at, published_at, buildable_under_30_days, ai_powered, scores";
@@ -31,7 +32,11 @@ export type AdminOpportunitiesListResult = {
 export async function listAdminOpportunities(
   params: AdminOpportunitiesListParams = {}
 ): Promise<AdminOpportunitiesListResult> {
-  const status = params.status ?? "published";
+  await resolvePublishedArchivedDuplicates();
+
+  const rawStatus = params.status ?? "published";
+  const status =
+    rawStatus === "archived" ? "archived" : rawStatus === "draft" ? "draft" : "published";
   const q = params.q?.trim();
   const sector = params.sector ?? null;
   const country = params.country ?? null;
@@ -70,10 +75,17 @@ export async function listAdminOpportunities(
 
   const { data, error, count } = await query.range(offset, offset + limit - 1);
   if (error) throw new Error(error.message);
-  const opportunities = (data ?? []) as Record<string, unknown>[];
+  const allRows = (data ?? []) as Record<string, unknown>[];
+  const opportunities = allRows.filter(
+    (row) => String(row.status ?? "published") === status
+  );
+  const total =
+    opportunities.length === allRows.length
+      ? (count ?? opportunities.length)
+      : opportunities.length;
   return {
     opportunities,
-    total: count ?? opportunities.length,
+    total,
     limit,
     offset,
     truncated: (count ?? 0) > offset + opportunities.length,

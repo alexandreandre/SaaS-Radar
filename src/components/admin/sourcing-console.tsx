@@ -2,8 +2,16 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ExternalLink, Loader2 } from "lucide-react";
+import { ChevronDown, ExternalLink, Loader2, Octagon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { SECTORS } from "@/lib/sourcing/constants";
 import { AdminPageHeader, AdminTable, KpiCard } from "@/components/admin/admin-ui";
 import { sectorLabels } from "@/data/opportunities";
@@ -15,13 +23,18 @@ import {
 import {
   getRunStatusMeta,
   isRunActive,
+  isRunCancelling,
+  isRunTrackableAsActive,
+  runProgressLabel,
   runProgressPct,
+  runWrittenDisplay,
 } from "@/lib/admin/sourcing-run-status";
 import {
   launchSourcingAction,
   processSourcingQueueAction,
   relaunchSourcingRunAction,
   resumeQueuedRunsAction,
+  stopSourcingAction,
 } from "@/lib/admin/sourcing-actions";
 import { canEditAdmin } from "@/lib/admin/rbac";
 import { useAdminRole } from "@/contexts/admin-role-context";
@@ -35,6 +48,7 @@ type Run = {
   started_at: string;
   finished_at?: string | null;
   status: string;
+  error?: string | null;
   count_requested: number;
   count_discovered?: number | null;
   count_structured?: number | null;
@@ -46,6 +60,7 @@ type Run = {
   cost_usd: number | null;
   skipped: { name: string; reason: string }[];
   events: { type?: string; message?: string; name?: string; reason?: string }[];
+  config?: Record<string, unknown> | null;
 };
 
 type Summary = {
@@ -139,33 +154,49 @@ function syncActiveRunsFromList(
   setActiveRunIds: (ids: string[]) => void,
   setActiveRunsMap: (map: Record<string, Run>) => void
 ) {
-  const active = allRuns.filter((r) => isRunActive(r.status));
+  const active = allRuns.filter((r) => isRunTrackableAsActive(r));
   setActiveRunIds(active.map((r) => r.id));
   setActiveRunsMap(Object.fromEntries(active.map((r) => [r.id, r])));
+}
+
+function pruneCancellingRunIds(allRuns: Run[], cancellingIds: string[]): string[] {
+  return cancellingIds.filter((id) => {
+    const run = allRuns.find((r) => r.id === id);
+    if (!run) return true;
+    return isRunActive(run.status);
+  });
 }
 
 /** Fusionne les runs actifs API avec les IDs lancés côté client (pas encore visibles en liste). */
 function mergeActiveRuns(
   prevIds: string[],
   allRuns: Run[],
-  activeFromApi: Run[]
+  activeFromApi: Run[],
+  cancellingIds: string[]
 ): { ids: string[]; map: Record<string, Run> } {
+  const cancelling = new Set(cancellingIds);
+  const isTrackable = (run: Run) =>
+    isRunTrackableAsActive(run) && !cancelling.has(run.id);
+
   const fromApi =
     activeFromApi.length > 0
-      ? activeFromApi
-      : allRuns.filter((r) => isRunActive(r.status));
-  const pendingLaunch = prevIds.filter((id) => !allRuns.some((r) => r.id === id));
+      ? activeFromApi.filter(isTrackable)
+      : allRuns.filter(isTrackable);
+  const pendingLaunch = prevIds.filter(
+    (id) => !allRuns.some((r) => r.id === id) && !cancelling.has(id)
+  );
   const ids = Array.from(new Set([...pendingLaunch, ...fromApi.map((r) => r.id)]));
-  const map = Object.fromEntries(fromApi.map((r) => [r.id, r]));
-  for (const id of pendingLaunch) {
-    const run = allRuns.find((r) => r.id === id);
-    if (run) map[id] = run;
+
+  const map: Record<string, Run> = {};
+  for (const id of ids) {
+    const fresh = allRuns.find((r) => r.id === id) ?? fromApi.find((r) => r.id === id);
+    if (fresh) map[id] = fresh;
   }
   return { ids, map };
 }
 
-function RunStatusBadge({ status }: { status: string }) {
-  const meta = getRunStatusMeta(status);
+function RunStatusBadge({ status, error }: { status: string; error?: string | null }) {
+  const meta = getRunStatusMeta(status, { error });
   return (
     <span className={cn("rounded px-1.5 py-0.5 text-xs font-medium", meta.className)}>
       {meta.label}
@@ -239,8 +270,12 @@ export function SourcingConsole({
   const [loading, setLoading] = useState(false);
   const [queueProcessing, setQueueProcessing] = useState(false);
   const [relaunchingRunId, setRelaunchingRunId] = useState<string | null>(null);
+  const [stopDialogOpen, setStopDialogOpen] = useState(false);
+  const [stopping, setStopping] = useState(false);
+  const [cancellingRunIds, setCancellingRunIds] = useState<string[]>([]);
   const resumedQueuedRef = useRef(false);
   const activeRunIdsRef = useRef<string[]>([]);
+  const cancellingRunIdsRef = useRef<string[]>([]);
 
   const [launchFeedback, setLaunchFeedback] = useState<string | null>(null);
   const [launchError, setLaunchError] = useState<string | null>(null);
@@ -259,6 +294,40 @@ export function SourcingConsole({
   );
   const [policySaving, setPolicySaving] = useState(false);
 
+  const loadActiveRuns = useCallback(async () => {
+    try {
+      const [runsRes, summaryRes] = await Promise.all([
+        adminFetchJson("/api/admin/sourcing"),
+        adminFetchJson("/api/admin/sourcing/summary"),
+      ]);
+      const runsJson = runsRes.data as Record<string, unknown>;
+      const summaryJson = summaryRes.data as Summary;
+
+      if (runsRes.ok) {
+        const allRuns = (runsJson.runs ?? []) as Run[];
+        setRuns(allRuns);
+        const activeFromApi = (runsJson.activeRuns ?? []) as Run[];
+        const { ids, map } = mergeActiveRuns(
+          activeRunIdsRef.current,
+          allRuns,
+          activeFromApi,
+          cancellingRunIdsRef.current
+        );
+        activeRunIdsRef.current = ids;
+        setActiveRunIds(ids);
+        setActiveRunsMap(map);
+        setCancellingRunIds((prev) => {
+          const next = pruneCancellingRunIds(allRuns, prev);
+          cancellingRunIdsRef.current = next;
+          return next;
+        });
+      }
+      if (summaryRes.ok) setSummary(summaryJson);
+    } catch {
+      // polling silencieux
+    }
+  }, []);
+
   const load = useCallback(async () => {
     try {
       const [runsRes, policyRes, marketsRes, summaryRes] = await Promise.all([
@@ -276,10 +345,20 @@ export function SourcingConsole({
         const allRuns = (runsJson.runs ?? []) as Run[];
         setRuns(allRuns);
         const activeFromApi = (runsJson.activeRuns ?? []) as Run[];
-        const { ids, map } = mergeActiveRuns(activeRunIdsRef.current, allRuns, activeFromApi);
+        const { ids, map } = mergeActiveRuns(
+          activeRunIdsRef.current,
+          allRuns,
+          activeFromApi,
+          cancellingRunIdsRef.current
+        );
         activeRunIdsRef.current = ids;
         setActiveRunIds(ids);
         setActiveRunsMap(map);
+        setCancellingRunIds((prev) => {
+          const next = pruneCancellingRunIds(allRuns, prev);
+          cancellingRunIdsRef.current = next;
+          return next;
+        });
       }
       if (marketsRes.ok) {
         setMarkets(
@@ -311,29 +390,43 @@ export function SourcingConsole({
     void load();
   }, [load]);
 
+  const hasActiveRuns = activeRunIds.length > 0;
+  const hasCancellingRuns = cancellingRunIds.length > 0;
+  const isSourcingBusy = hasActiveRuns || hasCancellingRuns;
+
   // Reprendre les runs en file au retour sur la page
   useEffect(() => {
-    if (!canEdit || initialLoading || resumedQueuedRef.current) return;
-    const queuedIds = runs.filter((r) => r.status === "queued").map((r) => r.id);
+    if (!canEdit || initialLoading || resumedQueuedRef.current || hasCancellingRuns) return;
+    const queuedIds = runs
+      .filter(
+        (r) =>
+          r.status === "queued" &&
+          !isRunCancelling(r.config) &&
+          !cancellingRunIdsRef.current.includes(r.id)
+      )
+      .map((r) => r.id);
     if (queuedIds.length === 0) return;
     resumedQueuedRef.current = true;
     void resumeQueuedRunsAction(queuedIds);
-  }, [canEdit, initialLoading, runs]);
-
-  const hasActiveRuns = activeRunIds.length > 0;
+  }, [canEdit, initialLoading, runs, hasCancellingRuns]);
 
   useEffect(() => {
     activeRunIdsRef.current = activeRunIds;
   }, [activeRunIds]);
 
   useEffect(() => {
-    if (!hasActiveRuns) return;
-    const interval = setInterval(() => void load(), 4000);
-    return () => clearInterval(interval);
-  }, [hasActiveRuns, load]);
+    cancellingRunIdsRef.current = cancellingRunIds;
+  }, [cancellingRunIds]);
 
   useEffect(() => {
-    if (activeRunIds.length === 0) return;
+    if (!isSourcingBusy) return;
+    void loadActiveRuns();
+    const interval = setInterval(() => void loadActiveRuns(), 2000);
+    return () => clearInterval(interval);
+  }, [isSourcingBusy, loadActiveRuns]);
+
+  useEffect(() => {
+    if (activeRunIds.length === 0 || hasCancellingRuns) return;
 
     const trackedRuns = activeRunIds
       .map((id) => runs.find((r) => r.id === id))
@@ -348,15 +441,46 @@ export function SourcingConsole({
     const written = trackedRuns.reduce((s, r) => s + (r.count_written ?? 0), 0);
     setLaunchFeedback(`${written} fiche(s) publiée(s) dans le catalogue`);
     syncActiveRunsFromList(runs, setActiveRunIds, setActiveRunsMap);
-    activeRunIdsRef.current = runs.filter((r) => isRunActive(r.status)).map((r) => r.id);
-  }, [runs, activeRunIds]);
+    activeRunIdsRef.current = runs.filter((r) => isRunTrackableAsActive(r)).map((r) => r.id);
+  }, [runs, activeRunIds, hasCancellingRuns]);
+
+  useEffect(() => {
+    if (cancellingRunIds.length === 0) return;
+
+    const trackedRuns = cancellingRunIds
+      .map((id) => runs.find((r) => r.id === id))
+      .filter(Boolean) as Run[];
+
+    if (trackedRuns.length < cancellingRunIds.length) return;
+
+    const stillActive = trackedRuns.some((r) => isRunActive(r.status));
+    if (stillActive) return;
+
+    const written = trackedRuns.reduce((s, r) => s + (r.count_written ?? 0), 0);
+    const cancelledCount = trackedRuns.length;
+    setLaunchFeedback(
+      `${cancelledCount} run(s) arrêté(s) — ${written} fiche(s) publiée(s) au total`
+    );
+    setCancellingRunIds([]);
+    cancellingRunIdsRef.current = [];
+  }, [runs, cancellingRunIds]);
 
   const activeRunsList = useMemo(
     () =>
       activeRunIds
-        .map((id) => activeRunsMap[id] ?? runs.find((r) => r.id === id))
+        .map((id) => runs.find((r) => r.id === id) ?? activeRunsMap[id])
         .filter(Boolean) as Run[],
     [activeRunIds, activeRunsMap, runs]
+  );
+
+  const activeWrittenTotal = useMemo(
+    () => activeRunsList.reduce((sum, run) => sum + (run.count_written ?? 0), 0),
+    [activeRunsList]
+  );
+
+  const activeRequestedTotal = useMemo(
+    () => activeRunsList.reduce((sum, run) => sum + (run.count_requested ?? 0), 0),
+    [activeRunsList]
   );
 
   const policySummary = useMemo(() => {
@@ -414,8 +538,66 @@ export function SourcingConsole({
     }
   }, [canEdit, load]);
 
+  const cancellingRunsList = useMemo(
+    () =>
+      cancellingRunIds
+        .map((id) => runs.find((r) => r.id === id))
+        .filter(Boolean) as Run[],
+    [cancellingRunIds, runs]
+  );
+
+  const confirmStop = async (keepWritten: boolean) => {
+    if (!canEdit || activeRunIds.length === 0) return;
+    const runIdsToStop = [...activeRunIds];
+
+    setStopping(true);
+    setLaunchError(null);
+    setLaunchFeedback(null);
+    setStopDialogOpen(false);
+    setCancellingRunIds((prev) => {
+      const next = Array.from(new Set([...prev, ...runIdsToStop]));
+      cancellingRunIdsRef.current = next;
+      return next;
+    });
+    setActiveRunIds([]);
+    activeRunIdsRef.current = [];
+
+    try {
+      const { stopped, deletedOpportunities } = await stopSourcingAction({
+        runIds: runIdsToStop,
+        keepWritten,
+      });
+      if (stopped === 0) {
+        throw new Error("Aucun run actif n'a pu être arrêté");
+      }
+      if (keepWritten) {
+        setLaunchFeedback(
+          `${stopped} run(s) en cours d'arrêt — les fiches déjà publiées seront conservées`
+        );
+      } else {
+        setLaunchFeedback(
+          deletedOpportunities > 0
+            ? `${stopped} run(s) en cours d'arrêt — ${deletedOpportunities} fiche(s) seront supprimées`
+            : `${stopped} run(s) en cours d'arrêt`
+        );
+      }
+      void load();
+    } catch (err) {
+      setCancellingRunIds((prev) => {
+        const next = prev.filter((id) => !runIdsToStop.includes(id));
+        cancellingRunIdsRef.current = next;
+        return next;
+      });
+      setActiveRunIds(runIdsToStop);
+      activeRunIdsRef.current = runIdsToStop;
+      setLaunchError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setStopping(false);
+    }
+  };
+
   const relaunchRun = async (run: Run) => {
-    if (!canEdit || hasActiveRuns) return;
+    if (!canEdit || isSourcingBusy) return;
     if (!run.origin_country_code) {
       setLaunchError("Relance impossible : pays d'origine manquant sur ce run");
       return;
@@ -533,7 +715,7 @@ export function SourcingConsole({
               Cron & worker
               <ExternalLink className="size-3" />
             </Link>
-            {canEdit && !hasActiveRuns && (summary?.queuedRunsCount ?? 0) > 0 && (
+            {canEdit && !isSourcingBusy && (summary?.queuedRunsCount ?? 0) > 0 && (
               <Button variant="outline" size="sm" disabled={queueProcessing} onClick={() => void processQueue()}>
                 {queueProcessing ? "Traitement…" : "Traiter la file"}
               </Button>
@@ -547,6 +729,21 @@ export function SourcingConsole({
 
       {loadError && <p className="text-sm text-red-600">{loadError}</p>}
 
+      {hasCancellingRuns && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-orange-500/30 bg-orange-500/5 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <Loader2 className="size-4 shrink-0 animate-spin text-orange-600" />
+            <p className="text-sm text-orange-900">
+              {cancellingRunsList.length || cancellingRunIds.length} run(s) en cours d&apos;arrêt —
+              interruption dès la prochaine étape du pipeline.
+            </p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => void load()}>
+            Actualiser
+          </Button>
+        </div>
+      )}
+
       {hasActiveRuns && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-500/30 bg-blue-500/5 px-4 py-3">
           <div className="flex items-center gap-2">
@@ -556,13 +753,61 @@ export function SourcingConsole({
               quittez cette page.
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => void load()}>
-            Actualiser
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {canEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={stopping}
+                className="border-red-500/40 text-red-700 hover:bg-red-500/10"
+                onClick={() => setStopDialogOpen(true)}
+              >
+                <Octagon className="mr-1.5 size-3.5" />
+                {stopping ? "Arrêt…" : "Arrêter"}
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={() => void load()}>
+              Actualiser
+            </Button>
+          </div>
         </div>
       )}
 
-      {canEdit && !hasActiveRuns && (summary?.queuedRunsCount ?? 0) > 0 && (
+      <Dialog open={stopDialogOpen} onOpenChange={setStopDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Arrêter le sourcing en cours ?</DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-2 pt-1">
+                <p>
+                  {activeRunsList.length} run(s) seront interrompus ({activeWrittenTotal}/
+                  {activeRequestedTotal} fiche(s) déjà publiée(s)).
+                </p>
+                <p>Les runs en file seront annulés immédiatement. Le run en cours s&apos;arrêtera
+                  dès la prochaine étape.</p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" disabled={stopping} onClick={() => setStopDialogOpen(false)}>
+              Continuer le sourcing
+            </Button>
+            <Button
+              variant="outline"
+              disabled={stopping}
+              className="border-red-500/40 text-red-700 hover:bg-red-500/10"
+              onClick={() => void confirmStop(false)}
+            >
+              Arrêter et supprimer
+            </Button>
+            <Button disabled={stopping} onClick={() => void confirmStop(true)}>
+              Arrêter et garder
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {canEdit && !isSourcingBusy && (summary?.queuedRunsCount ?? 0) > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
           <p className="text-sm text-amber-900">
             {summary?.queuedRunsCount} run(s) en file — lancement du traitement…
@@ -669,9 +914,9 @@ export function SourcingConsole({
           <div className="flex items-end">
             <Button
               onClick={() => void launch()}
-              disabled={!canEdit || loading || hasActiveRuns}
+              disabled={!canEdit || loading || isSourcingBusy}
             >
-              {loading || hasActiveRuns ? "En cours…" : "Lancer"}
+              {loading || isSourcingBusy ? "En cours…" : "Lancer"}
             </Button>
           </div>
         </div>
@@ -688,30 +933,35 @@ export function SourcingConsole({
               ? "Aucun pays — sélectionnez au moins un pays pour lancer"
               : `${selectedCountries.length} pays — jusqu'à ${selectedCountries.length * count} fiche(s)`
           }
-          disabled={!canEdit || loading || hasActiveRuns}
+          disabled={!canEdit || loading || isSourcingBusy}
         />
 
-        {activeRunsList.length > 0 && (
+        {(activeRunsList.length > 0 || cancellingRunsList.length > 0) && (
           <div className="mt-4 space-y-3">
             <p className="text-xs font-medium uppercase text-muted-foreground">
-              Runs en cours
+              {hasCancellingRuns && !hasActiveRuns ? "Runs en arrêt" : "Runs en cours"}
             </p>
-            {activeRunsList.map((run) => {
+            {[...activeRunsList, ...cancellingRunsList.filter((r) => !activeRunsList.some((a) => a.id === r.id))].map((run) => {
               const pct = runProgressPct(run);
-              const meta = getRunStatusMeta(run.status);
+              const cancelling = isRunCancelling(run.config) || cancellingRunIds.includes(run.id);
+              const meta = cancelling
+                ? { label: "Arrêt en cours", className: "bg-orange-500/10 text-orange-700" }
+                : getRunStatusMeta(run.status, { error: run.error });
+              const progressLabel = cancelling ? "Interruption en cours…" : runProgressLabel(run);
               return (
                 <div key={run.id}>
-                  <div className="mb-1 flex justify-between text-xs">
+                  <div className="mb-1 flex justify-between gap-2 text-xs">
                     <span>
                       {run.origin_country_code ?? "?"} — {meta.label}
                     </span>
-                    <span>
-                      {run.count_written}/{run.count_requested}
-                    </span>
+                    <span className="shrink-0 text-right text-muted-foreground">{progressLabel}</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-border">
                     <div
-                      className="h-full rounded-full bg-primary transition-all duration-500"
+                      className={cn(
+                        "h-full rounded-full transition-all duration-700 ease-out",
+                        cancelling ? "bg-orange-500" : "bg-primary"
+                      )}
                       style={{ width: `${pct}%` }}
                     />
                   </div>
@@ -746,10 +996,17 @@ export function SourcingConsole({
                   {run.origin_country_code ?? "—"}
                 </td>
                 <td className="px-3 py-2">
-                  <RunStatusBadge status={run.status} />
+                  <RunStatusBadge status={run.status} error={run.error} />
                 </td>
                 <td className="px-3 py-2 tabular-nums">{run.count_requested}</td>
-                <td className="px-3 py-2 tabular-nums">{run.count_written}</td>
+                <td className="px-3 py-2 tabular-nums">
+                  {runWrittenDisplay(run)}
+                  {(run.count_written ?? 0) > (run.count_requested || 0) && (
+                    <span className="ml-1 text-[10px] text-amber-600" title="Quota dépassé — sera corrigé au prochain rafraîchissement">
+                      (+{(run.count_written ?? 0) - (run.count_requested || 0)})
+                    </span>
+                  )}
+                </td>
                 <td className="px-3 py-2 text-xs">
                   <RunCostCell run={run} />
                 </td>
@@ -760,14 +1017,14 @@ export function SourcingConsole({
                       variant="outline"
                       disabled={
                         !canEdit ||
-                        hasActiveRuns ||
+                        isSourcingBusy ||
                         relaunchingRunId === run.id ||
                         !run.origin_country_code
                       }
                       title={
                         !run.origin_country_code
                           ? "Pays d'origine manquant"
-                          : hasActiveRuns
+                          : isSourcingBusy
                             ? "Un run est déjà en cours"
                             : "Relancer avec les mêmes paramètres"
                       }

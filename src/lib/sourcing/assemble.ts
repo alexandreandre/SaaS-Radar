@@ -1,11 +1,25 @@
 import { randomUUID } from "crypto";
 import { resolveSignalKind, sortTractionSignals } from "../traction-signals";
 import type { Opportunity } from "@/types/opportunity";
-import { CANONICAL_CAC, CANONICAL_STACK, SCORE_WEIGHTS } from "./constants";
+import { CANONICAL_CAC, CANONICAL_STACK } from "./constants";
 import { normalizeAcquisitionTabs } from "@/lib/acquisition-channels";
 import type { AnalyticalData, FactualLead } from "./schema";
 import { normalizeWhyItWorks } from "@/types/opportunity";
 import { detectCountryMismatch } from "./traction-quality";
+import {
+  buildOpportunityScores,
+  type ScoreFactsContext,
+} from "@/lib/scoring/compute";
+
+export {
+  computeFactsScore,
+  computeGeminiWeightedScore,
+  computeHybridOpportunityScore,
+  type ScoreFactsContext,
+} from "@/lib/scoring/compute";
+
+/** @deprecated Utiliser computeGeminiWeightedScore — alias rétrocompat tests. */
+export { computeGeminiWeightedScore as computeOpportunityScore } from "@/lib/scoring/compute";
 
 /** Normalise un nom en slug kebab-case. */
 export function slugify(input: string): string {
@@ -50,25 +64,6 @@ export function resolveSlug(
   return base;
 }
 
-/** Calcule scores.opportunity (0-100) par moyenne pondérée déterministe des 4 sous-scores. */
-export function computeOpportunityScore(sub: AnalyticalData["subScores"]): number {
-  const weighted =
-    sub.franceFit * SCORE_WEIGHTS.franceFit +
-    sub.competitionGap * SCORE_WEIGHTS.competitionGap +
-    sub.margin * SCORE_WEIGHTS.margin +
-    sub.buildability * SCORE_WEIGHTS.buildability;
-  return Math.round(weighted * 10);
-}
-
-export type ScoreFactsContext = {
-  sourceVerified: boolean;
-  factConfidence?: "low" | "medium" | "high" | null;
-  tractionCount: number;
-  tractionCategoriesCovered?: number;
-  techComplexity?: string;
-  franceCompetition?: string;
-};
-
 type FactualTractionSignal = FactualLead["tractionSignals"][number];
 
 function dedupeTractionSignals(signals: FactualTractionSignal[]): FactualTractionSignal[] {
@@ -112,31 +107,6 @@ export function normalizeLead(lead: FactualLead): FactualLead {
     foreignInspiration,
     tractionSignals: sortTractionSignals(dedupeTractionSignals(lead.tractionSignals)),
   };
-}
-
-/** Score 0-100 basé sur la qualité des faits (pas le LLM). */
-export function computeFactsScore(ctx: ScoreFactsContext): number {
-  let score = 40;
-  if (ctx.sourceVerified) score += 25;
-  if (ctx.factConfidence === "high") score += 20;
-  else if (ctx.factConfidence === "medium") score += 12;
-  else if (ctx.factConfidence === "low") score += 0;
-  score += Math.min(ctx.tractionCount * 5, 15);
-  if (ctx.tractionCategoriesCovered === 3) score += 10;
-  else if (ctx.tractionCategoriesCovered === 2) score += 5;
-  if (ctx.techComplexity === "high") score -= 10;
-  if (ctx.franceCompetition === "high") score -= 8;
-  return Math.max(0, Math.min(100, Math.round(score)));
-}
-
-/** Score hybride : 60% Gemini + 40% faits vérifiables. */
-export function computeHybridOpportunityScore(
-  sub: AnalyticalData["subScores"],
-  facts: ScoreFactsContext
-): number {
-  const geminiScore = computeOpportunityScore(sub);
-  const factsScore = computeFactsScore(facts);
-  return Math.round(0.6 * geminiScore + 0.4 * factsScore);
 }
 
 /** Fusionne la stack canonique (mappable) avec les extras de Gemini, sans doublon. */
@@ -221,7 +191,23 @@ export function assembleOpportunity(
     tractionCount: lead.tractionSignals.length,
     techComplexity: analytical.techComplexity,
     franceCompetition: analytical.franceCompetition,
+    countryMismatch: detectCountryMismatch(lead),
   };
+
+  const { scores } = buildOpportunityScores({
+    rawSubScores: analytical.subScores,
+    subScoreRationales: analytical.subScoreRationales,
+    coherence: {
+      subScores: analytical.subScores,
+      franceCompetition: analytical.franceCompetition,
+      buildableUnder30Days: analytical.buildableUnder30Days,
+      techComplexity: analytical.techComplexity,
+      problemExists: analytical.franceFitCriteria.problemExists,
+      prudentMrr: Math.round(prudent.mrr),
+      optimisteMrr: Math.round(optimiste.mrr),
+    },
+    facts: factsCtx,
+  });
 
   return {
     id: randomUUID(),
@@ -243,10 +229,7 @@ export function assembleOpportunity(
     aiPowered: analytical.aiPowered,
     lowCompetition:
       analytical.franceCompetition === "none" || analytical.franceCompetition === "low",
-    scores: {
-      opportunity: computeHybridOpportunityScore(analytical.subScores, factsCtx),
-      ...analytical.subScores,
-    },
+    scores,
     franceFitCriteria: analytical.franceFitCriteria,
     tractionSignals: sortTractionSignals(lead.tractionSignals),
     whyItWorks: normalizeWhyItWorks(analytical.whyItWorks),

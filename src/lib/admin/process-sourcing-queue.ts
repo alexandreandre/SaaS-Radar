@@ -8,6 +8,11 @@ import {
   rescheduleJob,
   type QueuedJob,
 } from "@/lib/admin/sourcing-job-queue";
+import {
+  SourcingCancelledError,
+  getWrittenSlugsFromConfig,
+} from "@/lib/admin/sourcing-cancel";
+import { revalidateOpportunitiesCache } from "@/lib/admin/weekly-pick";
 
 function createAdminClient() {
   const url = getSupabaseUrl();
@@ -23,9 +28,32 @@ async function executeJob(job: QueuedJob): Promise<void> {
   const country = await assertValidCountryCode(job.country_code);
   const payload = job.payload ?? {};
 
+  const { data: existingRun } = await admin
+    .from("sourcing_runs")
+    .select("config")
+    .eq("id", job.run_id)
+    .maybeSingle();
+  const existingConfig = (existingRun?.config ?? {}) as Record<string, unknown>;
+  const mergedConfig = {
+    ...existingConfig,
+    ...(payload.config ?? {}),
+    originCountryCode: country.code,
+    batchJobId: job.id,
+  };
+  if (job.attempts <= 1) {
+    mergedConfig.written_slugs = [];
+  }
+
   await admin
     .from("sourcing_runs")
-    .update({ status: "running", started_at: new Date().toISOString() })
+    .update({
+      status: "running",
+      started_at: new Date().toISOString(),
+      count_discovered: 0,
+      count_structured: 0,
+      count_written: getWrittenSlugsFromConfig(mergedConfig).length,
+      config: mergedConfig,
+    })
     .eq("id", job.run_id);
 
   await runSourcing({
@@ -40,11 +68,7 @@ async function executeJob(job: QueuedJob): Promise<void> {
       payload.pipelineProfile ??
       (payload.config?.pipelineProfile === "catalogue" ? "catalogue" : undefined),
     persistRun: true,
-    config: {
-      ...(payload.config ?? {}),
-      originCountryCode: country.code,
-      batchJobId: job.id,
-    },
+    config: mergedConfig,
   });
 }
 
@@ -189,8 +213,16 @@ async function runJob(job: QueuedJob): Promise<void> {
   try {
     await executeJob(job);
     await completeJob(job.id, "done");
+    if ((job.payload?.mode ?? "direct") === "direct") {
+      revalidateOpportunitiesCache();
+    }
     console.log(`✓ Job ${job.id} terminé`);
   } catch (err) {
+    if (err instanceof SourcingCancelledError) {
+      await completeJob(job.id, "cancelled", err.message);
+      console.log(`⏹ Job ${job.id} annulé`);
+      return;
+    }
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`✗ Job ${job.id} : ${msg}`);
     await failJob(job, msg);

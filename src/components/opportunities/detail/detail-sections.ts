@@ -81,8 +81,8 @@ export function getWhyItWorksSources(opportunity: Opportunity): string[] {
       return src ? `${src} · ${product}` : `Benchmark · ${product}`;
     }
     return opportunity.franceAnalysis[0]
-      ? `Analyse France · SaaS Radar`
-      : `Traction ${opportunity.originCountry} · SaaS Radar`;
+      ? `Analyse France · The Build Road`
+      : `Traction ${opportunity.originCountry} · The Build Road`;
   });
 }
 

@@ -7,15 +7,22 @@ import { ScoreGauge } from "@/components/scores/score-gauge";
 import { formatCurrency } from "@/lib/utils";
 import { sectorLabels } from "@/data/opportunities";
 import { getFranceCompetitionLabel } from "@/components/opportunities/detail/detail-sections";
+import {
+  SCORE_AXIS_LABELS,
+  SCORE_AXIS_TOOLTIPS,
+  SCORE_GLOBAL_TOOLTIP,
+  SUB_SCORE_KEYS,
+} from "@/lib/scoring/rubric";
 
 export function DetailHero({ opportunity }: { opportunity: Opportunity }) {
   const sectorLabel = sectorLabels[opportunity.sector] ?? opportunity.sector;
-  const subGauges = [
-    { label: "Adapté France", value: opportunity.scores.franceFit, max: 10 },
-    { label: "Facile à créer", value: opportunity.scores.buildability, max: 10 },
-    { label: "Rentabilité", value: opportunity.scores.margin, max: 10 },
-    { label: "Peu de concurrence", value: opportunity.scores.competitionGap, max: 10 },
-  ];
+  const subGauges = SUB_SCORE_KEYS.map((key) => ({
+    key,
+    label: SCORE_AXIS_LABELS[key],
+    tooltip: SCORE_AXIS_TOOLTIPS[key],
+    value: opportunity.scores[key],
+    max: 10 as const,
+  }));
 
   return (
     <motion.header
@@ -39,14 +46,15 @@ export function DetailHero({ opportunity }: { opportunity: Opportunity }) {
       <div className="mt-8 flex flex-col items-center gap-8 lg:flex-row lg:items-center">
         <div className="flex w-full flex-row flex-wrap items-end justify-center gap-6 overflow-visible lg:flex-1 lg:justify-start">
           <ScoreGauge
-            label="Score global"
+            label={SCORE_AXIS_LABELS.opportunity}
             value={opportunity.scores.opportunity}
             max={100}
             diameter={80}
             showMax
+            tooltip={SCORE_GLOBAL_TOOLTIP}
           />
           {subGauges.map((g, i) => (
-            <ScoreGauge key={g.label} {...g} diameter={64} delay={i * 0.08} />
+            <ScoreGauge key={g.key} label={g.label} value={g.value} max={g.max} tooltip={g.tooltip} diameter={64} delay={i * 0.08} />
           ))}
         </div>
 

@@ -10,9 +10,11 @@ import { FavoriteButton } from "@/components/opportunities/favorite-button";
 import { Badge } from "@/components/ui/badge";
 import { formatCurrency } from "@/lib/utils";
 import { sectorLabels } from "@/data/opportunities";
+import { isDiscoveryPhase } from "@/lib/product-phase";
 
 export function DealOfDayCard({ opportunity }: { opportunity: Opportunity }) {
   const mounted = useMounted();
+  const discovery = isDiscoveryPhase();
   const sectorLabel = sectorLabels[opportunity.sector] ?? opportunity.sector;
 
   return (
@@ -28,7 +30,9 @@ export function DealOfDayCard({ opportunity }: { opportunity: Opportunity }) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Badge className="border-transparent bg-destructive text-destructive-foreground">Deal du jour</Badge>
           <div className="flex items-center gap-2">
-            <FavoriteButton slug={opportunity.slug} size="sm" variant="pill" stopNavigation />
+            {!discovery ? (
+              <FavoriteButton slug={opportunity.slug} size="sm" variant="pill" stopNavigation />
+            ) : null}
             <CountdownTimer variant="day" />
           </div>
         </div>

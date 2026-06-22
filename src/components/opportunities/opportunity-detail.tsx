@@ -6,6 +6,8 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import type { Opportunity } from "@/types/opportunity";
 import { sectorLabels } from "@/data/opportunities";
+import { isDiscoveryPhase } from "@/lib/product-phase";
+import { cn } from "@/lib/utils";
 import { DetailHeader } from "@/components/opportunities/detail/detail-header";
 import { DetailContent } from "@/components/opportunities/detail/detail-content";
 import { BuildOpportunityStickyCta } from "@/components/cockpit/build-opportunity-sticky";
@@ -18,12 +20,13 @@ export function OpportunityDetail({
   existingProjectId?: string | null;
 }) {
   const sector = sectorLabels[opportunity.sector] ?? opportunity.sector;
+  const discovery = isDiscoveryPhase();
 
   return (
     <>
       <Navbar />
       <main className="mx-auto max-w-6xl bg-background px-4 pb-24 text-foreground sm:px-6 md:pb-12">
-        <div className="flex items-center justify-between gap-4 pt-4">
+        <div className={cn("flex items-center justify-between gap-4", discovery ? "pt-1" : "pt-4")}>
           <Link
             href="/opportunities"
             aria-label="Retour à la liste"
