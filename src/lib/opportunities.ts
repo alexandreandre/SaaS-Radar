@@ -1,7 +1,7 @@
 import { cache } from 'react'
 import { unstable_cache } from 'next/cache'
 import { enrichOpportunity } from '@/data/opportunity-enrichment'
-import { createDataSupabaseClient } from './supabase/data'
+import { createDataSupabaseClient, isSupabaseDataConfigured } from './supabase/data'
 import { mapRowToOpportunity, mapRowToOpportunityListItem, OPPORTUNITY_LIST_SELECT } from './supabase/mappers'
 import type { OpportunityRow } from './supabase/types'
 import type { Opportunity } from '@/types/opportunity'
@@ -12,6 +12,7 @@ import type { MapCatalogOpportunity } from '@/context/map-catalog-context'
 export const OPPORTUNITIES_CACHE_TAG = 'opportunities'
 
 async function fetchOpportunityListItemsFromDb(): Promise<OpportunityListItem[]> {
+  if (!isSupabaseDataConfigured()) return []
   const supabase = createDataSupabaseClient()
   const { data, error } = await supabase
     .from('opportunities')
@@ -33,6 +34,7 @@ const getCachedOpportunityListItems = unstable_cache(
 
 /** Projection légère pour la page catalogue (cartes + filtres client). */
 export const getOpportunityListItems = cache(async (): Promise<OpportunityListItem[]> => {
+  if (!isSupabaseDataConfigured()) return []
   try {
     return await getCachedOpportunityListItems()
   } catch (err) {
@@ -48,6 +50,7 @@ export const getOpportunityListItems = cache(async (): Promise<OpportunityListIt
 })
 
 async function fetchAllOpportunitiesFromDb(): Promise<Opportunity[]> {
+  if (!isSupabaseDataConfigured()) return []
   const supabase = createDataSupabaseClient()
   const { data, error } = await supabase
     .from('opportunities')
@@ -74,6 +77,7 @@ const getCachedAllOpportunities = unstable_cache(
 
 /** Déduplication intra-requête (layout + page) + cache ISR taggé. */
 export const getAllOpportunities = cache(async (): Promise<Opportunity[]> => {
+  if (!isSupabaseDataConfigured()) return []
   try {
     return await getCachedAllOpportunities()
   } catch (err) {
@@ -89,6 +93,7 @@ export const getAllOpportunities = cache(async (): Promise<Opportunity[]> => {
 })
 
 export async function getOpportunityBySlug(slug: string): Promise<Opportunity | null> {
+  if (!isSupabaseDataConfigured()) return null
   const supabase = createDataSupabaseClient()
   const { data, error } = await supabase
     .from('opportunities')
@@ -101,6 +106,7 @@ export async function getOpportunityBySlug(slug: string): Promise<Opportunity | 
 }
 
 export const getWeeklyPick = cache(async (): Promise<Opportunity | null> => {
+  if (!isSupabaseDataConfigured()) return null
   const supabase = createDataSupabaseClient()
   const { data, error } = await supabase
     .from('opportunities')
@@ -132,6 +138,7 @@ export async function getMapCatalog(): Promise<MapCatalogOpportunity[]> {
 }
 
 export async function getOpportunitiesBySector(sector: string): Promise<Opportunity[]> {
+  if (!isSupabaseDataConfigured()) return []
   try {
     const supabase = createDataSupabaseClient()
     const { data, error } = await supabase
