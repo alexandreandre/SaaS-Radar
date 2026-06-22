@@ -140,7 +140,7 @@ function OpportunitiesFallback() {
   return (
     <>
       <Navbar />
-      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+      <main className="mx-auto max-w-6xl px-4 py-6 mobile-page-pad sm:px-6 sm:py-10">
         <p className="text-muted-foreground">Chargement des opportunités…</p>
       </main>
       <Footer />
@@ -379,10 +379,10 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
   return (
     <>
       <Navbar />
-      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+      <main className="mx-auto max-w-6xl px-4 py-6 mobile-page-pad sm:px-6 sm:py-10">
         <div id="opportunities-hero" className="mb-8">
           <p className="label-data">Opportunités</p>
-          <h1 className="mt-2 font-display text-3xl font-medium tracking-tight">
+          <h1 className="mt-2 font-display text-2xl font-medium tracking-tight sm:text-3xl">
             Trouve ton idée dès maintenant
           </h1>
           <p className="mt-2 font-data text-[10px] uppercase tracking-data text-muted-foreground">
@@ -425,7 +425,7 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
           <aside className="w-full shrink-0 lg:w-64">
             <button
               type="button"
-              className="mb-3 flex w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium lg:hidden"
+              className="mb-3 flex min-h-12 w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium lg:hidden"
               onClick={() => setMobileFiltersOpen((v) => !v)}
               aria-expanded={mobileFiltersOpen}
             >
@@ -469,14 +469,14 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
                       placeholder="Nom, client cible..."
                       value={filters.search}
                       onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value }))}
-                      className="w-full rounded-lg border border-border py-2 pl-9 pr-3 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full rounded-lg border border-border py-2.5 pl-9 pr-3 text-base focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary sm:text-sm"
                     />
                   </div>
                 </div>
                 <div>
                   <Label>Pays</Label>
                   <select
-                    className="mt-2 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                    className="mt-2 w-full rounded-lg border border-border px-3 py-2.5 text-base sm:text-sm"
                     value={filters.countryCode ?? ""}
                     onChange={(e) => setCountryFilter(e.target.value || null)}
                   >
@@ -629,7 +629,7 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
                   <div>
                     <Label>Potentiel revenu min.</Label>
                     <select
-                      className="mt-2 w-full rounded-lg border border-border px-3 py-2 text-sm"
+                      className="mt-2 w-full rounded-lg border border-border px-3 py-2.5 text-base sm:text-sm"
                       value={filters.revenueMin}
                       onChange={(e) =>
                         setFilters((f) => ({ ...f, revenueMin: Number(e.target.value) }))
@@ -663,7 +663,7 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
                 </label>
                 <select
                   id="sort-results"
-                  className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
+                  className="min-h-11 flex-1 rounded-lg border border-border bg-background px-3 py-2 text-base sm:flex-none sm:text-sm"
                   value={filters.sort}
                   onChange={(e) =>
                     setFilters((f) => ({ ...f, sort: e.target.value as SortOption }))

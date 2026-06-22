@@ -117,7 +117,7 @@ function HomeHeroBuildCta({ mapUnlocked }: { mapUnlocked: boolean }) {
         <button
           type="button"
           onClick={handleAnalyze}
-          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 sm:px-5"
+          className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 active:opacity-80 sm:h-9 sm:px-5"
         >
           Commencer
         </button>

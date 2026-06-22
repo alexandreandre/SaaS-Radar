@@ -1,13 +1,17 @@
 "use client";
 
-import { Suspense, useEffect, useMemo } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { LogOut, Rocket, Shield } from "lucide-react";
+import { createPortal } from "react-dom";
+import { LogOut, Menu, Rocket, Shield } from "lucide-react";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
+import { MobileNavDrawer } from "@/components/layout/mobile-nav-drawer";
+import { useChromeVisible } from "@/components/layout/use-chrome-visible";
 import { useOptionalPortfolio } from "@/contexts/portfolio-context";
 import { usePortfolioSummary } from "@/hooks/use-portfolio-summary";
 import { useSession } from "@/contexts/session-context";
@@ -18,15 +22,7 @@ import {
 } from "@/lib/map-routes";
 import { prefetchAllAdminRoutes } from "@/lib/admin/route-prefetch";
 import { isCockpitEnabled, isDiscoveryPhase } from "@/lib/product-phase";
-import { DiscoveryFloatingNav } from "@/components/layout/discovery-floating-nav";
-
-const allLinks = [
-  { href: MAP_EXPLORE_HREF, label: "Carte du monde", mapExplore: true },
-  { href: "/opportunities", label: "Opportunités" },
-  { href: "/newsletter", label: "Newsletter" },
-  { href: "/pricing", label: "Tarifs", discoveryHidden: true },
-  { href: "/quiz", label: "Quel SaaS pour moi ?" },
-];
+import { getFloatingNavHideAnchor, resolveNavLinks } from "@/lib/nav-links";
 
 function NavbarContent({
   dark = false,
@@ -34,7 +30,6 @@ function NavbarContent({
   explore,
 }: {
   dark?: boolean;
-  /** Hero plein écran — pas de marge sous la nav flottante */
   overlay?: boolean;
   explore?: string | null;
 }) {
@@ -51,14 +46,20 @@ function NavbarContent({
   const { isAuthenticated, isAdmin } = useSession();
   const discovery = isDiscoveryPhase();
   const cockpitOn = isCockpitEnabled(isAdmin);
+  const [mounted, setMounted] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const hideAnchorId = overlay ? null : getFloatingNavHideAnchor(pathname);
+  const chromeVisible = useChromeVisible(hideAnchorId);
+  const hideChrome = Boolean(hideAnchorId && !chromeVisible);
+  const isOpportunityDetail = /^\/opportunities\/[^/]+$/.test(pathname);
 
   const links = useMemo(
-    () =>
-      discovery
-        ? allLinks.filter((link) => !link.discoveryHidden)
-        : allLinks,
-    [discovery],
+    () => resolveNavLinks({ discovery, cockpitOn, isAdmin }),
+    [discovery, cockpitOn, isAdmin],
   );
+
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (isAdmin) {
@@ -79,32 +80,69 @@ function NavbarContent({
       : "",
   );
 
-  if (discovery) {
-    const hideAnchorId =
-      pathname === "/"
-        ? "home-hero"
-        : pathname === "/opportunities"
-          ? "opportunities-hero"
-          : null;
+  const floatingChrome = (
+    <div
+      className={cn(
+        "pointer-events-none fixed inset-x-0 top-0 z-[100] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] transition-opacity duration-300 sm:px-6",
+        hideChrome && "opacity-0",
+        dark && "text-hero-foreground",
+      )}
+      aria-hidden={hideChrome}
+    >
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+        <div className={cn("pointer-events-auto min-w-0", hideChrome && "pointer-events-none")}>
+          <BrandLogo
+            dark={dark}
+            markClassName="h-10 sm:h-11"
+            textClassName="text-base sm:text-lg"
+          />
+        </div>
+        <div
+          className={cn(
+            "pointer-events-auto flex shrink-0 items-center gap-2",
+            hideChrome && "pointer-events-none",
+          )}
+        >
+          {!isOpportunityDetail ? (
+            <Button
+              size="sm"
+              className={cn(
+                "hidden min-h-10 sm:inline-flex",
+                !dark && "shadow-sm",
+                dark &&
+                  "border-hero-foreground/20 bg-hero-foreground/10 text-hero-foreground backdrop-blur-sm hover:bg-hero-foreground/20",
+              )}
+              variant={dark ? "outline" : "default"}
+              asChild
+            >
+              <Link href="/opportunities">Opportunités</Link>
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            size="sm"
+            variant={dark ? "outline" : "ghost"}
+            className={cn("min-h-11 min-w-11 px-0 md:hidden", ghostBtnClass)}
+            aria-label="Ouvrir le menu"
+            onClick={() => setMenuOpen(true)}
+          >
+            <Menu className="size-5" aria-hidden />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 
-    return (
-      <>
-        <DiscoveryFloatingNav dark={dark} hideAnchorId={hideAnchorId} />
-        {!overlay ? <div className="h-20 shrink-0" aria-hidden /> : null}
-      </>
-    );
-  }
-
-  return (
+  const stickyHeader = (
     <header
       className={cn(
         "sticky top-0 z-50 border-b backdrop-blur-md",
-        dark ? "border-hero-foreground/10 bg-hero/85" : "border-border bg-background/85"
+        dark ? "border-hero-foreground/10 bg-hero/85" : "border-border bg-background/85",
       )}
     >
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4 sm:px-6">
         <BrandLogo dark={dark} />
-        <nav className="hidden items-center gap-7 md:flex">
+        <nav className="hidden items-center gap-7 md:flex" aria-label="Sections">
           {links.map((link) => {
             const active = link.mapExplore
               ? isMapExploreActive(pathname, explore)
@@ -121,7 +159,7 @@ function NavbarContent({
                       : "text-map-muted hover:text-hero-foreground"
                     : active
                       ? "text-foreground font-medium"
-                      : "text-muted-foreground hover:text-foreground"
+                      : "text-muted-foreground hover:text-foreground",
                 )}
               >
                 {link.label}
@@ -129,7 +167,7 @@ function NavbarContent({
             );
           })}
         </nav>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <ThemeToggle dark={dark} />
           {isAuthenticated ? (
             <>
@@ -137,7 +175,7 @@ function NavbarContent({
                 <Button
                   variant={dark ? "outline" : "ghost"}
                   size="sm"
-                  className={ghostBtnClass}
+                  className={cn("hidden min-h-10 sm:inline-flex", ghostBtnClass)}
                   asChild
                 >
                   <Link href="/admin" prefetch>
@@ -150,7 +188,7 @@ function NavbarContent({
                 <Button
                   variant={dark ? "outline" : "ghost"}
                   size="sm"
-                  className={cn("relative hidden sm:inline-flex", ghostBtnClass)}
+                  className={cn("relative hidden min-h-10 sm:inline-flex", ghostBtnClass)}
                   asChild
                 >
                   <Link href="/mes-saas" prefetch>
@@ -162,7 +200,7 @@ function NavbarContent({
                   </Link>
                 </Button>
               ) : null}
-              <form action="/auth/signout" method="post">
+              <form action="/auth/signout" method="post" className="hidden sm:block">
                 <Button
                   type="submit"
                   variant={dark ? "outline" : "ghost"}
@@ -178,18 +216,59 @@ function NavbarContent({
             <Button
               variant={dark ? "outline" : "ghost"}
               size="sm"
-              className={cn("hidden sm:inline-flex", ghostBtnClass)}
+              className={cn("hidden min-h-10 sm:inline-flex", ghostBtnClass)}
               asChild
             >
               <Link href="/login">Connexion</Link>
             </Button>
           )}
-          <Button size="sm" asChild>
+          <Button size="sm" className="hidden min-h-10 md:inline-flex" asChild>
             <Link href={MAP_EXPLORE_HREF}>Explorer</Link>
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={dark ? "outline" : "ghost"}
+            className={cn("min-h-11 min-w-11 px-0 md:hidden", ghostBtnClass)}
+            aria-label="Ouvrir le menu"
+            onClick={() => setMenuOpen(true)}
+          >
+            <Menu className="size-5" aria-hidden />
           </Button>
         </div>
       </div>
     </header>
+  );
+
+  const mobileDrawer = (
+    <MobileNavDrawer
+      open={menuOpen}
+      onOpenChange={setMenuOpen}
+      explore={explore}
+      dark={dark}
+    />
+  );
+
+  const mobileBottomNav = (
+    <MobileBottomNav onOpenMenu={() => setMenuOpen(true)} explore={explore} />
+  );
+
+  if (overlay) {
+    return (
+      <>
+        {mounted ? createPortal(floatingChrome, document.body) : null}
+        {mobileDrawer}
+        {mobileBottomNav}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {stickyHeader}
+      {mobileDrawer}
+      {mobileBottomNav}
+    </>
   );
 }
 

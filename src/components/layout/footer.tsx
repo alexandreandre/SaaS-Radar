@@ -1,14 +1,13 @@
 import Link from "next/link";
 import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 import { BrandLogo } from "@/components/brand/brand-logo";
-import { MAP_EXPLORE_HREF } from "@/lib/map-routes";
-import { isDiscoveryPhase } from "@/lib/product-phase";
+import { resolveNavLinks } from "@/lib/nav-links";
 
 export function Footer() {
-  const discovery = isDiscoveryPhase();
+  const links = resolveNavLinks();
 
   return (
-    <footer className="border-t border-border bg-background py-14">
+    <footer className="border-t border-border bg-background py-10 pb-[max(2.5rem,env(safe-area-inset-bottom))] sm:py-14 mobile-page-pad">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="flex flex-col items-start justify-between gap-8 md:flex-row md:items-center">
           <div>
@@ -17,32 +16,19 @@ export function Footer() {
               {BRAND_TAGLINE}
             </p>
           </div>
-          <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-muted-foreground">
-            <Link href={MAP_EXPLORE_HREF} className="transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
-              Carte du monde
-            </Link>
-            <Link href="/opportunities" className="transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
-              Opportunités
-            </Link>
-            <Link href="/weekly" className="transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
-              Pick hebdo
-            </Link>
-            <Link href="/simulator" className="transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
-              Simulateur
-            </Link>
-            {!discovery ? (
-              <Link href="/mes-saas" className="transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
-                Mes SaaS
+          <div className="flex flex-wrap gap-x-6 gap-y-3 text-sm text-muted-foreground sm:gap-x-8">
+            {links.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="inline-flex min-h-10 items-center transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm active:text-primary"
+              >
+                {link.label}
               </Link>
-            ) : null}
-            {discovery ? (
-              <Link href="/newsletter" className="transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
-                Newsletter
-              </Link>
-            ) : null}
+            ))}
           </div>
         </div>
-        <p className="mt-10 font-data text-[10px] uppercase tracking-data text-muted-foreground">
+        <p className="mt-8 font-data text-[10px] uppercase tracking-data text-muted-foreground sm:mt-10">
           © {new Date().getFullYear()} {BRAND_NAME} — Données indicatives, pas des conseils financiers.
         </p>
       </div>

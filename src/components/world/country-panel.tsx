@@ -74,8 +74,8 @@ export function CountryPanel({
       {market && (
         <div
           className={cn(
-            "fixed z-[100] flex items-center justify-center p-4 sm:p-6",
-            reserveNavbar ? "inset-x-0 bottom-0 top-16" : "inset-0"
+            "fixed z-[100] flex items-end justify-center p-0 sm:items-center sm:p-6",
+            reserveNavbar ? "inset-x-0 bottom-0 top-16 sm:top-16" : "inset-0",
           )}
         >
           <motion.button
@@ -98,7 +98,7 @@ export function CountryPanel({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={QUICK}
-            className="relative flex max-h-[min(88vh,820px)] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-background text-foreground shadow-2xl"
+            className="relative flex max-h-[min(92dvh,820px)] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-border bg-background text-foreground shadow-2xl sm:max-h-[min(88vh,820px)] sm:rounded-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <CountryModalContent market={market} onClose={onClose} />

@@ -76,6 +76,7 @@
 
   body {
     @apply min-h-full w-full bg-background text-foreground antialiased font-sans;
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -147,5 +148,21 @@
       animation: none;
       opacity: 1;
     }
+  }
+
+  .mobile-bottom-nav {
+    padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
+  }
+
+  body.has-mobile-bottom-nav {
+    --mobile-bottom-nav-offset: calc(3.25rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  body.has-mobile-bottom-nav .mobile-sticky-above-nav {
+    bottom: var(--mobile-bottom-nav-offset);
+  }
+
+  body.has-mobile-bottom-nav .mobile-page-pad {
+    padding-bottom: calc(1.5rem + var(--mobile-bottom-nav-offset));
   }
 }

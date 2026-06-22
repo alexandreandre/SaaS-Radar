@@ -6,8 +6,6 @@ import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import type { Opportunity } from "@/types/opportunity";
 import { sectorLabels } from "@/data/opportunities";
-import { isDiscoveryPhase } from "@/lib/product-phase";
-import { cn } from "@/lib/utils";
 import { DetailHeader } from "@/components/opportunities/detail/detail-header";
 import { DetailContent } from "@/components/opportunities/detail/detail-content";
 import { BuildOpportunityStickyCta } from "@/components/cockpit/build-opportunity-sticky";
@@ -20,29 +18,26 @@ export function OpportunityDetail({
   existingProjectId?: string | null;
 }) {
   const sector = sectorLabels[opportunity.sector] ?? opportunity.sector;
-  const discovery = isDiscoveryPhase();
 
   return (
     <>
       <Navbar />
-      <main className="mx-auto max-w-6xl bg-background px-4 pb-24 text-foreground sm:px-6 md:pb-12">
-        <div className={cn("flex items-center justify-between gap-4", discovery ? "pt-1" : "pt-4")}>
+      <main className="mx-auto max-w-6xl bg-background px-4 pb-24 text-foreground mobile-page-pad sm:px-6 md:pb-12">
+        <div className="flex items-center justify-between gap-3 pt-3 sm:pt-4">
           <Link
             href="/opportunities"
             aria-label="Retour à la liste"
-            className="inline-flex items-center justify-center rounded-lg p-1 text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors active:bg-muted/60 hover:text-foreground"
           >
-            <ArrowLeft className="h-7 w-7" aria-hidden />
+            <ArrowLeft className="h-6 w-6 sm:h-7 sm:w-7" aria-hidden />
           </Link>
-          <div className="flex shrink-0 items-center gap-3">
-            <p className="text-sm text-muted-foreground">
-              <span>
-                {opportunity.originFlag} {opportunity.originCountry}
-              </span>
-              <span className="mx-1.5">·</span>
-              <span>{sector}</span>
-            </p>
-          </div>
+          <p className="min-w-0 truncate text-right text-xs text-muted-foreground sm:text-sm">
+            <span className="truncate">
+              {opportunity.originFlag} {opportunity.originCountry}
+            </span>
+            <span className="mx-1.5">·</span>
+            <span className="truncate">{sector}</span>
+          </p>
         </div>
 
         <DetailHeader

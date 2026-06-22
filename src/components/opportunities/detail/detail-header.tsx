@@ -71,8 +71,8 @@ export function DetailHeader({
         </div>
       ) : null}
 
-      <h1 className="mb-2 text-4xl font-bold text-foreground">{opportunity.name}</h1>
-      <p className="mb-1 text-xl text-foreground/80">{opportunity.pitch}</p>
+      <h1 className="mb-2 text-2xl font-bold text-foreground sm:text-3xl md:text-4xl">{opportunity.name}</h1>
+      <p className="mb-1 text-lg text-foreground/80 sm:text-xl">{opportunity.pitch}</p>
       <p className="text-sm text-muted-foreground">
         <span className="text-foreground/80">Clients :</span> {opportunity.targetClient}
       </p>
@@ -92,28 +92,31 @@ export function DetailHeader({
       )}
 
       <div className="mt-6 flex flex-col items-start gap-6 overflow-visible lg:flex-row">
-        <div className="flex flex-row flex-wrap items-end gap-6 overflow-visible">
-          <ScoreCircle
-            value={opportunity.scores.opportunity}
-            max={100}
-            size={80}
-            label={SCORE_AXIS_LABELS.opportunity}
-            tooltip={SCORE_GLOBAL_TOOLTIP}
-          />
-          {SUB_SCORE_KEYS.map((key, index) => (
+        <div className="-mx-4 flex w-[calc(100%+2rem)] snap-x snap-mandatory gap-4 overflow-x-auto overscroll-x-contain px-4 pb-1 sm:mx-0 sm:w-auto sm:flex-wrap sm:overflow-visible sm:px-0">
+          <div className="shrink-0 snap-start">
             <ScoreCircle
-              key={key}
-              value={opportunity.scores[key]}
-              max={10}
-              size={64}
-              label={SCORE_AXIS_LABELS[key]}
-              tooltip={SCORE_AXIS_TOOLTIPS[key]}
-              delay={(index + 1) * 0.08}
+              value={opportunity.scores.opportunity}
+              max={100}
+              size={80}
+              label={SCORE_AXIS_LABELS.opportunity}
+              tooltip={SCORE_GLOBAL_TOOLTIP}
             />
+          </div>
+          {SUB_SCORE_KEYS.map((key, index) => (
+            <div key={key} className="shrink-0 snap-start">
+              <ScoreCircle
+                value={opportunity.scores[key]}
+                max={10}
+                size={64}
+                label={SCORE_AXIS_LABELS[key]}
+                tooltip={SCORE_AXIS_TOOLTIPS[key]}
+                delay={(index + 1) * 0.08}
+              />
+            </div>
           ))}
         </div>
 
-        <div className="min-w-[240px] rounded-2xl border border-border bg-card p-5 lg:ml-auto">
+        <div className="w-full min-w-0 rounded-2xl border border-border bg-card p-4 sm:p-5 lg:ml-auto lg:min-w-[240px] lg:w-auto">
           <p className="mb-1 text-xs text-muted-foreground">Potentiel estimé</p>
           <p className="text-2xl font-bold text-foreground">
             {opportunity.revenueMin.toLocaleString("fr-FR")} € –{" "}

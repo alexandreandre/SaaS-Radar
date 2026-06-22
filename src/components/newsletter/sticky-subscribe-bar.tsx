@@ -21,7 +21,7 @@ export function StickySubscribeBar() {
   return (
     <div
       className={cn(
-        "fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 py-2.5 backdrop-blur-md"
+        "mobile-sticky-above-nav fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 py-2.5 backdrop-blur-md"
       )}
       role="region"
       aria-label="S'abonner"
