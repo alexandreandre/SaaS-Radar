@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { cn } from "@/lib/utils";
 import { resolveNavLinks, type NavLinkItem } from "@/lib/nav-links";
+import { getNavLinkIcon } from "@/lib/nav-link-icons";
 import { isMapExploreActive, MAP_EXPLORE_HREF } from "@/lib/map-routes";
 import { isCockpitEnabled, isDiscoveryPhase } from "@/lib/product-phase";
 import { useSession } from "@/contexts/session-context";
@@ -37,7 +38,7 @@ function DrawerLink({
   explore?: string | null;
   onNavigate: () => void;
 }) {
-  const Icon = link.icon;
+  const Icon = getNavLinkIcon(link.icon);
   const active = link.mapExplore
     ? isMapExploreActive(pathname, explore)
     : pathname === link.href || pathname.startsWith(`${link.href}/`);

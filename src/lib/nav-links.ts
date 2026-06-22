@@ -1,22 +1,21 @@
-import type { LucideIcon } from "lucide-react";
-import {
-  CreditCard,
-  Globe2,
-  HelpCircle,
-  Mail,
-  Newspaper,
-  Rocket,
-  Sparkles,
-  Calculator,
-} from "lucide-react";
 import { MAP_EXPLORE_HREF } from "@/lib/map-routes";
 import { isDiscoveryPhase, isCockpitEnabled } from "@/lib/product-phase";
+
+export type NavIconId =
+  | "globe"
+  | "sparkles"
+  | "mail"
+  | "help"
+  | "credit-card"
+  | "newspaper"
+  | "calculator"
+  | "rocket";
 
 export type NavLinkItem = {
   href: string;
   label: string;
   shortLabel: string;
-  icon: LucideIcon;
+  icon: NavIconId;
   mapExplore?: boolean;
   /** Masqué en phase discovery (ex. tarifs). */
   discoveryHidden?: boolean;
@@ -31,7 +30,7 @@ export const NAV_LINKS: NavLinkItem[] = [
     href: MAP_EXPLORE_HREF,
     label: "Carte du monde",
     shortLabel: "Carte",
-    icon: Globe2,
+    icon: "globe",
     mapExplore: true,
     bottomNav: true,
   },
@@ -39,46 +38,46 @@ export const NAV_LINKS: NavLinkItem[] = [
     href: "/opportunities",
     label: "Opportunités",
     shortLabel: "Opportunités",
-    icon: Sparkles,
+    icon: "sparkles",
     bottomNav: true,
   },
   {
     href: "/newsletter",
     label: "Newsletter",
     shortLabel: "Newsletter",
-    icon: Mail,
+    icon: "mail",
     bottomNav: true,
   },
   {
     href: "/quiz",
     label: "Quel SaaS pour moi ?",
     shortLabel: "Quiz",
-    icon: HelpCircle,
+    icon: "help",
   },
   {
     href: "/pricing",
     label: "Tarifs",
     shortLabel: "Tarifs",
-    icon: CreditCard,
+    icon: "credit-card",
     discoveryHidden: true,
   },
   {
     href: "/weekly",
     label: "Pick hebdo",
     shortLabel: "Hebdo",
-    icon: Newspaper,
+    icon: "newspaper",
   },
   {
     href: "/simulator",
     label: "Simulateur",
     shortLabel: "Simulateur",
-    icon: Calculator,
+    icon: "calculator",
   },
   {
     href: "/mes-saas",
     label: "Mes SaaS",
     shortLabel: "Mes SaaS",
-    icon: Rocket,
+    icon: "rocket",
     requiresCockpit: true,
   },
 ];

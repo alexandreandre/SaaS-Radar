@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -9,8 +10,6 @@ import { BrandLogo } from "@/components/brand/brand-logo";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
-import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav";
-import { MobileNavDrawer } from "@/components/layout/mobile-nav-drawer";
 import { useChromeVisible } from "@/components/layout/use-chrome-visible";
 import { useOptionalPortfolio } from "@/contexts/portfolio-context";
 import { usePortfolioSummary } from "@/hooks/use-portfolio-summary";
@@ -23,6 +22,14 @@ import {
 import { prefetchAllAdminRoutes } from "@/lib/admin/route-prefetch";
 import { isCockpitEnabled, isDiscoveryPhase } from "@/lib/product-phase";
 import { getFloatingNavHideAnchor, resolveNavLinks } from "@/lib/nav-links";
+
+const MobileNavChrome = dynamic(
+  () =>
+    import("@/components/layout/mobile-nav-chrome").then((m) => ({
+      default: m.MobileNavChrome,
+    })),
+  { ssr: false },
+);
 
 function NavbarContent({
   dark = false,
@@ -240,25 +247,20 @@ function NavbarContent({
     </header>
   );
 
-  const mobileDrawer = (
-    <MobileNavDrawer
-      open={menuOpen}
-      onOpenChange={setMenuOpen}
+  const mobileChrome = (
+    <MobileNavChrome
+      menuOpen={menuOpen}
+      onMenuOpenChange={setMenuOpen}
       explore={explore}
       dark={dark}
     />
-  );
-
-  const mobileBottomNav = (
-    <MobileBottomNav onOpenMenu={() => setMenuOpen(true)} explore={explore} />
   );
 
   if (overlay) {
     return (
       <>
         {mounted ? createPortal(floatingChrome, document.body) : null}
-        {mobileDrawer}
-        {mobileBottomNav}
+        {mobileChrome}
       </>
     );
   }
@@ -266,8 +268,7 @@ function NavbarContent({
   return (
     <>
       {stickyHeader}
-      {mobileDrawer}
-      {mobileBottomNav}
+      {mobileChrome}
     </>
   );
 }

@@ -11,6 +11,7 @@ import {
   shouldHideMobileBottomNav,
   type NavLinkItem,
 } from "@/lib/nav-links";
+import { getNavLinkIcon } from "@/lib/nav-link-icons";
 import { isMapExploreActive } from "@/lib/map-routes";
 import { isCockpitEnabled, isDiscoveryPhase } from "@/lib/product-phase";
 import { useSession } from "@/contexts/session-context";
@@ -29,7 +30,7 @@ function NavItem({
   pathname: string;
   explore: string | null;
 }) {
-  const Icon = link.icon;
+  const Icon = getNavLinkIcon(link.icon);
   const isActive = link.mapExplore
     ? isMapExploreActive(pathname, explore)
     : pathname === link.href || pathname.startsWith(`${link.href}/`);
