@@ -34,7 +34,7 @@ async function executeJob(job: QueuedJob): Promise<void> {
     .eq("id", job.run_id)
     .maybeSingle();
   const existingConfig = (existingRun?.config ?? {}) as Record<string, unknown>;
-  const mergedConfig = {
+  const mergedConfig: Record<string, unknown> = {
     ...existingConfig,
     ...(payload.config ?? {}),
     originCountryCode: country.code,

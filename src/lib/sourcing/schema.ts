@@ -217,7 +217,7 @@ export const analyticalSchema = z
     emailTemplates: z.array(emailTemplateSchema).min(1).optional(),
   })
   .superRefine((data, ctx) => {
-    for (const [index, point] of data.franceAnalysis.entries()) {
+    data.franceAnalysis.forEach((point, index) => {
       if (isGenericText(point)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -225,8 +225,8 @@ export const analyticalSchema = z
           path: ["franceAnalysis", index],
         });
       }
-    }
-    for (const [index, item] of data.whyItWorks.entries()) {
+    });
+    data.whyItWorks.forEach((item, index) => {
       const text = typeof item === "string" ? item : item.fact;
       if (isGenericText(text)) {
         ctx.addIssue({
@@ -235,7 +235,7 @@ export const analyticalSchema = z
           path: ["whyItWorks", index],
         });
       }
-    }
+    });
   });
 
 export type AnalyticalData = z.infer<typeof analyticalSchema>;

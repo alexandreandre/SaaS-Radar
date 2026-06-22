@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
-import { revalidateOpportunitiesCache } from "@/lib/admin/weekly-pick";
+import { requireAdminApi, withAdminAudit } from "@/lib/admin/guard";
 import { getAdminSystemData } from "@/lib/admin/system";
+import { revalidateOpportunitiesCache } from "@/lib/admin/weekly-pick";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
