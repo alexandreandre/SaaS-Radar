@@ -1,32 +1,57 @@
 "use client";
 
-import { useState } from "react";
-import type { CampaignWeeklyCheckIn } from "@/lib/campaign/kits";
+import { useEffect, useState } from "react";
+import type { CampaignWeeklyCheckIn, CampaignSmartGoal } from "@/lib/campaign/kits";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 type CampaignWeeklyCheckInProps = {
   checkIns: CampaignWeeklyCheckIn[];
+  smartGoal?: CampaignSmartGoal;
+  suggestedMetricValue?: number;
   onSubmit: (checkIn: CampaignWeeklyCheckIn) => void;
+};
+
+const METRIC_LABELS: Record<NonNullable<CampaignSmartGoal["metric"]>, string> = {
+  conversations: "Conversations cette semaine",
+  signups: "Signups cette semaine",
+  customers: "Clients cette semaine",
+  mrr: "MRR ajouté (€)",
 };
 
 export function CampaignWeeklyCheckInForm({
   checkIns,
+  smartGoal,
+  suggestedMetricValue,
   onSubmit,
 }: CampaignWeeklyCheckInProps) {
   const [metricValue, setMetricValue] = useState("");
   const [notes, setNotes] = useState("");
   const [mood, setMood] = useState<CampaignWeeklyCheckIn["mood"]>("on_track");
 
+  useEffect(() => {
+    if (metricValue === "" && suggestedMetricValue != null && suggestedMetricValue > 0) {
+      setMetricValue(String(suggestedMetricValue));
+    }
+  }, [suggestedMetricValue, metricValue]);
+
+  const metricLabel = smartGoal?.metric
+    ? METRIC_LABELS[smartGoal.metric]
+    : "Résultat cette semaine (nombre)";
+
   return (
     <section className="rounded-xl border border-border bg-card p-5 shadow-card">
       <h3 className="text-sm font-semibold">Check-in hebdo</h3>
-      <p className="mt-1 text-xs text-muted-foreground">2 minutes — où en êtes-vous vs votre objectif ?</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {smartGoal
+          ? `Objectif : ${smartGoal.label} (${smartGoal.targetValue} en ${smartGoal.horizonDays} j)`
+          : "2 minutes — où en êtes-vous vs votre objectif ?"}
+      </p>
 
       <div className="mt-4 space-y-3">
         <div>
-          <Label htmlFor="checkin-metric">Résultat cette semaine (nombre)</Label>
+          <Label htmlFor="checkin-metric">{metricLabel}</Label>
           <Input
             id="checkin-metric"
             type="number"
@@ -68,9 +93,10 @@ export function CampaignWeeklyCheckInForm({
         <Button
           type="button"
           onClick={() => {
+            const parsed = metricValue ? parseInt(metricValue, 10) : undefined;
             onSubmit({
               date: new Date().toISOString().slice(0, 10),
-              metricValue: metricValue ? parseInt(metricValue, 10) : undefined,
+              metricValue: parsed,
               notes: notes.trim() || undefined,
               mood,
             });

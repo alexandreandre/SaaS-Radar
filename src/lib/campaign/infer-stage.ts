@@ -26,10 +26,11 @@ function hasOutreachKit(project: UserProject): boolean {
 export function inferAcquisitionStage(
   project: UserProject,
   channel?: ExtendedChannelKey,
+  options?: { ignoreOverride?: boolean },
 ): AcquisitionStage {
   const setup = project.campaignSetup;
 
-  if (setup?.stageOverride && setup.acquisitionStage) {
+  if (!options?.ignoreOverride && setup?.stageOverride && setup.acquisitionStage) {
     return setup.acquisitionStage;
   }
 

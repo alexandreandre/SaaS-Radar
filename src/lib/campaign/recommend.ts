@@ -76,6 +76,62 @@ export function recommendSmartGoal(stage: AcquisitionStage): CampaignSmartGoal {
   return defaultSmartGoalForStage(stage);
 }
 
+export function recommendSmartGoalFromOpportunity(
+  opportunity: Opportunity,
+  stage: AcquisitionStage,
+): CampaignSmartGoal {
+  const base = defaultSmartGoalForStage(stage);
+  const realistic = opportunity.financialScenarios.find((s) => s.name === "Réaliste");
+  if (!realistic) return base;
+
+  if (stage === "network" || stage === "outreach") {
+    return {
+      ...base,
+      label: `${Math.min(10, realistic.clients)} conversations qualifiées`,
+      metric: "conversations",
+      targetValue: Math.min(10, Math.max(3, realistic.clients)),
+    };
+  }
+  if (stage === "content" || stage === "amplification") {
+    return {
+      ...base,
+      label: `${Math.min(30, realistic.clients)} signups organiques`,
+      metric: "signups",
+      targetValue: Math.min(30, Math.max(10, realistic.clients)),
+      horizonDays: 30,
+    };
+  }
+  return base;
+}
+
+export function getDifferentiationAngles(opportunity: Opportunity): string[] {
+  const angles: string[] = [];
+  for (const item of opportunity.whyItWorks ?? []) {
+    const fact = typeof item === "string" ? item : item.fact;
+    if (fact?.trim()) angles.push(fact.trim());
+  }
+  for (const comp of opportunity.frenchCompetitors ?? []) {
+    angles.push(`vs ${comp.name} : ${comp.weakness ?? comp.positioning}`);
+  }
+  if (opportunity.foreignMarketProfile?.problemSolved) {
+    angles.push(opportunity.foreignMarketProfile.problemSolved);
+  }
+  return angles.slice(0, 5);
+}
+
+export function getCacNoteForChannel(
+  opportunity: Opportunity,
+  channel: ExtendedChannelKey,
+): { estimate: number; note: string } | null {
+  const tabTitle =
+    opportunity.acquisition.find((a) => resolveExtendedChannelKey(a.title) === channel)
+      ?.title ?? opportunity.acquisition[0]?.title;
+  if (!tabTitle) return null;
+  const cac = getCacForChannel(opportunity.cacChannels, tabTitle);
+  if (!cac) return null;
+  return { estimate: cac.estimate, note: cac.note };
+}
+
 export function recommendIcpSummary(opportunity: Opportunity): string {
   const target = opportunity.targetClient?.trim();
   const sector = opportunity.sector;

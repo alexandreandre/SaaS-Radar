@@ -2,16 +2,19 @@
 
 import { Check } from "lucide-react";
 import type { UserProject } from "@/lib/portfolio";
+import type { CockpitModuleId } from "@/lib/cockpit-modules";
 import {
   getBuildJourneyState,
   JOURNEY_STEPS,
   type BuildJourneyDisplayPhase,
   type BuildJourneyState,
 } from "@/lib/build/journey";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type BuildJourneyStepperProps = {
   project: UserProject;
+  onModuleChange?: (module: CockpitModuleId) => void;
 };
 
 function JourneyProgressCompact({ journey }: { journey: BuildJourneyState }) {
@@ -82,13 +85,24 @@ function JourneyBuildingHint({ journey }: { journey: BuildJourneyState }) {
   );
 }
 
-function JourneyLiveStrip() {
+function JourneyLiveStrip({
+  onModuleChange,
+}: {
+  onModuleChange?: (module: CockpitModuleId) => void;
+}) {
   return (
-    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
-        <Check className="h-3 w-3" aria-hidden />
-      </span>
-      <span>App suivie — concentrez-vous sur les prochaines itérations.</span>
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-600">
+          <Check className="h-3 w-3" aria-hidden />
+        </span>
+        <span>App en ligne — passez à votre campagne d&apos;acquisition.</span>
+      </div>
+      {onModuleChange ? (
+        <Button type="button" size="sm" onClick={() => onModuleChange("campagne")}>
+          Ouvrir Campagne
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -100,13 +114,13 @@ function phaseShellClass(phase: BuildJourneyDisplayPhase): string {
   return "rounded-lg border border-border/60 bg-muted/5 px-3 py-2.5";
 }
 
-export function BuildJourneyStepper({ project }: BuildJourneyStepperProps) {
+export function BuildJourneyStepper({ project, onModuleChange }: BuildJourneyStepperProps) {
   const journey = getBuildJourneyState(project);
 
   if (journey.displayPhase === "live") {
     return (
       <section className={phaseShellClass("live")} aria-label="Parcours build">
-        <JourneyLiveStrip />
+        <JourneyLiveStrip onModuleChange={onModuleChange} />
       </section>
     );
   }

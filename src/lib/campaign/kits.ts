@@ -18,6 +18,19 @@ import {
   stageFromLegacyProfile,
 } from "@/lib/campaign/stages";
 import { inferAcquisitionStage } from "@/lib/campaign/infer-stage";
+import type { GtmEngine, GtmMotion } from "@/lib/campaign/gtm-engine";
+import type { CampaignSequenceId } from "@/lib/campaign/sequences";
+import type { InfraGateId } from "@/lib/campaign/infra-gates";
+import { migrateCampaignSetupV2 } from "@/lib/campaign/migrate-v2";
+
+export type CampaignIcpStructured = {
+  segment?: string;
+  size?: string;
+  pain?: string;
+  trigger?: string;
+  champion?: string;
+  economicBuyer?: string;
+};
 
 export type {
   AcquisitionStage,
@@ -48,10 +61,12 @@ export type CampaignKitSnapshot = CampaignKit & {
 };
 
 export type CampaignSetup = {
+  schemaVersion?: 1 | 2;
   acquisitionStage: AcquisitionStage;
   stageOverride?: boolean;
   smartGoal?: CampaignSmartGoal;
   icpSummary?: string;
+  icpStructured?: CampaignIcpStructured;
   positioning?: string;
   primaryChannel: ExtendedChannelKey;
   activeToolIds: CampaignToolId[];
@@ -65,8 +80,22 @@ export type CampaignSetup = {
   cycleStartedAt?: string;
   cycleStatus: CampaignCycleStatus;
   generatedAt?: string;
-  /** @deprecated dérivé du stade — conservé pour compat API kit */
+  /** @deprecated — use marketingProfile */
   profile?: MarketingProfile;
+  marketingProfile?: MarketingProfile;
+  gtmMotion?: GtmMotion;
+  gtmEngineFocus?: GtmEngine;
+  activeSequenceId?: CampaignSequenceId | string;
+  sequenceProgress?: Record<string, { done: boolean; doneAt?: string }>;
+  attributionQuestionEnabled?: boolean;
+  messageMarketFitNotes?: string[];
+  assetChecklist?: boolean[];
+  demandChecklist?: {
+    g2Profile?: boolean;
+    aeoArticles?: boolean;
+    communityPresence?: boolean;
+  };
+  infraGates?: Partial<Record<InfraGateId, boolean>>;
   distributionAcknowledgedAt?: string;
   measureAcknowledgedAt?: string;
 };
@@ -82,11 +111,13 @@ function migrateLegacySetup(setup: Partial<CampaignSetup>, project: UserProject)
       ? stageFromLegacyProfile(legacyProfile, channel)
       : inferAcquisitionStage(project, channel));
 
-  return {
+  const base: CampaignSetup = {
+    schemaVersion: setup.schemaVersion,
     acquisitionStage: stage,
     stageOverride: setup.stageOverride,
     smartGoal: setup.smartGoal,
     icpSummary: setup.icpSummary,
+    icpStructured: setup.icpStructured,
     positioning: setup.positioning,
     primaryChannel: channel,
     activeToolIds: setup.activeToolIds ?? [],
@@ -100,10 +131,21 @@ function migrateLegacySetup(setup: Partial<CampaignSetup>, project: UserProject)
     cycleStartedAt: setup.cycleStartedAt,
     cycleStatus: setup.cycleStatus ?? (setup.strategyBrief ? "active" : "draft"),
     generatedAt: setup.generatedAt,
-    profile: setup.profile ?? profileFromStage(stage),
+    profile: setup.profile ?? setup.marketingProfile ?? profileFromStage(stage),
+    marketingProfile: setup.marketingProfile ?? setup.profile ?? profileFromStage(stage),
+    gtmMotion: setup.gtmMotion,
+    gtmEngineFocus: setup.gtmEngineFocus,
+    activeSequenceId: setup.activeSequenceId,
+    sequenceProgress: setup.sequenceProgress,
+    attributionQuestionEnabled: setup.attributionQuestionEnabled,
+    messageMarketFitNotes: setup.messageMarketFitNotes,
+    assetChecklist: setup.assetChecklist,
+    demandChecklist: setup.demandChecklist,
+    infraGates: setup.infraGates,
     distributionAcknowledgedAt: setup.distributionAcknowledgedAt,
     measureAcknowledgedAt: setup.measureAcknowledgedAt,
   };
+  return migrateCampaignSetupV2(project, base);
 }
 
 export function getActiveCampaignToolId(project: UserProject): CampaignToolId | undefined {

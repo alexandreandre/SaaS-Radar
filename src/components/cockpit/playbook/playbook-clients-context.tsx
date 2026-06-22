@@ -43,10 +43,10 @@ export function PlaybookClientsContextBanner({
       {onModuleChange ? (
         <button
           type="button"
-          onClick={() => onModuleChange("acquisition")}
+          onClick={() => onModuleChange("campagne")}
           className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-primary transition-colors hover:text-primary/80"
         >
-          Suivre mes campagnes
+          Exécuter dans Campagne
           <ArrowRight className="h-3 w-3" />
         </button>
       ) : null}

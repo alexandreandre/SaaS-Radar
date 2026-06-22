@@ -1,5 +1,5 @@
 import type { Opportunity } from "@/types/opportunity";
-import type { ExtendedChannelKey } from "@/lib/campaign/channels";
+import { resolveExtendedChannelKey, type ExtendedChannelKey } from "@/lib/campaign/channels";
 import type { CampaignActionItem } from "@/lib/campaign/stages";
 import type { AcquisitionStage } from "@/lib/campaign/stages";
 import { getLaunchPlaybook } from "@/lib/campaign/launch-playbooks";
@@ -7,6 +7,7 @@ import { getCommunitiesForStage } from "@/lib/campaign/communities";
 import { getStageDefinition } from "@/lib/campaign/stages";
 import type { CampaignToolId } from "@/lib/campaign/tools";
 import type { ConnectorId } from "@/lib/connectors/types";
+import type { CampaignPlaybookId } from "@/lib/campaign/playbooks";
 
 function actionId(prefix: string, index: number): string {
   return `${prefix}-${index}`;
@@ -170,6 +171,83 @@ function amplificationActions(channel: ExtendedChannelKey): CampaignActionItem[]
   return items;
 }
 
+function redditActions(): CampaignActionItem[] {
+  return [
+    {
+      id: actionId("reddit", 0),
+      phase: "prepare",
+      label: "Identifier 3 subreddits pertinents pour votre ICP",
+      detail: "r/SaaS, r/startups ou niche métier — lisez les règles de chaque sub.",
+      done: false,
+    },
+    {
+      id: actionId("reddit", 1),
+      phase: "prepare",
+      label: "Préparer 5 réponses utiles (sans lien produit)",
+      toolId: "claude",
+      done: false,
+    },
+    {
+      id: actionId("reddit", 2),
+      phase: "execute",
+      label: "Poster 5 commentaires de valeur cette semaine",
+      externalUrl: "https://www.reddit.com/r/SaaS",
+      done: false,
+    },
+    {
+      id: actionId("reddit", 3),
+      phase: "execute",
+      label: "Répondre aux personnes qui décrivent votre problème",
+      done: false,
+    },
+    {
+      id: actionId("reddit", 4),
+      phase: "measure",
+      label: "Noter trafic UTM et signups depuis Reddit",
+      connectorId: "plausible" as ConnectorId,
+      done: false,
+    },
+  ];
+}
+
+function callsActions(): CampaignActionItem[] {
+  return [
+    {
+      id: actionId("call", 0),
+      phase: "prepare",
+      label: "Préparer un script discovery (15 min)",
+      toolId: "claude",
+      detail: "Problème → impact → solution actuelle → next step.",
+      done: false,
+    },
+    {
+      id: actionId("call", 1),
+      phase: "prepare",
+      label: "Configurer un lien Calendly / visio",
+      done: false,
+    },
+    {
+      id: actionId("call", 2),
+      phase: "execute",
+      label: "Planifier 5 discovery calls cette semaine",
+      done: false,
+    },
+    {
+      id: actionId("call", 3),
+      phase: "execute",
+      label: "Tenir les calls — noter objections et verbatims",
+      done: false,
+    },
+    {
+      id: actionId("call", 4),
+      phase: "measure",
+      label: "Compter calls → trials → payants",
+      connectorId: "plausible" as ConnectorId,
+      done: false,
+    },
+  ];
+}
+
 function scaleActions(channel: ExtendedChannelKey): CampaignActionItem[] {
   const connectorMap: Partial<Record<ExtendedChannelKey, ConnectorId>> = {
     meta: "meta-ads",
@@ -231,34 +309,207 @@ export function buildActionItemsForStage(
   }
 }
 
+export function buildActionItemsForPlaybook(
+  playbookId: CampaignPlaybookId,
+  stage: AcquisitionStage,
+  primaryChannel: ExtendedChannelKey,
+): CampaignActionItem[] {
+  if (playbookId === "reddit") return redditActions();
+  if (playbookId === "calls") return callsActions();
+  if (playbookId === "product_hunt") {
+    return getLaunchPlaybook("product-hunt").map((step, i) => ({
+      id: `ph-${i}`,
+      phase: i < 2 ? ("prepare" as const) : ("execute" as const),
+      label: step.label,
+      detail: step.detail,
+      externalUrl: "https://www.producthunt.com",
+      done: false,
+    }));
+  }
+  if (playbookId === "hacker_news") {
+    return getLaunchPlaybook("hacker-news").map((step, i) => ({
+      id: `hn-${i}`,
+      phase: i < 2 ? ("prepare" as const) : ("execute" as const),
+      label: step.label,
+      detail: step.detail,
+      externalUrl: "https://news.ycombinator.com",
+      done: false,
+    }));
+  }
+  if (playbookId === "partnerships") {
+    return [
+      {
+        id: "partner-0",
+        phase: "prepare",
+        label: "Lister 5 partenaires potentiels (audience = ICP)",
+        toolId: "claude",
+        done: false,
+      },
+      {
+        id: "partner-1",
+        phase: "execute",
+        label: "Envoyer 3 propositions de partenariat personnalisées",
+        done: false,
+      },
+      {
+        id: "partner-2",
+        phase: "measure",
+        label: "Suivre réponses et planifier calls partenaires",
+        done: false,
+      },
+    ];
+  }
+  if (playbookId === "retargeting") {
+    return [
+      {
+        id: "rt-0",
+        phase: "prepare",
+        label: "Installer pixel + audience visiteurs 7–30 j",
+        connectorId: "meta-ads" as ConnectorId,
+        done: false,
+      },
+      {
+        id: "rt-1",
+        phase: "execute",
+        label: "Lancer campagne retargeting à 10 €/jour",
+        toolId: "adcreative",
+        done: false,
+      },
+      {
+        id: "rt-2",
+        phase: "measure",
+        label: "Comparer CPA retargeting vs acquisition froide",
+        connectorId: "plausible" as ConnectorId,
+        done: false,
+      },
+    ];
+  }
+  if (playbookId === "nurture") {
+    return [
+      {
+        id: "nur-0",
+        phase: "prepare",
+        label: "Rédiger séquence onboarding J+1 à J+7",
+        toolId: "claude",
+        done: false,
+      },
+      {
+        id: "nur-1",
+        phase: "execute",
+        label: "Activer séquence dans Loops ou Brevo",
+        toolId: "loops",
+        done: false,
+      },
+      {
+        id: "nur-2",
+        phase: "measure",
+        label: "Mesurer taux activation post-signup",
+        connectorId: "plausible" as ConnectorId,
+        done: false,
+      },
+    ];
+  }
+
+  const channel = playbookId as ExtendedChannelKey;
+  const base = buildActionItemsForStage(stage, channel);
+
+  if (playbookId === primaryChannel) return base;
+
+  if (playbookId === "linkedin") {
+    return [
+      {
+        id: `pb-${playbookId}-0`,
+        phase: "prepare",
+        label: "Adapter le brief au format LinkedIn (post + DM)",
+        toolId: "claude",
+        done: false,
+      },
+      ...base.filter((a) => a.phase !== "prepare").slice(0, 3),
+    ];
+  }
+
+  if (playbookId === "meta" || playbookId === "google" || playbookId === "tiktok") {
+    return scaleActions(channel).slice(0, 4);
+  }
+
+  return base.slice(0, 4);
+}
+
+export function mergePlaybookActions(
+  stored: CampaignActionItem[],
+  playbookId: CampaignPlaybookId,
+  stage: AcquisitionStage,
+  primaryChannel: ExtendedChannelKey,
+): CampaignActionItem[] {
+  const template = buildActionItemsForPlaybook(playbookId, stage, primaryChannel);
+  return template.map((t) => stored.find((s) => s.id === t.id) ?? t);
+}
+
+export function filterActionsForPlaybook(
+  allActions: CampaignActionItem[],
+  playbookId: CampaignPlaybookId,
+  stage: AcquisitionStage = "content",
+  primaryChannel: ExtendedChannelKey = "linkedin",
+): CampaignActionItem[] {
+  return mergePlaybookActions(allActions, playbookId, stage, primaryChannel);
+}
+
 export function enrichActionsFromOpportunity(
   items: CampaignActionItem[],
   opportunity: Opportunity,
   productName: string,
+  primaryChannel?: ExtendedChannelKey,
 ): CampaignActionItem[] {
   const enriched = [...items];
-  const emailTemplate = opportunity.emailTemplates?.[0];
-  if (emailTemplate) {
+  const existingIds = new Set(enriched.map((i) => i.id));
+
+  for (const template of opportunity.emailTemplates ?? []) {
+    const id = `opp-email-${template.name}`;
+    if (existingIds.has(id)) continue;
     enriched.unshift({
-      id: "opp-email-template",
+      id,
       phase: "prepare",
-      label: `Adapter le template « ${emailTemplate.name} »`,
-      copyPayload: `Objet: ${emailTemplate.subject}\n\n${emailTemplate.body.replace(/\{\{product\}\}/g, productName)}`,
+      label: `Adapter le template « ${template.name} »`,
+      copyPayload: `Objet: ${template.subject}\n\n${template.body.replace(/\{\{product\}\}/g, productName)}`,
       toolId: "claude",
       done: false,
     });
+    existingIds.add(id);
   }
 
-  const partner = opportunity.partnersFR?.[0];
-  if (partner) {
+  for (const partner of opportunity.partnersFR ?? []) {
+    const id = `opp-partner-${partner.name}`;
+    if (existingIds.has(id)) continue;
     enriched.push({
-      id: "opp-partner",
+      id,
       phase: "execute",
       label: `Contacter ${partner.name} (${partner.type})`,
       detail: partner.angle,
       done: false,
     });
+    existingIds.add(id);
   }
+
+  const channelTab =
+    opportunity.acquisition.find((tab) =>
+      primaryChannel
+        ? tab.title.toLowerCase().includes(primaryChannel.replace("_", " "))
+        : false,
+    ) ?? opportunity.acquisition[0];
+
+  (channelTab?.tactics ?? []).slice(0, 5).forEach((tactic, i) => {
+    const id = `opp-tactic-${i}`;
+    if (existingIds.has(id)) return;
+    enriched.push({
+      id,
+      phase: i === 0 ? "prepare" : "execute",
+      label: tactic,
+      detail: `Tactique fiche · ${channelTab?.title ?? "Canal"}`,
+      toolId: "claude",
+      done: false,
+    });
+    existingIds.add(id);
+  });
 
   return enriched;
 }

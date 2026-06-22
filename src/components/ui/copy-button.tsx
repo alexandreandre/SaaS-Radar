@@ -6,7 +6,17 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-export function CopyButton({ text, className }: { text: string; className?: string }) {
+export function CopyButton({
+  text,
+  className,
+  label = "Copier le prompt",
+  copiedLabel = "Copié !",
+}: {
+  text: string;
+  className?: string;
+  label?: string;
+  copiedLabel?: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -27,7 +37,7 @@ export function CopyButton({ text, className }: { text: string; className?: stri
             className="flex items-center gap-2"
           >
             <Check className="h-4 w-4 text-success" />
-            Copié !
+            {copiedLabel}
           </motion.span>
         ) : (
           <motion.span
@@ -38,7 +48,7 @@ export function CopyButton({ text, className }: { text: string; className?: stri
             className="flex items-center gap-2"
           >
             <Copy className="h-4 w-4" />
-            Copier le prompt
+            {label}
           </motion.span>
         )}
       </AnimatePresence>

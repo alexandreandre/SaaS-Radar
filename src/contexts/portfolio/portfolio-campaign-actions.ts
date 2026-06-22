@@ -19,8 +19,16 @@ import {
   addCampaignWeeklyCheckIn as applyAddCampaignWeeklyCheckIn,
   completeCampaignRetrospective as applyCompleteCampaignRetrospective,
   startNewCampaignCycle as applyStartNewCampaignCycle,
+  applyCampaignFullPlan,
   acknowledgeCampaignDistribution,
   acknowledgeCampaignMeasure,
+  toggleCampaignSequenceStep,
+  setCampaignGtmMotion,
+  setCampaignIcpStructured,
+  setCampaignAttributionQuestion,
+  toggleCampaignInfraGate,
+  toggleCampaignAssetChecklist,
+  addMessageMarketFitNote,
   restoreCampaignKitSnapshot,
   resetCampaignSetup,
   type ResetCampaignOptions,
@@ -213,6 +221,98 @@ export function createCampaignActions(deps: PortfolioActionDeps) {
       );
     };
 
+  const applyCampaignFullPlanForProject = (
+    id: string,
+    data: {
+      smartGoal: CampaignSmartGoal;
+      icpSummary: string;
+      positioning: string;
+      strategyBrief: string;
+      actionItems?: import("@/lib/campaign/stages").CampaignActionItem[];
+      activeSequenceId?: string;
+    },
+  ) => {
+    deps.commit((prev) =>
+      prev.map((project) => {
+        if (project.id !== id) return project;
+        return applyCampaignFullPlan(project, data);
+      }),
+    );
+  };
+
+  const toggleCampaignSequenceStepForProject = (id: string, stepId: string) => {
+    deps.commit((prev) =>
+      prev.map((project) => {
+        if (project.id !== id) return project;
+        return toggleCampaignSequenceStep(project, stepId);
+      }),
+    );
+  };
+
+  const setCampaignGtmMotionForProject = (
+    id: string,
+    motion: import("@/lib/campaign/gtm-engine").GtmMotion,
+  ) => {
+    deps.commit((prev) =>
+      prev.map((project) => {
+        if (project.id !== id) return project;
+        return setCampaignGtmMotion(project, motion);
+      }),
+    );
+  };
+
+  const setCampaignIcpStructuredForProject = (
+    id: string,
+    icp: import("@/lib/campaign/kits").CampaignIcpStructured,
+    icpSummary?: string,
+  ) => {
+    deps.commit((prev) =>
+      prev.map((project) => {
+        if (project.id !== id) return project;
+        return setCampaignIcpStructured(project, icp, icpSummary);
+      }),
+    );
+  };
+
+  const setCampaignAttributionQuestionForProject = (id: string, enabled: boolean) => {
+    deps.commit((prev) =>
+      prev.map((project) => {
+        if (project.id !== id) return project;
+        return setCampaignAttributionQuestion(project, enabled);
+      }),
+    );
+  };
+
+  const toggleCampaignInfraGateForProject = (
+    id: string,
+    gateId: import("@/lib/campaign/infra-gates").InfraGateId,
+  ) => {
+    deps.commit((prev) =>
+      prev.map((project) => {
+        if (project.id !== id) return project;
+        return toggleCampaignInfraGate(project, gateId);
+      }),
+    );
+  };
+
+  const toggleCampaignAssetChecklistForProject = (id: string, index: number) => {
+    deps.commit((prev) =>
+      prev.map((project) => {
+        if (project.id !== id) return project;
+        return toggleCampaignAssetChecklist(project, index);
+      }),
+    );
+  };
+
+  const addMessageMarketFitNoteForProject = (id: string, note: string) => {
+    deps.commit((prev) =>
+      prev.map((project) => {
+        if (project.id !== id) return project;
+        return addMessageMarketFitNote(project, note);
+      }),
+    );
+  };
+
   const startNewCampaignCycleForProject = (id: string) => {
       deps.commit((prev) =>
         prev.map((project) => {
@@ -233,6 +333,14 @@ export function createCampaignActions(deps: PortfolioActionDeps) {
     setCampaignSmartGoal: setCampaignSmartGoalForProject,
     setCampaignIcp: setCampaignIcpForProject,
     setCampaignPositioning: setCampaignPositioningForProject,
+    applyCampaignFullPlan: applyCampaignFullPlanForProject,
+    toggleCampaignSequenceStep: toggleCampaignSequenceStepForProject,
+    setCampaignGtmMotion: setCampaignGtmMotionForProject,
+    setCampaignIcpStructured: setCampaignIcpStructuredForProject,
+    setCampaignAttributionQuestion: setCampaignAttributionQuestionForProject,
+    toggleCampaignInfraGate: toggleCampaignInfraGateForProject,
+    toggleCampaignAssetChecklist: toggleCampaignAssetChecklistForProject,
+    addMessageMarketFitNote: addMessageMarketFitNoteForProject,
     toggleCampaignAction: toggleCampaignActionForProject,
     setCampaignTrackingPlan: setCampaignTrackingPlanForProject,
     addCampaignWeeklyCheckIn: addCampaignWeeklyCheckInForProject,

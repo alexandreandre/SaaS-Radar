@@ -27,6 +27,7 @@ type LaunchPadProps = {
   onRecordMrr: (amount: number, note?: string) => void;
   onCompleteOnboarding: () => void;
   onOpenBuild?: () => void;
+  onOpenCampaign?: () => void;
 };
 
 export function LaunchPad({
@@ -36,6 +37,7 @@ export function LaunchPad({
   onRecordMrr,
   onCompleteOnboarding,
   onOpenBuild,
+  onOpenCampaign,
 }: LaunchPadProps) {
   const searchParams = useSearchParams();
   const view = getLaunchPadView(project, opportunity);
@@ -116,6 +118,7 @@ export function LaunchPad({
         project={project}
         onToggle={handleToggle}
         heroMilestoneId={view.nextMilestone?.id}
+        onOpenCampaign={onOpenCampaign}
       />
 
       <ResourcesStrip

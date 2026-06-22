@@ -1,26 +1,26 @@
+/**
+ * Bootstrap sans supplemental playbooks — séquence unique via migrate v2.
+ */
 import type { Opportunity } from "@/types/opportunity";
 import type { UserProject } from "@/lib/portfolio";
-import {
-  normalizeCampaignSetup,
-} from "@/lib/portfolio";
+import { normalizeCampaignSetup } from "@/lib/portfolio";
 import {
   recommendChannelForStage,
   recommendIcpSummary,
-  recommendSmartGoal,
+  recommendSmartGoalFromOpportunity,
   recommendStageForProject,
 } from "@/lib/campaign/recommend";
 import { buildWorkflowForStack } from "@/lib/campaign/workflows";
 import type { ExtendedChannelKey } from "@/lib/campaign/channels";
-import {
-  type AcquisitionStage,
-  profileFromStage,
-} from "@/lib/campaign/stages";
+import { type AcquisitionStage, profileFromStage } from "@/lib/campaign/stages";
 import {
   buildActionItemsForStage,
   buildTrackingPlan,
   enrichActionsFromOpportunity,
 } from "@/lib/campaign/actions";
 import type { CampaignSetup } from "@/lib/campaign/kits";
+import { resolveSequenceId } from "@/lib/campaign/sequences";
+import { recommendGtmMotion } from "@/lib/campaign/gtm-engine";
 
 export type CampaignBootstrapResult = {
   project: UserProject;
@@ -38,16 +38,20 @@ function initCampaignSetup(
     project.activeCampaignToolIds ??
     [];
   const productName = project.productName ?? opportunity.name;
-  const smartGoal = project.campaignSetup?.smartGoal ?? recommendSmartGoal(stage);
+  const smartGoal = project.campaignSetup?.smartGoal ?? recommendSmartGoalFromOpportunity(opportunity, stage);
   const icpSummary =
     project.campaignSetup?.icpSummary ?? recommendIcpSummary(opportunity);
-  const profile = profileFromStage(stage);
+  const profile = project.campaignSetup?.marketingProfile ?? profileFromStage(stage);
+  const motion = recommendGtmMotion(stage, channel, project.campaignSetup);
+  const sequenceId = resolveSequenceId(stage, channel, motion);
+  const baseActions = buildActionItemsForStage(stage, channel);
   const actionItems = enrichActionsFromOpportunity(
     project.campaignSetup?.actionItems?.length
       ? project.campaignSetup.actionItems
-      : buildActionItemsForStage(stage, channel),
+      : baseActions,
     opportunity,
     productName,
+    channel,
   );
   const trackingPlan =
     project.campaignSetup?.trackingPlan ??
@@ -58,6 +62,7 @@ function initCampaignSetup(
     stageOverride: project.campaignSetup?.stageOverride,
     smartGoal,
     icpSummary,
+    icpStructured: project.campaignSetup?.icpStructured,
     positioning: project.campaignSetup?.positioning,
     primaryChannel: channel,
     activeToolIds: existingToolIds,
@@ -71,6 +76,9 @@ function initCampaignSetup(
     cycleStartedAt: project.campaignSetup?.cycleStartedAt ?? new Date().toISOString(),
     cycleStatus: project.campaignSetup?.cycleStatus ?? "draft",
     profile,
+    marketingProfile: profile,
+    gtmMotion: motion,
+    activeSequenceId: sequenceId,
     distributionAcknowledgedAt: project.campaignSetup?.distributionAcknowledgedAt,
     measureAcknowledgedAt: project.campaignSetup?.measureAcknowledgedAt,
   };
@@ -83,9 +91,6 @@ function initCampaignSetup(
   });
 }
 
-/**
- * Applique stade, canal, objectif et ICP recommandés si absents.
- */
 export function ensureCampaignDefaults(
   project: UserProject,
   opportunity: Opportunity,

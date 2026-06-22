@@ -86,7 +86,7 @@ export function BuildModule({
   return (
     <div className="space-y-4">
       <section aria-label="Parcours">
-        <BuildJourneyStepper project={project} />
+        <BuildJourneyStepper project={project} onModuleChange={onModuleChange} />
       </section>
 
       {!hasCustomProductName(project) ? (

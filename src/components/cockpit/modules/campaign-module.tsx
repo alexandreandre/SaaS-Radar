@@ -1,25 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef } from "react";
-import Link from "next/link";
 import type { CockpitModuleProps } from "@/components/cockpit/modules/module-props";
-import { CampaignJourneyStepper } from "@/components/cockpit/campaign/campaign-journey-stepper";
-import { CampaignStageBanner } from "@/components/cockpit/campaign/campaign-stage-banner";
-import { CampaignGoalCard } from "@/components/cockpit/campaign/campaign-goal-card";
-import { CampaignMessageCard } from "@/components/cockpit/campaign/campaign-message-card";
-import { CampaignPrepareCard } from "@/components/cockpit/campaign/campaign-prepare-card";
-import { CampaignActionBoard } from "@/components/cockpit/campaign/campaign-action-board";
-import { CampaignTrackingPanel } from "@/components/cockpit/campaign/campaign-tracking-panel";
-import { CampaignWeeklyCheckInForm } from "@/components/cockpit/campaign/campaign-weekly-checkin";
-import { CampaignRetrospectiveCard } from "@/components/cockpit/campaign/campaign-retrospective";
-import { CampaignAdvancedPanel } from "@/components/cockpit/campaign/campaign-advanced-panel";
+import { CampaignWorkspace } from "@/components/cockpit/campaign/campaign-workspace";
 import { ModuleCalloutsList } from "@/components/cockpit/module-callouts-list";
-import { Button } from "@/components/ui/button";
 import { usePortfolio } from "@/contexts/portfolio-context";
 import {
   getActiveCampaignKit,
   getActiveCampaignToolId,
-  isStep1Complete,
 } from "@/lib/campaign/kits";
 import { getCampaignJourneyState } from "@/lib/campaign/journey";
 import {
@@ -31,15 +19,16 @@ import {
   recommendStageForProject,
 } from "@/lib/campaign/recommend";
 import { suggestScaleStage } from "@/lib/campaign/infer-stage";
-import { getStageDefinition } from "@/lib/campaign/stages";
+import { getRecommendedStage } from "@/lib/campaign/stage-guidance";
 import { getCampaignTool } from "@/lib/campaign/tools";
 import { buildWorkflowForStack } from "@/lib/campaign/workflows";
 import { buildModuleCallouts } from "@/lib/cockpit-callouts";
+import { buildCampaignUtmUrl } from "@/lib/campaign/utm";
 import type { CampaignKit } from "@/lib/campaign/kits";
+import type { CampaignSmartGoal } from "@/lib/campaign/stages";
 import type { CampaignTool } from "@/lib/campaign/tools";
 import type { ExtendedChannelKey } from "@/lib/campaign/channels";
 import type { ConnectorId } from "@/lib/connectors/types";
-import { getCockpitHref } from "@/lib/cockpit-modules";
 import { isCampaignToolId } from "@/lib/campaign/tools";
 
 export function CampaignModule({
@@ -59,29 +48,36 @@ export function CampaignModule({
     setCampaignChannel,
     setCampaignKitForProject,
     switchCampaignTool,
-    addCampaignTool,
-    removeCampaignTool,
-    toggleCampaignAction,
     setCampaignTrackingPlan,
     addCampaignWeeklyCheckIn,
     completeCampaignRetrospective,
     startNewCampaignCycle,
     restoreCampaignVersion,
     resetCampaign,
+    applyCampaignFullPlan,
+    acknowledgeCampaignDistribution,
+    toggleCampaignSequenceStep,
+    setCampaignGtmMotion,
+    setCampaignIcpStructured,
+    setCampaignAttributionQuestion,
+    toggleCampaignInfraGate,
+    toggleCampaignAssetChecklist,
+    addMessageMarketFitNote,
+    setMarketingProfile,
   } = usePortfolio();
 
   const bootstrappedRef = useRef(false);
 
   const stage = recommendStageForProject(project, opportunity);
-  const stageDef = getStageDefinition(stage);
-  const profile = recommendProfileForProject(project, opportunity);
+  const profile =
+    project.campaignSetup?.marketingProfile ??
+    recommendProfileForProject(project, opportunity);
   const channel: ExtendedChannelKey =
     project.campaignSetup?.primaryChannel ?? "linkedin";
   const strategyBrief = project.campaignSetup?.strategyBrief;
   const activeToolId = getActiveCampaignToolId(project);
   const activeKit = getActiveCampaignKit(project);
   const activeTool = activeToolId ? getCampaignTool(activeToolId) : undefined;
-  const actionItems = project.campaignSetup?.actionItems ?? [];
 
   const journey = getCampaignJourneyState(project, opportunity);
   const workflow = useMemo(
@@ -110,12 +106,6 @@ export function CampaignModule({
   const handleToolSelect = useCallback(
     (tool: CampaignTool) => {
       switchCampaignTool(project.id, tool.id);
-      requestAnimationFrame(() => {
-        document.getElementById("campaign-prepare")?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
-      });
     },
     [project.id, switchCampaignTool],
   );
@@ -146,148 +136,75 @@ export function CampaignModule({
     [onConnectIntegration],
   );
 
-  const step = journey.currentStep;
-  const setup = project.campaignSetup;
+  const handleConfigureTracking = useCallback(() => {
+    const setup = project.campaignSetup;
+    const utm = buildCampaignUtmUrl(
+      project.hostConnection?.productionUrl ?? "https://votre-site.fr",
+      channel,
+      setup?.activeSequenceId,
+    );
+    setCampaignTrackingPlan(project.id, {
+      utmBase: utm,
+      requiredConnectors: setup?.trackingPlan?.requiredConnectors ?? ["plausible"],
+      configuredAt: new Date().toISOString(),
+    });
+  }, [project, channel, setCampaignTrackingPlan]);
 
   return (
     <div className="space-y-4">
-      <CampaignJourneyStepper project={project} opportunity={opportunity} />
-
-      {journey.appOnlineWarning ? (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
-          {journey.appOnlineWarning}{" "}
-          <Link
-            href={getCockpitHref(project.id, "build")}
-            className="font-medium underline"
-          >
-            Retour au Build
-          </Link>
-        </div>
-      ) : null}
-
-      <CampaignStageBanner
+      <CampaignWorkspace
+        project={project}
+        opportunity={opportunity}
         stage={stage}
-        primaryMetric={stageDef.primaryMetric}
+        channel={channel}
+        profile={profile}
+        activeTool={activeTool}
+        activeKit={activeKit}
+        strategyBrief={strategyBrief}
+        workflow={workflow}
         suggestScale={suggestScaleStage(project) && stage !== "scale"}
+        showAcquisitionHandoff={journey.showAcquisitionHandoff}
+        metricsData={data}
         onStageSelect={(s) => setAcquisitionStage(project.id, s, true)}
+        onResetStageToRecommended={() => {
+          const recommended = getRecommendedStage(project, channel);
+          setAcquisitionStage(project.id, recommended, false);
+        }}
+        onChannelSelect={(c) => setCampaignChannel(project.id, c)}
+        onSaveGoal={(goal: CampaignSmartGoal, icp: string) => {
+          setCampaignSmartGoal(project.id, goal);
+          setCampaignIcp(project.id, icp);
+        }}
+        onApplyFullPlan={(plan) => applyCampaignFullPlan(project.id, plan)}
+        onPositioningChange={(v) => setCampaignPositioning(project.id, v)}
+        onBriefGenerated={(brief) =>
+          setStrategyBriefForProject(project.id, brief, channel, profile)
+        }
+        onSelectTool={handleToolSelect}
+        onKitGenerated={handleKitGenerated}
+        onRestoreVersion={(savedAt) => restoreCampaignVersion(project.id, savedAt)}
+        onReset={(opts) => resetCampaign(project.id, opts)}
+        onConfigureTracking={handleConfigureTracking}
+        onConnectIntegration={onConnectIntegration}
+        onToggleSequenceStep={(id) => toggleCampaignSequenceStep(project.id, id)}
+        onOpenTool={handleOpenTool}
+        onModuleChange={onModuleChange}
+        onWeeklyCheckIn={(checkIn) => addCampaignWeeklyCheckIn(project.id, checkIn)}
+        onCompleteRetrospective={(retro) => completeCampaignRetrospective(project.id, retro)}
+        onStartNewCycle={() => startNewCampaignCycle(project.id)}
+        onAcknowledgeDistribution={() => acknowledgeCampaignDistribution(project.id)}
+        onMotionChange={(m) => setCampaignGtmMotion(project.id, m)}
+        onProfileChange={(p) => setMarketingProfile(project.id, p)}
+        onIcpStructuredSave={(icp, summary) =>
+          setCampaignIcpStructured(project.id, icp, summary)
+        }
+        onAttributionChange={(enabled) =>
+          setCampaignAttributionQuestion(project.id, enabled)
+        }
+        onToggleInfraGate={(gateId) => toggleCampaignInfraGate(project.id, gateId)}
+        onToggleAsset={(index) => toggleCampaignAssetChecklist(project.id, index)}
+        onAddMarketFitNote={(note) => addMessageMarketFitNote(project.id, note)}
       />
-
-      {(step === 1 || !isStep1Complete(setup)) && (
-        <CampaignGoalCard
-          opportunity={opportunity}
-          stage={stage}
-          channel={channel}
-          smartGoal={setup?.smartGoal}
-          icpSummary={setup?.icpSummary}
-          collapsed={step > 1 && isStep1Complete(setup)}
-          onChannelSelect={(c) => setCampaignChannel(project.id, c)}
-          onSave={(goal, icp) => {
-            setCampaignSmartGoal(project.id, goal);
-            setCampaignIcp(project.id, icp);
-          }}
-        />
-      )}
-
-      {step >= 2 && isStep1Complete(setup) ? (
-        <CampaignMessageCard
-          project={project}
-          opportunity={opportunity}
-          stage={stage}
-          channel={channel}
-          profile={profile}
-          positioning={setup?.positioning}
-          strategyBrief={strategyBrief}
-          collapsed={step > 2}
-          onPositioningChange={(v) => setCampaignPositioning(project.id, v)}
-          onBriefGenerated={(brief) =>
-            setStrategyBriefForProject(project.id, brief, channel, profile)
-          }
-        />
-      ) : null}
-
-      {step >= 3 && (
-        <div id="campaign-prepare">
-          <CampaignPrepareCard
-            project={project}
-            opportunity={opportunity}
-            stage={stage}
-            channel={channel}
-            profile={profile}
-            activeTool={activeTool}
-            activeKit={activeKit}
-            strategyBrief={strategyBrief}
-            trackingUtm={setup?.trackingPlan?.utmBase}
-            onSelectTool={handleToolSelect}
-            onKitGenerated={handleKitGenerated}
-            onRestoreVersion={(savedAt) => restoreCampaignVersion(project.id, savedAt)}
-            onReset={(opts) => resetCampaign(project.id, opts)}
-            onConfigureTracking={() => {
-              const utm =
-                setup?.trackingPlan?.utmBase ??
-                `${project.hostConnection?.productionUrl ?? "https://votre-site.fr"}?utm_source=campagne&utm_medium=${channel}`;
-              setCampaignTrackingPlan(project.id, {
-                utmBase: utm,
-                requiredConnectors: setup?.trackingPlan?.requiredConnectors ?? ["plausible"],
-                configuredAt: new Date().toISOString(),
-              });
-            }}
-            onConnectIntegration={onConnectIntegration}
-          />
-        </div>
-      )}
-
-      {step >= 4 && actionItems.length > 0 ? (
-        <CampaignActionBoard
-          actions={actionItems}
-          defaultOpen={step === 4}
-          onToggle={(id) => toggleCampaignAction(project.id, id)}
-          onOpenTool={handleOpenTool}
-        />
-      ) : null}
-
-      {step >= 5 ? (
-        <>
-          <CampaignTrackingPanel
-            project={project}
-            stage={stage}
-            smartGoal={setup?.smartGoal}
-            weeklyCheckInCount={setup?.weeklyCheckIns?.length ?? 0}
-            onModuleChange={onModuleChange}
-            onConnectIntegration={(id) => onConnectIntegration(id as ConnectorId)}
-          />
-          <CampaignWeeklyCheckInForm
-            checkIns={setup?.weeklyCheckIns ?? []}
-            onSubmit={(checkIn) => addCampaignWeeklyCheckIn(project.id, checkIn)}
-          />
-          <CampaignRetrospectiveCard
-            completed={setup?.cycleStatus === "completed"}
-            onComplete={(data) => completeCampaignRetrospective(project.id, data)}
-            onStartNewCycle={() => startNewCampaignCycle(project.id)}
-          />
-        </>
-      ) : null}
-
-      {journey.showAcquisitionHandoff ? (
-        <div className="flex justify-end">
-          <Button type="button" size="sm" onClick={() => onModuleChange("acquisition")}>
-            Ouvrir Acquisition (ROAS)
-          </Button>
-        </div>
-      ) : null}
-
-      {activeToolId ? (
-        <CampaignAdvancedPanel
-          project={project}
-          opportunity={opportunity}
-          profile={profile}
-          channel={channel}
-          workflow={workflow}
-          onModuleChange={onModuleChange}
-          onSwitchTool={(id) => switchCampaignTool(project.id, id)}
-          onRemoveTool={(id) => removeCampaignTool(project.id, id)}
-          onAddTool={(tool) => addCampaignTool(project.id, tool.id)}
-        />
-      ) : null}
 
       <ModuleCalloutsList callouts={callouts} onModuleChange={onModuleChange} />
     </div>

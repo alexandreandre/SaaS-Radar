@@ -5,7 +5,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { getCampaignJourneyState } from "../src/lib/campaign/journey";
-import { removeCampaignTool } from "../src/lib/portfolio";
+import { removeCampaignTool, switchCampaignTool } from "../src/lib/portfolio";
 import type { UserProject } from "../src/lib/portfolio";
 import type { Opportunity } from "../src/types/opportunity";
 import { defaultSmartGoalForStage } from "../src/lib/campaign/stages";
@@ -156,6 +156,19 @@ test("iterating — cycle completed", () => {
 test("warning si app pas en ligne", () => {
   const state = getCampaignJourneyState(baseProject(), minimalOpportunity);
   assert.ok(state.appOnlineWarning);
+});
+
+test("switchCampaignTool active un outil déjà sélectionné", () => {
+  const project = baseProject({
+    campaignSetup: baseSetup({
+      activeToolIds: ["claude", "canva"],
+      strategyBrief: "Brief",
+    }),
+    activeCampaignToolIds: ["claude", "canva"],
+  });
+  const next = switchCampaignTool(project, "claude");
+  assert.deepEqual(next.campaignSetup?.activeToolIds, ["canva", "claude"]);
+  assert.equal(next.activeCampaignToolIds?.at(-1), "claude");
 });
 
 test("removeCampaignTool retire outil", () => {

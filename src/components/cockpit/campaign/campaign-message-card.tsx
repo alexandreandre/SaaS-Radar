@@ -7,6 +7,7 @@ import type { Opportunity } from "@/types/opportunity";
 import type { ExtendedChannelKey } from "@/lib/campaign/channels";
 import type { MarketingProfile } from "@/lib/campaign/tools";
 import type { AcquisitionStage } from "@/lib/campaign/stages";
+import { getDifferentiationAngles } from "@/lib/campaign/recommend";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,7 @@ export function CampaignMessageCard({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const productName = project.productName ?? opportunity.name;
+  const differentiation = getDifferentiationAngles(opportunity);
 
   if (collapsed && (positioning || strategyBrief)) {
     return (
@@ -93,6 +95,17 @@ export function CampaignMessageCard({
       </div>
 
       <div className="space-y-4">
+        {differentiation.length > 0 ? (
+          <div className="rounded-lg border border-border/60 bg-muted/10 p-4">
+            <p className="text-sm font-medium">Angles différenciation</p>
+            <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+              {differentiation.map((angle) => (
+                <li key={angle}>· {angle}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
         <div>
           <Label htmlFor="campaign-positioning">Positionnement (1 phrase)</Label>
           <Input

@@ -122,6 +122,28 @@ export type PortfolioContextValue = {
   setCampaignSmartGoal: (id: string, goal: CampaignSmartGoal) => void;
   setCampaignIcp: (id: string, icpSummary: string) => void;
   setCampaignPositioning: (id: string, positioning: string) => void;
+  applyCampaignFullPlan: (
+    id: string,
+    data: {
+      smartGoal: CampaignSmartGoal;
+      icpSummary: string;
+      positioning: string;
+      strategyBrief: string;
+      actionItems?: import("@/lib/campaign/stages").CampaignActionItem[];
+      activeSequenceId?: string;
+    },
+  ) => void;
+  toggleCampaignSequenceStep: (id: string, stepId: string) => void;
+  setCampaignGtmMotion: (id: string, motion: import("@/lib/campaign/gtm-engine").GtmMotion) => void;
+  setCampaignIcpStructured: (
+    id: string,
+    icp: import("@/lib/campaign/kits").CampaignIcpStructured,
+    icpSummary?: string,
+  ) => void;
+  setCampaignAttributionQuestion: (id: string, enabled: boolean) => void;
+  toggleCampaignInfraGate: (id: string, gateId: import("@/lib/campaign/infra-gates").InfraGateId) => void;
+  toggleCampaignAssetChecklist: (id: string, index: number) => void;
+  addMessageMarketFitNote: (id: string, note: string) => void;
   toggleCampaignAction: (id: string, actionId: string) => void;
   setCampaignTrackingPlan: (
     id: string,

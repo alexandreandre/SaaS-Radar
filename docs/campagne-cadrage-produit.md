@@ -1,10 +1,19 @@
 # Cadrage produit — Module Campagne (cockpit)
 
 > Document de travail — juin 2026  
-> Statut : **refonte stade-aware (juin 2026)** — voir implémentation `src/lib/campaign/stages.ts`  
-> Objectif : co-pilote d'acquisition founder-led (0→100), 5 étapes : Cible → Message → Préparer → Agir → Suivre.
+> Statut : **refonte v2 (juin 2026)** — 4 écrans linéaires, séquences multicanal, schema `campaignSetup` v2  
+> Objectif : co-pilote hebdomadaire founder-led (0→100) — Fondations → Création → Diffusion → Mesure.
 
-## Refonte juin 2026 (résumé)
+## Refonte v2 (juin 2026 — livrée)
+
+- **4 écrans** : Fondations, Création, Diffusion, Mesure (plus d'onglets par canal).
+- **Moteur GTM** : `demand` vs `capture` (`gtm-engine.ts`), motion unique (`founder_led`, `outbound`, `content`, `paid_test`, `launch`).
+- **Séquences J1–Jn** (`sequences.ts`) remplacent le bootstrap multi-playbooks parallèle.
+- **Gates infra** (`infra-gates.ts`) bloquent la diffusion sans tracking/CRM/assets.
+- **Schema v2** : `activeSequenceId`, `sequenceProgress`, `icpStructured`, `assetChecklist`, migration auto via `migrate-v2.ts`.
+- **Plan complet API** : retourne et applique `actionItems` + `activeSequenceId`.
+
+## Refonte juin 2026 (résumé historique)
 
 - **Stades** (`network` → `scale`) remplacent les profils budget comme pilote principal.
 - **Parcours 5 phases** avec objectif SMART, plan d'actions cochable, check-ins hebdo, rétrospective.

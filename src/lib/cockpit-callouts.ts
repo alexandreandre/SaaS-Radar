@@ -370,6 +370,38 @@ export function buildModuleCallouts(
     }
   }
 
+  if (isCampaignStarted(project) && !hasCampaignKit(project)) {
+    if (moduleId === "campagne" || moduleId === "overview") {
+      push({
+        id: "campaign-no-kit",
+        title: "Générez votre premier kit",
+        description: "Choisissez un outil et générez un prompt prêt à coller.",
+        actionModule: "campagne",
+        actionLabel: "Campagne",
+        icon: Megaphone,
+      });
+    }
+  }
+
+  const adsConnected = (project.integrations ?? []).some(
+    (i) =>
+      ["meta-ads", "google-ads", "tiktok-ads", "linkedin-ads"].includes(i.connectorId) &&
+      (i.status === "connected" || i.status === "demo"),
+  );
+  if (adsConnected && !hasCampaignKit(project)) {
+    if (moduleId === "campagne" || moduleId === "acquisition") {
+      push({
+        id: "campaign-ads-no-creative",
+        title: "Connecteur ads sans kit créatif",
+        description: "Vous dépensez sans assets — générez vos créas dans Campagne.",
+        actionModule: "campagne",
+        actionLabel: "Créer un kit",
+        icon: Megaphone,
+        variant: "warning",
+      });
+    }
+  }
+
   const campaignJourney = getCampaignJourneyState(project, opportunity);
   if (
     campaignJourney.currentStep >= 5 &&

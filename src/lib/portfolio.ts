@@ -19,6 +19,7 @@ import { getBuildJourneyState } from "@/lib/build/journey";
 import type {
   AcquisitionStage,
   CampaignActionItem,
+  CampaignIcpStructured,
   CampaignKit,
   CampaignKitSnapshot,
   CampaignRetrospective,
@@ -32,6 +33,9 @@ import {
   getActiveCampaignToolId,
   normalizeCampaignSetup,
 } from "@/lib/campaign/kits";
+import type { GtmMotion } from "@/lib/campaign/gtm-engine";
+import type { InfraGateId } from "@/lib/campaign/infra-gates";
+import { resolveSequenceId } from "@/lib/campaign/sequences";
 import { profileFromStage } from "@/lib/campaign/stages";
 import type { CampaignToolId, MarketingProfile } from "@/lib/campaign/tools";
 import type { ExtendedChannelKey } from "@/lib/campaign/channels";
@@ -1092,7 +1096,7 @@ export function setMarketingProfile(
     ...project,
     marketingProfile: profile,
     campaignSetup: setup
-      ? { ...setup, profile }
+      ? { ...setup, profile, marketingProfile: profile }
       : undefined,
   });
 }
@@ -1247,9 +1251,10 @@ export function switchCampaignTool(
     kits[activeId] = activeKit;
   }
 
-  const activeToolIds = setup.activeToolIds.includes(toolId)
-    ? setup.activeToolIds
-    : [...setup.activeToolIds, toolId];
+  const activeToolIds = [
+    ...setup.activeToolIds.filter((id) => id !== toolId),
+    toolId,
+  ];
 
   return normalizeCampaignSetup({
     ...project,
@@ -1398,6 +1403,142 @@ export function setCampaignActionItems(
   return normalizeCampaignSetup({
     ...project,
     campaignSetup: { ...setup, actionItems },
+  });
+}
+
+export function applyCampaignFullPlan(
+  project: UserProject,
+  data: {
+    smartGoal: CampaignSmartGoal;
+    icpSummary: string;
+    positioning: string;
+    strategyBrief: string;
+    actionItems?: CampaignActionItem[];
+    activeSequenceId?: string;
+  },
+): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+  return normalizeCampaignSetup({
+    ...project,
+    campaignSetup: {
+      ...setup,
+      smartGoal: data.smartGoal,
+      icpSummary: data.icpSummary,
+      positioning: data.positioning,
+      strategyBrief: data.strategyBrief,
+      actionItems: data.actionItems ?? setup.actionItems,
+      activeSequenceId: data.activeSequenceId ?? setup.activeSequenceId,
+      cycleStatus: "active",
+      generatedAt: new Date().toISOString(),
+    },
+  });
+}
+
+export function toggleCampaignSequenceStep(
+  project: UserProject,
+  stepId: string,
+): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+  const progress = { ...(setup.sequenceProgress ?? {}) };
+  const current = progress[stepId];
+  progress[stepId] = {
+    done: !current?.done,
+    doneAt: !current?.done ? new Date().toISOString() : undefined,
+  };
+  return normalizeCampaignSetup({
+    ...project,
+    campaignSetup: { ...setup, sequenceProgress: progress },
+  });
+}
+
+export function setCampaignGtmMotion(
+  project: UserProject,
+  motion: GtmMotion,
+): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+  const sequenceId = resolveSequenceId(setup.acquisitionStage, setup.primaryChannel, motion);
+  return normalizeCampaignSetup({
+    ...project,
+    campaignSetup: { ...setup, gtmMotion: motion, activeSequenceId: sequenceId },
+  });
+}
+
+export function setCampaignIcpStructured(
+  project: UserProject,
+  icp: CampaignIcpStructured,
+  icpSummary?: string,
+): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+  return normalizeCampaignSetup({
+    ...project,
+    campaignSetup: {
+      ...setup,
+      icpStructured: icp,
+      icpSummary: icpSummary ?? setup.icpSummary,
+    },
+  });
+}
+
+export function setCampaignAttributionQuestion(
+  project: UserProject,
+  enabled: boolean,
+): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+  const infraGates = { ...(setup.infraGates ?? {}), tracking_or_attribution: enabled };
+  return normalizeCampaignSetup({
+    ...project,
+    campaignSetup: {
+      ...setup,
+      attributionQuestionEnabled: enabled,
+      infraGates,
+    },
+  });
+}
+
+export function toggleCampaignInfraGate(
+  project: UserProject,
+  gateId: InfraGateId,
+): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+  const infraGates = { ...(setup.infraGates ?? {}) };
+  infraGates[gateId] = !infraGates[gateId];
+  return normalizeCampaignSetup({
+    ...project,
+    campaignSetup: { ...setup, infraGates },
+  });
+}
+
+export function toggleCampaignAssetChecklist(
+  project: UserProject,
+  index: number,
+): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+  const list = [...(setup.assetChecklist ?? Array.from({ length: 8 }, () => false))];
+  if (index >= 0 && index < list.length) {
+    list[index] = !list[index];
+  }
+  return normalizeCampaignSetup({
+    ...project,
+    campaignSetup: { ...setup, assetChecklist: list },
+  });
+}
+
+export function addMessageMarketFitNote(project: UserProject, note: string): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup || !note.trim()) return project;
+  return normalizeCampaignSetup({
+    ...project,
+    campaignSetup: {
+      ...setup,
+      messageMarketFitNotes: [...(setup.messageMarketFitNotes ?? []), note.trim()],
+    },
   });
 }
 

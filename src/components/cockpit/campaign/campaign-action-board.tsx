@@ -11,6 +11,7 @@ import { actionProgress } from "@/lib/campaign/actions";
 type CampaignActionBoardProps = {
   actions: CampaignActionItem[];
   defaultOpen?: boolean;
+  compact?: boolean;
   onToggle: (actionId: string) => void;
   onOpenTool?: (toolId: string, url?: string) => void;
 };
@@ -24,6 +25,7 @@ const PHASE_LABELS: Record<CampaignActionItem["phase"], string> = {
 export function CampaignActionBoard({
   actions,
   defaultOpen = true,
+  compact = false,
   onToggle,
   onOpenTool,
 }: CampaignActionBoardProps) {
@@ -35,28 +37,9 @@ export function CampaignActionBoard({
 
   const phases: CampaignActionItem["phase"][] = ["prepare", "execute", "measure"];
 
-  return (
-    <details className="group rounded-xl border border-border bg-card shadow-card" open={defaultOpen}>
-      <summary className="cursor-pointer list-none px-5 py-4 marker:content-none [&::-webkit-details-marker]:hidden">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <p className="font-data text-[10px] uppercase tracking-data text-primary">Étape 4</p>
-            <h3 className="text-lg font-semibold">Plan d&apos;action</h3>
-          </div>
-          <span className="text-sm text-muted-foreground">
-            {progress.execute.done}/{progress.execute.total} actions · {executePct}%
-          </span>
-        </div>
-        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full bg-primary transition-all"
-            style={{ width: `${executePct}%` }}
-          />
-        </div>
-      </summary>
-
-      <div className="space-y-6 border-t border-border px-5 pb-5 pt-4">
-        {phases.map((phase) => {
+  const body = (
+    <div className={compact ? "space-y-6" : "space-y-6 border-t border-border px-5 pb-5 pt-4"}>
+      {phases.map((phase) => {
           const items = actions.filter((a) => a.phase === phase);
           if (items.length === 0) return null;
           return (
@@ -128,7 +111,49 @@ export function CampaignActionBoard({
             </div>
           );
         })}
+    </div>
+  );
+
+  if (compact) {
+    return (
+      <div className="rounded-xl border border-border bg-card shadow-card">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-5 py-4">
+          <h3 className="text-sm font-semibold">Actions cette semaine</h3>
+          <span className="text-sm text-muted-foreground">
+            {progress.execute.done}/{progress.execute.total} · {executePct}%
+          </span>
+        </div>
+        <div className="h-1.5 w-full overflow-hidden bg-muted">
+          <div
+            className="h-full bg-primary transition-all"
+            style={{ width: `${executePct}%` }}
+          />
+        </div>
+        {body}
       </div>
+    );
+  }
+
+  return (
+    <details className="group rounded-xl border border-border bg-card shadow-card" open={defaultOpen}>
+      <summary className="cursor-pointer list-none px-5 py-4 marker:content-none [&::-webkit-details-marker]:hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="font-data text-[10px] uppercase tracking-data text-primary">Étape 4</p>
+            <h3 className="text-lg font-semibold">Plan d&apos;action</h3>
+          </div>
+          <span className="text-sm text-muted-foreground">
+            {progress.execute.done}/{progress.execute.total} actions · {executePct}%
+          </span>
+        </div>
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full bg-primary transition-all"
+            style={{ width: `${executePct}%` }}
+          />
+        </div>
+      </summary>
+      {body}
     </details>
   );
 }

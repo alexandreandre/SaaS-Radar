@@ -152,6 +152,10 @@ export function CockpitShell({
           onCompleteOnboarding();
           handleModuleChange("build");
         }}
+        onOpenCampaign={() => {
+          onCompleteOnboarding();
+          handleModuleChange("campagne");
+        }}
       />
     );
   }

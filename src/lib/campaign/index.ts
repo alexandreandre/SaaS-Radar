@@ -11,3 +11,8 @@ export * from "@/lib/campaign/journey";
 export * from "@/lib/campaign/workflows";
 export * from "@/lib/campaign/recommend";
 export * from "@/lib/campaign/prompts";
+export * from "@/lib/campaign/playbooks";
+export * from "@/lib/campaign/orchestrator";
+export * from "@/lib/campaign/readiness";
+export * from "@/lib/campaign/week-plan";
+export * from "@/lib/campaign/message-matrix";

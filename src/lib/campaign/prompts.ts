@@ -168,17 +168,17 @@ Pas de pitch, promis.`;
 }
 
 function seoPrompt(ctx: ContentContext): string {
-  return `Tu es un expert SEO pour les SaaS B2B français.
+  return `Tu es un expert SEO et AEO (Answer Engine Optimization) pour les SaaS B2B français.
 
 Site : ${ctx.productName} (${ctx.target})
 Problème résolu : ${ctx.pain}
 
 Génère :
 1. 15 mots-clés prioritaires avec intention de recherche (transactional/informational)
-2. Structure d'une page pilier optimisée SEO
-3. 5 idées d'articles de blog avec titres et méta-descriptions
-4. Stratégie de netlinking pour le secteur ${ctx.sector}
-5. Les featured snippets à cibler en priorité`;
+2. Structure d'une page pilier optimisée SEO + AEO (chaque H2 commence par la réponse directe)
+3. 5 idées d'articles avec titres, stats nommées à inclure, et méta-descriptions
+4. Bloc comparatif « alternative à [concurrent] » pour citation IA
+5. Checklist fraîcheur contenu (mise à jour trimestrielle)`;
 }
 
 function seoEmail(ctx: ContentContext): string {

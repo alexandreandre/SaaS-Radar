@@ -40,7 +40,12 @@ export type CampaignToolId =
   | "loops"
   | "brevo"
   | "beehiiv"
-  | "n8n";
+  | "n8n"
+  | "calcom"
+  | "search-console"
+  | "g2"
+  | "semrush"
+  | "hubspot-crm";
 
 export type DistributionTargetId =
   | "linkedin-ads"
@@ -316,6 +321,72 @@ export const CAMPAIGN_TOOLS: CampaignTool[] = [
     profiles: ["paid-scale"],
     channels: ["cold_email", "linkedin", "referral", "tiktok", "meta", "google"],
     openLabel: "Ouvrir n8n",
+  },
+  {
+    id: "calcom",
+    name: "Cal.com",
+    category: "outreach",
+    pitch: "Prise de RDV discovery calls — lien dans séquences outbound.",
+    deepLink: "https://cal.com",
+    pricingHint: "Gratuit / Pro",
+    outputType: "guide",
+    hasPromptTemplate: false,
+    profiles: ["organic", "paid-light", "paid-scale"],
+    channels: ["cold_email", "linkedin"],
+    openLabel: "Ouvrir Cal.com",
+  },
+  {
+    id: "search-console",
+    name: "Search Console",
+    category: "analytics",
+    pitch: "Indexation et impressions SEO/AEO.",
+    deepLink: "https://search.google.com/search-console",
+    pricingHint: "Gratuit",
+    outputType: "guide",
+    hasPromptTemplate: false,
+    profiles: ["organic", "paid-light", "paid-scale"],
+    channels: ["seo"],
+    openLabel: "Ouvrir Search Console",
+  },
+  {
+    id: "g2",
+    name: "G2",
+    category: "social",
+    pitch: "Collecter avis clients — shortlist B2B.",
+    deepLink: "https://www.g2.com",
+    pricingHint: "Gratuit profil",
+    outputType: "guide",
+    hasPromptTemplate: true,
+    profiles: ["organic", "paid-light", "paid-scale"],
+    channels: ["referral", "linkedin", "seo"],
+    openLabel: "Ouvrir G2",
+  },
+  {
+    id: "semrush",
+    name: "Semrush",
+    category: "strategy",
+    pitch: "Recherche mots-clés et suivi SEO/AEO.",
+    deepLink: "https://www.semrush.com",
+    pricingHint: "Essai gratuit",
+    outputType: "guide",
+    hasPromptTemplate: true,
+    profiles: ["organic", "paid-light", "paid-scale"],
+    channels: ["seo", "google"],
+    openLabel: "Ouvrir Semrush",
+  },
+  {
+    id: "hubspot-crm",
+    name: "HubSpot CRM",
+    category: "outreach",
+    pitch: "Pipeline prospects et suivi calls.",
+    deepLink: "https://www.hubspot.com",
+    pricingHint: "Gratuit CRM",
+    outputType: "workflow",
+    hasPromptTemplate: false,
+    profiles: ["organic", "paid-light", "paid-scale"],
+    channels: ["cold_email", "linkedin"],
+    connectorId: "hubspot",
+    openLabel: "Ouvrir HubSpot",
   },
 ];
 

@@ -15,6 +15,7 @@ type WeekTrackerProps = {
   project: UserProject;
   onToggle: (milestoneId: string) => void;
   heroMilestoneId?: string | null;
+  onOpenCampaign?: () => void;
 };
 
 export function WeekTracker({
@@ -22,6 +23,7 @@ export function WeekTracker({
   project,
   onToggle,
   heroMilestoneId,
+  onOpenCampaign,
 }: WeekTrackerProps) {
   const weeks = opportunity.launchTimeline ?? [];
   const currentWeek = getCurrentWeek(project, opportunity);
@@ -113,6 +115,21 @@ export function WeekTracker({
             ))}
           </div>
         </details>
+      ) : null}
+
+      {onOpenCampaign ? (
+        <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 px-4 py-3 text-center">
+          <p className="text-sm text-muted-foreground">
+            Calendrier aligné avec le module Campagne — exécutez vos actions marketing.
+          </p>
+          <button
+            type="button"
+            onClick={onOpenCampaign}
+            className="mt-2 text-sm font-medium text-primary hover:underline"
+          >
+            Continuer dans Campagne
+          </button>
+        </div>
       ) : null}
     </div>
   );

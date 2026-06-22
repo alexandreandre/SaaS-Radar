@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, getTier } from "@/lib/auth";
 import { hasTier } from "@/lib/tier";
-import type { ExtendedChannelKey } from "@/lib/campaign/channels";
-import type { AcquisitionStage } from "@/lib/campaign/stages";
-import { getCampaignTool, type MarketingProfile } from "@/lib/campaign/tools";
+import { getCampaignTool } from "@/lib/campaign/tools";
 import {
   buildStrategySystemPrompt,
   buildStrategyUserPrompt,
@@ -18,44 +16,15 @@ import {
   enrichActionsFromOpportunity,
 } from "@/lib/campaign/actions";
 import { recommendIcpSummary } from "@/lib/campaign/recommend";
+import {
+  parseMarketingProfile,
+  parseAcquisitionStage,
+  parseChannelKey,
+  resolveSequenceForPlan,
+} from "@/lib/campaign/api-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function parseProfile(raw: unknown): MarketingProfile | null {
-  if (raw === "organic" || raw === "paid-light" || raw === "paid-scale") return raw;
-  return null;
-}
-
-function parseStage(raw: unknown): AcquisitionStage | null {
-  const valid: AcquisitionStage[] = [
-    "network",
-    "outreach",
-    "content",
-    "amplification",
-    "scale",
-  ];
-  if (typeof raw === "string" && valid.includes(raw as AcquisitionStage)) {
-    return raw as AcquisitionStage;
-  }
-  return null;
-}
-
-function parseChannel(raw: unknown): ExtendedChannelKey | null {
-  const valid: ExtendedChannelKey[] = [
-    "cold_email",
-    "linkedin",
-    "seo",
-    "referral",
-    "tiktok",
-    "meta",
-    "google",
-  ];
-  if (typeof raw === "string" && valid.includes(raw as ExtendedChannelKey)) {
-    return raw as ExtendedChannelKey;
-  }
-  return null;
-}
 
 export async function POST(request: Request) {
   const user = await getCurrentUser();
@@ -92,9 +61,9 @@ export async function POST(request: Request) {
   const projectId = typeof b.projectId === "string" ? b.projectId.trim() : "";
   const productName =
     typeof b.productName === "string" ? b.productName.trim() : "";
-  const profile = parseProfile(b.profile);
-  const channel = parseChannel(b.channelKey);
-  const stage = parseStage(b.acquisitionStage) ?? "network";
+  const profile = parseMarketingProfile(b.profile);
+  const channel = parseChannelKey(b.channelKey);
+  const stage = parseAcquisitionStage(b.acquisitionStage) ?? "network";
 
   if (!profile || !channel || !productName) {
     return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
@@ -131,12 +100,14 @@ export async function POST(request: Request) {
       buildActionItemsForStage(stage, channel),
       opportunity,
       productName,
+      channel,
     );
     return NextResponse.json({
       strategyBrief: generated.strategyBrief,
       positioning: generated.strategyBrief.split("\n")[0]?.slice(0, 160),
       icpSummary: recommendIcpSummary(opportunity),
       actionItems,
+      activeSequenceId: resolveSequenceForPlan(stage, channel),
       channelKey: channel,
       acquisitionStage: stage,
       generatedAt: new Date().toISOString(),
