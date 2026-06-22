@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, getTier } from "@/lib/auth";
+import { cockpitApiGuard } from "@/lib/product-phase-api";
 import { generateDeployRecipeMarkdown } from "@/lib/ai/gemini";
 import { buildDeployRecipePrompt } from "@/lib/build/prompt-templates";
 import { getBuildTool } from "@/lib/build/tools";
@@ -10,6 +11,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const cockpitBlocked = await cockpitApiGuard();
+  if (cockpitBlocked) return cockpitBlocked;
+
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });

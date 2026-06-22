@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe/server";
 import { getCurrentUser, getProfile } from "@/lib/auth";
+import { checkoutApiGuard } from "@/lib/product-phase-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,6 +18,9 @@ function resolveOrigin(request: Request): string {
 
 /** Cree une session Stripe Customer Portal et redirige (form POST depuis /account). */
 export async function POST(request: Request) {
+  const checkoutBlocked = checkoutApiGuard();
+  if (checkoutBlocked) return checkoutBlocked;
+
   const [user, profile] = await Promise.all([getCurrentUser(), getProfile()]);
   if (!user) {
     return NextResponse.redirect(

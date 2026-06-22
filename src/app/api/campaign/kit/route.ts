@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, getTier } from "@/lib/auth";
+import { cockpitApiGuard } from "@/lib/product-phase-api";
 import { hasTier } from "@/lib/tier";
 import type { ExtendedChannelKey } from "@/lib/campaign/channels";
 import { getCampaignTool } from "@/lib/campaign/tools";
@@ -52,6 +53,9 @@ function parseLanguage(raw: unknown): "fr" | "en" {
 }
 
 export async function POST(request: Request) {
+  const cockpitBlocked = await cockpitApiGuard();
+  if (cockpitBlocked) return cockpitBlocked;
+
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });

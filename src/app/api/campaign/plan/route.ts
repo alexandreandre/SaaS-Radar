@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentUser, getTier } from "@/lib/auth";
+import { cockpitApiGuard } from "@/lib/product-phase-api";
 import { hasTier } from "@/lib/tier";
 import { getCampaignTool } from "@/lib/campaign/tools";
 import {
@@ -27,6 +28,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  const cockpitBlocked = await cockpitApiGuard();
+  if (cockpitBlocked) return cockpitBlocked;
+
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });

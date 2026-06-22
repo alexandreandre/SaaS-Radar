@@ -6,6 +6,7 @@ import {
   buildProductNameSystemPrompt,
 } from "@/lib/build/product-name";
 import { checkIdeaSessionRateLimit } from "@/lib/idea/rate-limit";
+import { cockpitApiGuard } from "@/lib/product-phase-api";
 import { hasTier } from "@/lib/tier";
 
 export const runtime = "nodejs";
@@ -18,6 +19,9 @@ function clientKey(request: Request): string {
 }
 
 export async function POST(request: Request) {
+  const cockpitBlocked = await cockpitApiGuard();
+  if (cockpitBlocked) return cockpitBlocked;
+
   const rate = checkIdeaSessionRateLimit(`name:${clientKey(request)}`);
   if (!rate.ok) {
     return NextResponse.json(

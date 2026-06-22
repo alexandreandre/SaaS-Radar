@@ -40,6 +40,7 @@ jobs:
           SUPABASE_ANON_KEY: placeholder-anon-key
           STRIPE_SECRET_KEY: sk_test_ci_placeholder
           STRIPE_WEBHOOK_SECRET: whsec_ci_placeholder
+          NEXT_PUBLIC_PRODUCT_PHASE: discovery
 
       - name: Bundle budgets
         run: npm run check:bundles -- /tmp/next-build.log

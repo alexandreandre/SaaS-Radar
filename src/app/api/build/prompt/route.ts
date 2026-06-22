@@ -16,6 +16,7 @@ import { getBuildTool, type BuildToolId } from "@/lib/build/tools";
 import { ideaBriefToOpportunity } from "@/lib/idea/to-opportunity";
 import { loadUserProject } from "@/lib/portfolio-sync";
 import { getEnrichedOpportunityBySlug } from "@/lib/opportunities";
+import { cockpitApiGuard } from "@/lib/product-phase-api";
 import { hasTier } from "@/lib/tier";
 
 export const runtime = "nodejs";
@@ -45,6 +46,9 @@ function parseMode(raw: unknown): PromptMode {
 }
 
 export async function POST(request: Request) {
+  const cockpitBlocked = await cockpitApiGuard();
+  if (cockpitBlocked) return cockpitBlocked;
+
   const user = await getCurrentUser();
   if (!user) {
     return NextResponse.json({ error: "Non authentifié" }, { status: 401 });

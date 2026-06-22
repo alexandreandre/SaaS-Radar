@@ -3,12 +3,12 @@
 import dynamic from "next/dynamic";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowUp, Github } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { Navbar } from "@/components/layout/navbar";
 import { MAP_EXPLORE_QUERY, MAP_EXPLORE_VALUE } from "@/lib/map-routes";
 import type { MapCatalogOpportunity } from "@/context/map-catalog-context";
-import type { UserProject } from "@/lib/portfolio";
-import { PENDING_PROJECT_STORAGE_KEY } from "@/lib/portfolio";
+import { isDiscoveryPhase, isMapDefaultUnlocked } from "@/lib/product-phase";
 import { cn } from "@/lib/utils";
 
 const HomeMapGateway = dynamic(
@@ -27,6 +27,10 @@ const IDEA_PLACEHOLDERS = [
   "Une app de rappels RDV pour cabinets médicaux…",
 ];
 
+function discoveryDefaultMapUnlocked(): boolean {
+  return isMapDefaultUnlocked();
+}
+
 export type HomeMapStats = {
   countriesTracked: number;
   totalMicroSaas: number;
@@ -38,22 +42,12 @@ type HomeHeroProps = {
   mapCatalog: MapCatalogOpportunity[];
 };
 
-function HomeHeroInner({ mapStats, mapCatalog }: HomeHeroProps) {
+function HomeHeroBuildCta({ mapUnlocked }: { mapUnlocked: boolean }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [mapUnlocked, setMapUnlocked] = useState(false);
   const [idea, setIdea] = useState("");
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [githubLoading, setGithubLoading] = useState(false);
-
-  const exploreParam = searchParams.get(MAP_EXPLORE_QUERY);
-
-  useEffect(() => {
-    if (exploreParam !== MAP_EXPLORE_VALUE) return;
-    setMapUnlocked(true);
-    window.scrollTo({ top: 0, behavior: "auto" });
-  }, [exploreParam]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -61,17 +55,6 @@ function HomeHeroInner({ mapStats, mapCatalog }: HomeHeroProps) {
     }, 1800);
     return () => clearInterval(timer);
   }, []);
-
-  const handleMapUnlock = useCallback(() => {
-    setMapUnlocked(true);
-  }, []);
-
-  const handleMapLock = useCallback(() => {
-    setMapUnlocked(false);
-    if (exploreParam === MAP_EXPLORE_VALUE) {
-      router.replace("/", { scroll: false });
-    }
-  }, [exploreParam, router]);
 
   const handleAnalyze = useCallback(() => {
     const trimmed = idea.trim();
@@ -92,14 +75,10 @@ function HomeHeroInner({ mapStats, mapCatalog }: HomeHeroProps) {
       }
       const data = (await res.json()) as {
         projectId?: string;
-        project?: UserProject;
         error?: string;
       };
       if (!res.ok || !data.projectId) {
         throw new Error(data.error ?? "Impossible de créer le projet");
-      }
-      if (data.project) {
-        sessionStorage.setItem(PENDING_PROJECT_STORAGE_KEY, JSON.stringify(data.project));
       }
       window.location.href = `/api/connectors/github/oauth?projectId=${encodeURIComponent(data.projectId)}&module=build`;
     } catch {
@@ -110,6 +89,82 @@ function HomeHeroInner({ mapStats, mapCatalog }: HomeHeroProps) {
   }, [router]);
 
   return (
+    <div
+      className={cn(
+        "pointer-events-auto absolute inset-x-0 bottom-0 z-10 mx-auto w-full max-w-2xl px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center transition-transform duration-500 ease-out sm:bottom-2 sm:px-6",
+        mapUnlocked && "scale-[0.98]",
+      )}
+    >
+      <p className="mb-4 font-display text-xl font-medium tracking-tight sm:text-2xl">
+        Déjà votre idée ? Décrivez ce que vous voulez construire
+      </p>
+
+      <div
+        className={cn(
+          "flex items-center gap-2 rounded-[1.75rem] border border-white/30 bg-card/98 p-2 pl-4 shadow-2xl shadow-black/45 backdrop-blur-xl sm:pl-5",
+          "ring-1 ring-inset ring-white/15 transition-[border-color,box-shadow,background-color] focus-within:border-primary/50 focus-within:bg-card focus-within:shadow-2xl focus-within:shadow-primary/20",
+        )}
+      >
+        <input
+          ref={inputRef}
+          type="text"
+          value={idea}
+          onChange={(e) => setIdea(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleAnalyze();
+          }}
+          placeholder={IDEA_PLACEHOLDERS[placeholderIndex]}
+          className="min-w-0 flex-1 border-0 bg-transparent py-2 text-base text-foreground placeholder:text-muted-foreground/80 focus:outline-none sm:text-lg"
+          aria-label="Décrire votre idée SaaS"
+        />
+
+        <button
+          type="button"
+          onClick={handleAnalyze}
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 sm:px-5"
+        >
+          Commencer
+        </button>
+      </div>
+
+      <button
+        type="button"
+        onClick={handleGitHub}
+        disabled={githubLoading}
+        className="mt-4 flex w-full items-center justify-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+      >
+        {githubLoading ? "Connexion…" : "Déjà un repo · Connecter GitHub"}
+      </button>
+    </div>
+  );
+}
+
+function HomeHeroInner({ mapStats, mapCatalog }: HomeHeroProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const discovery = isDiscoveryPhase();
+  const [mapUnlocked, setMapUnlocked] = useState(discoveryDefaultMapUnlocked());
+  const exploreParam = searchParams.get(MAP_EXPLORE_QUERY);
+
+  useEffect(() => {
+    if (exploreParam !== MAP_EXPLORE_VALUE) return;
+    setMapUnlocked(true);
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [exploreParam]);
+
+  const handleMapUnlock = useCallback(() => {
+    setMapUnlocked(true);
+  }, []);
+
+  const handleMapLock = useCallback(() => {
+    if (discoveryDefaultMapUnlocked()) return;
+    setMapUnlocked(false);
+    if (exploreParam === MAP_EXPLORE_VALUE) {
+      router.replace("/", { scroll: false });
+    }
+  }, [exploreParam, router]);
+
+  return (
     <section className="relative min-h-[min(100dvh,920px)] overflow-hidden bg-background text-foreground">
       <div className="absolute inset-0 z-0 radar-grid opacity-30" />
       <div className="absolute inset-0 z-0">
@@ -118,7 +173,7 @@ function HomeHeroInner({ mapStats, mapCatalog }: HomeHeroProps) {
           showDashboard={exploreParam === MAP_EXPLORE_VALUE}
           onUnlock={handleMapUnlock}
           onLock={handleMapLock}
-          deferMap={exploreParam !== MAP_EXPLORE_VALUE}
+          deferMap={!discovery && exploreParam !== MAP_EXPLORE_VALUE}
           mapCatalog={mapCatalog}
         />
       </div>
@@ -153,62 +208,29 @@ function HomeHeroInner({ mapStats, mapCatalog }: HomeHeroProps) {
               </span>
             </div>
             <p className="mt-4 font-data text-sm uppercase tracking-data text-foreground/90">
-              Clique sur la carte
+              {discovery ? "Explorez la carte ou parcourez le catalogue" : "Clique sur la carte"}
             </p>
           </div>
         </div>
 
-        <div
-          className={cn(
-            "pointer-events-auto absolute inset-x-0 bottom-0 z-10 mx-auto w-full max-w-2xl px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center transition-transform duration-500 ease-out sm:bottom-2 sm:px-6",
-            mapUnlocked && "scale-[0.98]",
-          )}
-        >
-          <p className="mb-4 font-display text-xl font-medium tracking-tight sm:text-2xl">
-            Déjà votre idée ? Décrivez ce que vous voulez construire
-          </p>
-
+        {discovery ? (
           <div
             className={cn(
-              "flex items-center gap-2 rounded-[1.75rem] border border-white/30 bg-card/98 p-2 pl-4 shadow-2xl shadow-black/45 backdrop-blur-xl sm:pl-5",
-              "ring-1 ring-inset ring-white/15 transition-[border-color,box-shadow,background-color] focus-within:border-primary/50 focus-within:bg-card focus-within:shadow-2xl focus-within:shadow-primary/20",
+              "pointer-events-auto absolute inset-x-0 bottom-0 z-10 mx-auto w-full max-w-2xl px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center sm:bottom-2 sm:px-6",
+              mapUnlocked && "scale-[0.98] transition-transform duration-500 ease-out",
             )}
           >
-            <input
-              ref={inputRef}
-              type="text"
-              value={idea}
-              onChange={(e) => setIdea(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleAnalyze();
-              }}
-              placeholder={IDEA_PLACEHOLDERS[placeholderIndex]}
-              className="min-w-0 flex-1 border-0 bg-transparent py-2 text-base text-foreground placeholder:text-muted-foreground/80 focus:outline-none sm:text-lg"
-              aria-label="Décrire votre idée SaaS"
-            />
-
-            <button
-              type="button"
-              onClick={handleAnalyze}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 sm:px-5"
+            <Link
+              href="/opportunities"
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/25 transition-opacity hover:opacity-90"
             >
-              Commencer
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary-foreground/15">
-                <ArrowUp className="h-3 w-3" aria-hidden />
-              </span>
-            </button>
+              Parcourir les opportunités
+              <ArrowRight className="h-4 w-4" aria-hidden />
+            </Link>
           </div>
-
-          <button
-            type="button"
-            onClick={handleGitHub}
-            disabled={githubLoading}
-            className="mt-4 flex w-full items-center justify-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
-          >
-            <Github className="h-3.5 w-3.5" aria-hidden />
-            {githubLoading ? "Connexion…" : "Déjà un repo · Connecter GitHub"}
-          </button>
-        </div>
+        ) : (
+          <HomeHeroBuildCta mapUnlocked={mapUnlocked} />
+        )}
       </div>
     </section>
   );
