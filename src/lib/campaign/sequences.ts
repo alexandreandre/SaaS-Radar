@@ -177,3 +177,30 @@ export function isSequenceStepComplete(
 ): boolean {
   return Boolean(setup?.sequenceProgress?.[stepId]?.done);
 }
+
+export function isSequenceFullyComplete(setup: CampaignSetup | undefined): boolean {
+  const steps = getSequenceStepsWithProgress(setup);
+  return steps.length > 0 && steps.every((s) => s.done);
+}
+
+export function distributionProgressPercent(
+  setup: CampaignSetup | undefined,
+  stepCount: number,
+): number {
+  if (stepCount <= 0) return 100;
+  const progress = setup?.distributionProgress ?? {};
+  const done = Object.values(progress).filter((p) => p.done).length;
+  return Math.round((done / stepCount) * 100);
+}
+
+export function isDistributionGuideComplete(
+  setup: CampaignSetup | undefined,
+  stepCount: number,
+): boolean {
+  if (stepCount <= 0) return true;
+  const progress = setup?.distributionProgress ?? {};
+  for (let i = 0; i < stepCount; i++) {
+    if (!progress[`dist-${i}`]?.done) return false;
+  }
+  return true;
+}

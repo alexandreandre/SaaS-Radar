@@ -92,6 +92,9 @@ export async function POST(request: Request) {
   const language = parseLanguage(b.language);
   const strategyBrief =
     typeof b.strategyBrief === "string" ? b.strategyBrief.trim() : undefined;
+  const contentAssetsValidated = Array.isArray(b.contentAssetsValidated)
+    ? (b.contentAssetsValidated as import("@/lib/campaign/kits").CampaignContentAsset[])
+    : undefined;
 
   if (!isCampaignToolId(toolId) || !profile || !channel || !productName) {
     return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
@@ -113,6 +116,9 @@ export async function POST(request: Request) {
 
   const project = projectId ? await loadUserProject(user.id, projectId) : null;
   const productionUrl = project?.hostConnection?.productionUrl;
+  const validatedFromProject = project?.campaignSetup?.contentAssets
+    ? Object.values(project.campaignSetup.contentAssets).filter((a) => a.confirmedAt)
+    : undefined;
 
   let resolvedStrategyBrief =
     strategyBrief ?? project?.campaignSetup?.strategyBrief?.trim();
@@ -126,6 +132,7 @@ export async function POST(request: Request) {
     strategyBrief: resolvedStrategyBrief,
     productionUrl,
     language,
+    contentAssetsValidated: contentAssetsValidated ?? validatedFromProject,
   };
 
   try {

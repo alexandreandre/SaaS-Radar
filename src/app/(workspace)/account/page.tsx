@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { getCurrentUser, getProfile } from "@/lib/auth";
 import { tierLabels, tierPrices, type Tier } from "@/lib/tier";
 
+import { BRAND_NAME } from "@/lib/brand";
+
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Mon compte — SaaS Radar",
+  title: `Mon compte — ${BRAND_NAME}`,
 };
 
 function normalizeTier(plan: string | undefined | null): Tier {

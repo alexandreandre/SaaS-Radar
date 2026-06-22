@@ -41,6 +41,17 @@ import type { CampaignToolId, MarketingProfile } from "@/lib/campaign/tools";
 import type { ExtendedChannelKey } from "@/lib/campaign/channels";
 import { buildWorkflowForStack } from "@/lib/campaign/workflows";
 import { buildActionItemsForStage } from "@/lib/campaign/actions";
+import {
+  buildContentDeriveContext,
+  deriveAllContentAssets,
+  resolveContentAssets,
+} from "@/lib/campaign/content-derive";
+import {
+  CONTENT_ASSET_SCHEMAS,
+  fieldsFromValues,
+  getRequiredContentAssetIds,
+  isContentAssetConfirmed,
+} from "@/lib/campaign/content-schemas";
 import type { FinancialScenario, Opportunity } from "@/types/opportunity";
 import type { ProjectIdeaBrief } from "@/types/idea-brief";
 
@@ -1394,6 +1405,212 @@ export function setCampaignPositioning(
   });
 }
 
+export type ConfirmFoundationsRiverStop =
+  | "start"
+  | "audience"
+  | "goal"
+  | "message"
+  | "dock";
+
+export type ConfirmFoundationsRiverPayload =
+  | { stop: "start" }
+  | {
+      stop: "audience";
+      who: string;
+      pain: string;
+      icpSummary: string;
+    }
+  | {
+      stop: "goal";
+      smartGoal: CampaignSmartGoal;
+      channel: ExtendedChannelKey;
+      goalStrategyId: import("@/lib/campaign/foundations-river").RiverGoalStrategyId;
+      supportChannels: ExtendedChannelKey[];
+      stage: AcquisitionStage;
+      motion: import("@/lib/campaign/gtm-engine").GtmMotion;
+      profile: import("@/lib/campaign/tools").MarketingProfile;
+    }
+  | {
+      stop: "message";
+      positioning: string;
+      messageAdaptations: import("@/lib/campaign/foundations-river").RiverMessageAdaptation[];
+    }
+  | { stop: "dock" };
+
+export function confirmFoundationsRiverStop(
+  project: UserProject,
+  payload: ConfirmFoundationsRiverPayload,
+): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+  const now = new Date().toISOString();
+  const river = { ...(setup.foundationsRiver ?? {}) };
+
+  if (payload.stop === "start") {
+    return normalizeCampaignSetup({
+      ...project,
+      campaignSetup: {
+        ...setup,
+        foundationsRiver: { ...river, startedAt: now },
+      },
+    });
+  }
+
+  if (payload.stop === "audience") {
+    let next = setCampaignIcp(project, payload.icpSummary.trim());
+    next = setCampaignIcpStructured(
+      next,
+      { segment: payload.who.trim(), pain: payload.pain.trim() },
+      payload.icpSummary.trim(),
+    );
+    const nextSetup = normalizeCampaignSetup(next).campaignSetup!;
+    return normalizeCampaignSetup({
+      ...next,
+      campaignSetup: {
+        ...nextSetup,
+        foundationsRiver: { ...river, ...nextSetup.foundationsRiver, audienceConfirmedAt: now },
+      },
+    });
+  }
+
+  if (payload.stop === "goal") {
+    let next = setCampaignSmartGoal(project, payload.smartGoal);
+    next = setCampaignChannel(next, payload.channel);
+    next = setAcquisitionStage(next, payload.stage, false);
+    next = setCampaignGtmMotion(next, payload.motion);
+    next = setMarketingProfile(next, payload.profile);
+    const nextSetup = normalizeCampaignSetup(next).campaignSetup!;
+    return normalizeCampaignSetup({
+      ...next,
+      campaignSetup: {
+        ...nextSetup,
+        foundationsRiver: {
+          ...river,
+          ...nextSetup.foundationsRiver,
+          goalConfirmedAt: now,
+          goalStrategyId: payload.goalStrategyId,
+          supportChannelKeys: payload.supportChannels,
+        },
+      },
+    });
+  }
+
+  if (payload.stop === "message") {
+    let next = setCampaignPositioning(project, payload.positioning.trim());
+    const nextSetup = normalizeCampaignSetup(next).campaignSetup!;
+    return normalizeCampaignSetup({
+      ...next,
+      campaignSetup: {
+        ...nextSetup,
+        foundationsRiver: {
+          ...river,
+          ...nextSetup.foundationsRiver,
+          messageConfirmedAt: now,
+          messageAdaptations: payload.messageAdaptations,
+        },
+      },
+    });
+  }
+
+  if (payload.stop === "dock") {
+    return normalizeCampaignSetup({
+      ...project,
+      campaignSetup: {
+        ...setup,
+        foundationsRiver: { ...river, completedAt: now },
+        cycleStatus: setup.cycleStatus === "draft" ? "active" : setup.cycleStatus,
+      },
+    });
+  }
+
+  return project;
+}
+
+export type SetCampaignContentAssetPayload = {
+  assetId: string;
+  fields: Record<string, string>;
+  confirmed?: boolean;
+};
+
+export function startCampaignContentStudio(
+  project: UserProject,
+  opportunity: Opportunity,
+): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+  const now = new Date().toISOString();
+  const ctx = buildContentDeriveContext(project, opportunity);
+  const hasAssets = setup.contentAssets && Object.keys(setup.contentAssets).length > 0;
+  const contentAssets = hasAssets ? setup.contentAssets : deriveAllContentAssets(ctx);
+  return normalizeCampaignSetup({
+    ...project,
+    campaignSetup: {
+      ...setup,
+      contentAssets,
+      contentStudio: {
+        ...setup.contentStudio,
+        startedAt: setup.contentStudio?.startedAt ?? now,
+      },
+    },
+  });
+}
+
+export function setCampaignContentAsset(
+  project: UserProject,
+  opportunity: Opportunity,
+  payload: SetCampaignContentAssetPayload,
+): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+
+  const now = new Date().toISOString();
+  const ctx = buildContentDeriveContext(project, opportunity);
+  const resolved = resolveContentAssets(setup, ctx);
+  const existing = resolved[payload.assetId];
+  if (!existing) return project;
+
+  const schema = CONTENT_ASSET_SCHEMAS[payload.assetId];
+  const fields = schema
+    ? fieldsFromValues(schema, payload.fields)
+    : existing.fields.map((f) => ({
+        ...f,
+        value: payload.fields[f.key]?.trim() ?? f.value,
+      }));
+
+  const updated = {
+    ...existing,
+    fields,
+    source: "edited" as const,
+    updatedAt: now,
+    confirmedAt: payload.confirmed ? now : existing.confirmedAt,
+  };
+
+  const contentAssets = {
+    ...(setup.contentAssets ?? deriveAllContentAssets(ctx)),
+    [payload.assetId]: updated,
+  };
+
+  const requiredIds = getRequiredContentAssetIds(ctx.primaryChannel, ctx.supportChannels);
+  const allConfirmed = requiredIds.every((id) => {
+    const asset = id === payload.assetId ? updated : contentAssets[id];
+    return asset ? isContentAssetConfirmed(asset) : false;
+  });
+
+  return normalizeCampaignSetup({
+    ...project,
+    campaignSetup: {
+      ...setup,
+      contentAssets,
+      contentStudio: {
+        ...setup.contentStudio,
+        startedAt: setup.contentStudio?.startedAt ?? now,
+        lastEditedAssetId: payload.assetId,
+        completedAt: allConfirmed ? now : setup.contentStudio?.completedAt,
+      },
+    },
+  });
+}
+
 export function setCampaignActionItems(
   project: UserProject,
   actionItems: CampaignActionItem[],
@@ -1431,6 +1648,39 @@ export function applyCampaignFullPlan(
       activeSequenceId: data.activeSequenceId ?? setup.activeSequenceId,
       cycleStatus: "active",
       generatedAt: new Date().toISOString(),
+    },
+  });
+}
+
+export function confirmCampaignSequenceStep(
+  project: UserProject,
+  stepId: string,
+): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+  const progress = { ...(setup.sequenceProgress ?? {}) };
+  progress[stepId] = { done: true, doneAt: new Date().toISOString() };
+  return normalizeCampaignSetup({
+    ...project,
+    campaignSetup: { ...setup, sequenceProgress: progress },
+  });
+}
+
+export function confirmDistributionGuideStep(
+  project: UserProject,
+  stepIndex: number,
+): UserProject {
+  const setup = normalizeCampaignSetup(project).campaignSetup;
+  if (!setup) return project;
+  const progress = { ...(setup.distributionProgress ?? {}) };
+  progress[`dist-${stepIndex}`] = { done: true, doneAt: new Date().toISOString() };
+  const allDone = Object.values(progress).every((p) => p.done);
+  return normalizeCampaignSetup({
+    ...project,
+    campaignSetup: {
+      ...setup,
+      distributionProgress: progress,
+      distributionAcknowledgedAt: allDone ? new Date().toISOString() : setup.distributionAcknowledgedAt,
     },
   });
 }

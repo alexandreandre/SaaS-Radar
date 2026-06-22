@@ -44,7 +44,7 @@ export async function detectHostLogo(productionUrl: string): Promise<string | nu
   }
 
   const pageRes = await fetchWithTimeout(productionUrl, {
-    headers: { Accept: "text/html", "User-Agent": "SaaS-Radar-LogoBot/1.0" },
+    headers: { Accept: "text/html", "User-Agent": "The-Build-Road-LogoBot/1.0" },
   });
   if (pageRes?.ok) {
     const buffer = await pageRes.arrayBuffer();

@@ -1,9 +1,12 @@
+/**
+ * Parcours campagne — dérivé du modèle 4 phases (phases.ts).
+ * Les 5 étapes historiques (Cible/Message/Préparer/Agir/Suivre) restent exposées
+ * pour compatibilité callouts et tests, mais mappent sur les 4 phases UI.
+ */
 import type { Opportunity } from "@/types/opportunity";
 import type { UserProject } from "@/lib/portfolio";
 import { getBuildJourneyState } from "@/lib/build/journey";
-import {
-  recommendStageForProject,
-} from "@/lib/campaign/recommend";
+import { recommendStageForProject } from "@/lib/campaign/recommend";
 import {
   getActiveCampaignKit,
   getActiveCampaignToolId,
@@ -16,9 +19,15 @@ import {
   isTrackingConfigured,
 } from "@/lib/campaign/kits";
 import { getStageDefinition } from "@/lib/campaign/stages";
+import {
+  getFoundationsGaps,
+  resolveCampaignPhase,
+  type CampaignPhaseId,
+} from "@/lib/campaign/phases";
 
 export type CampaignJourneyStep = 1 | 2 | 3 | 4 | 5;
 
+/** @deprecated Préférer CAMPAIGN_PHASES — conservé pour callouts legacy */
 export const CAMPAIGN_JOURNEY_STEPS: { step: CampaignJourneyStep; label: string }[] = [
   { step: 1, label: "Cible" },
   { step: 2, label: "Message" },
@@ -36,6 +45,8 @@ export type CampaignDisplayPhase =
 
 export type CampaignJourneyState = {
   currentStep: CampaignJourneyStep;
+  /** Phase UI courante (modèle canonique) */
+  currentPhase: CampaignPhaseId;
   displayPhase: CampaignDisplayPhase;
   acquisitionStage: ReturnType<typeof getCampaignStage>;
   showCoachCopy: boolean;
@@ -92,31 +103,40 @@ function resolveDisplayPhase(
 
 function stageCoachCopy(
   stage: ReturnType<typeof getCampaignStage>,
-  step: CampaignJourneyStep,
+  phase: CampaignPhaseId,
+  project: UserProject,
 ): { title: string; detail: string } {
   const def = getStageDefinition(stage);
 
-  if (step === 1) {
+  if (phase === "foundations") {
+    const gaps = getFoundationsGaps(project);
+    if (gaps.some((g) => g.id === "audience" || g.id === "intro")) {
+      return {
+        title: "Confirmez pour qui c'est",
+        detail: `${def.description} Trois validations rapides suffisent.`,
+      };
+    }
+    if (gaps.some((g) => g.id === "goal")) {
+      return {
+        title: "Fixez votre objectif",
+        detail: "Un chiffre et un canal — le reste suit.",
+      };
+    }
     return {
-      title: `Stade ${def.label} — définissez votre cible`,
-      detail: `${def.description} Métrique clé : ${def.primaryMetric}.`,
+      title: "Validez votre message",
+      detail: "Une phrase d'accroche claire avant de créer vos assets.",
     };
   }
-  if (step === 2) {
-    return {
-      title: "Affinez votre message",
-      detail: "Positionnement en une phrase + brief stratégique avant de produire.",
-    };
-  }
-  if (step === 3) {
+  if (phase === "creation") {
     return {
       title: "Préparez outils et mesure",
-      detail: stage === "scale"
-        ? "Créas prêtes + UTM + connecteurs ads avant de scaler."
-        : "Générez vos assets IA et configurez le suivi des signups.",
+      detail:
+        stage === "scale"
+          ? "Créas prêtes + UTM + connecteurs ads avant de scaler."
+          : "Générez vos assets IA et configurez le suivi des signups.",
     };
   }
-  if (step === 4) {
+  if (phase === "diffusion") {
     if (stage === "network") {
       return {
         title: "Agissez — réseau d'abord",
@@ -157,10 +177,11 @@ export function getCampaignJourneyState(
     ? recommendStageForProject(project, opportunity)
     : getCampaignStage(project);
 
+  const currentPhase = resolveCampaignPhase(project, stage);
   const currentStep = resolveCurrentStep(project);
   const displayPhase = resolveDisplayPhase(currentStep, setup);
   const hasKit = Boolean(getActiveCampaignKit(project)?.primaryPrompt) || hasCampaignKit(project);
-  const coach = stageCoachCopy(stage, currentStep);
+  const coach = stageCoachCopy(stage, currentPhase, project);
 
   const appOnlineWarning = !appOnline
     ? "Votre app n'est pas encore en ligne — vous pouvez préparer la campagne, mais lancez après le déploiement."
@@ -168,9 +189,9 @@ export function getCampaignJourneyState(
 
   const checkInCount = setup?.weeklyCheckIns?.length ?? 0;
   let secondaryDetail: string | undefined;
-  if (currentStep === 5 && checkInCount === 0) {
+  if (currentPhase === "measure" && checkInCount === 0) {
     secondaryDetail = "Faites votre premier check-in — 2 minutes pour noter où vous en êtes.";
-  } else if (stage === "scale" && currentStep >= 4) {
+  } else if (stage === "scale" && currentPhase === "diffusion") {
     secondaryDetail = "Le dashboard ROAS est dans l'onglet Acquisition.";
   }
 
@@ -181,6 +202,7 @@ export function getCampaignJourneyState(
 
   return {
     currentStep,
+    currentPhase,
     displayPhase,
     acquisitionStage: stage,
     showCoachCopy,
@@ -190,7 +212,7 @@ export function getCampaignJourneyState(
     appOnline,
     appOnlineWarning,
     trackingUnlocked: hasKit || isStep3Complete(setup),
-    showAcquisitionHandoff: stage === "scale" && currentStep >= 4,
+    showAcquisitionHandoff: stage === "scale" && currentPhase === "diffusion",
   };
 }
 

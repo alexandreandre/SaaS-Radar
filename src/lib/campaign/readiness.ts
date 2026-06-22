@@ -8,10 +8,10 @@ import {
   isStep2Complete,
   isTrackingConfigured,
 } from "@/lib/campaign/kits";
-import { hasExecutedAction } from "@/lib/campaign/actions";
 import { recommendGtmMotion } from "@/lib/campaign/gtm-engine";
 import { canAccessDiffusionPhase } from "@/lib/campaign/infra-gates";
-import { sequenceProgressPercent } from "@/lib/campaign/sequences";
+import { isContentCreativeReady } from "@/lib/campaign/content-derive";
+import { isDiffusionComplete } from "@/lib/campaign/phases";
 
 export type CampaignReadiness = {
   appLive: boolean;
@@ -43,13 +43,16 @@ export function getCampaignReadiness(
   const appLive = buildState.displayPhase === "live";
 
   const strategyComplete = isStep1Complete(setup) && isStep2Complete(setup);
+  const contentReady = isContentCreativeReady(project);
   const kitReady =
-    hasCampaignKit(project) || Boolean(getActiveCampaignKit(project)?.primaryPrompt);
+    hasCampaignKit(project) ||
+    Boolean(getActiveCampaignKit(project)?.primaryPrompt) ||
+    contentReady;
   const trackingConfigured =
     isTrackingConfigured(setup) ||
     isAnalyticsConnected(project) ||
     Boolean(setup?.attributionQuestionEnabled);
-  const sequenceStarted = sequenceProgressPercent(setup) > 0 || hasExecutedAction(setup?.actionItems ?? []);
+  const sequenceStarted = isDiffusionComplete(project);
   const distributionAcknowledged = Boolean(setup?.distributionAcknowledgedAt);
   const measureAcknowledged =
     Boolean(setup?.measureAcknowledgedAt) || isAnalyticsConnected(project);
@@ -61,11 +64,11 @@ export function getCampaignReadiness(
 
   const checks = [
     { ok: strategyComplete, label: "Stratégie", blocker: "Validez objectif et message" },
-    { ok: kitReady, label: "Kit créatif", blocker: "Générez un kit sur le canal prioritaire" },
+    { ok: kitReady, label: "Contenus créatifs", blocker: "Validez vos contenus (landing et canaux)" },
     { ok: trackingConfigured, label: "Tracking", blocker: "UTM, analytics ou question attribution" },
     { ok: appLive, label: "App en ligne", blocker: "Déployez votre app (Build)" },
     { ok: infraReady, label: "Infra diffusion", blocker: "Complétez les prérequis infra" },
-    { ok: sequenceStarted, label: "Exécution", blocker: "Cochez une étape de la séquence" },
+    { ok: sequenceStarted, label: "Exécution", blocker: "Terminez la diffusion guidée" },
   ];
 
   if (opportunity?.partnersFR?.length) {

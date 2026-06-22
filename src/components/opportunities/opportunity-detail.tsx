@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { primeOpportunityCache } from "@/lib/opportunity-catalog-client";
 import { ArrowLeft } from "lucide-react";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
@@ -18,6 +20,10 @@ export function OpportunityDetail({
   existingProjectId?: string | null;
 }) {
   const sector = sectorLabels[opportunity.sector] ?? opportunity.sector;
+
+  useEffect(() => {
+    primeOpportunityCache(opportunity);
+  }, [opportunity]);
 
   return (
     <>

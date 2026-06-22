@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import type { Opportunity } from "@/types/opportunity";
 import type { UserProject } from "@/lib/portfolio";
@@ -29,6 +29,9 @@ import { getCockpitHref } from "@/lib/cockpit-modules";
 import type { ConnectorId } from "@/lib/connectors/types";
 import type { CockpitData } from "@/hooks/use-cockpit-data";
 import type { CampaignActionItem } from "@/lib/campaign/stages";
+import type { ConfirmFoundationsRiverPayload } from "@/lib/portfolio";
+import type { FoundationsRiverStopId } from "@/lib/campaign/foundations-river";
+import { resolveFoundationsRiverStop } from "@/lib/campaign/foundations-river";
 
 type CampaignWorkspaceProps = {
   project: UserProject;
@@ -54,7 +57,8 @@ type CampaignWorkspaceProps = {
   onReset: (opts?: { keepStrategy?: boolean }) => void;
   onConfigureTracking: () => void;
   onConnectIntegration: (id: ConnectorId) => void;
-  onToggleSequenceStep: (stepId: string) => void;
+  onConfirmSequenceStep: (stepId: string) => void;
+  onConfirmDistributionStep: (stepIndex: number) => void;
   onOpenTool: (id: string, url?: string) => void;
   onModuleChange: (module: CockpitModuleId) => void;
   onWeeklyCheckIn: (checkIn: CampaignWeeklyCheckIn) => void;
@@ -76,9 +80,10 @@ type CampaignWorkspaceProps = {
   onProfileChange: (profile: MarketingProfile) => void;
   onIcpStructuredSave: (icp: CampaignIcpStructured, summary: string) => void;
   onAttributionChange: (enabled: boolean) => void;
-  onToggleInfraGate: (gateId: InfraGateId) => void;
-  onToggleAsset: (index: number) => void;
-  onAcknowledgeDistribution?: () => void;
+  onConfirmRiverStop: (payload: ConfirmFoundationsRiverPayload) => void;
+  onConfirmInfraGate: (gateId: InfraGateId) => void;
+  onStartContentStudio: () => void;
+  onConfirmContentAsset: (assetId: string, fields: Record<string, string>) => void;
   onAddMarketFitNote: (note: string) => void;
   metricsData?: CockpitData;
 };
@@ -110,7 +115,8 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
     onReset,
     onConfigureTracking,
     onConnectIntegration,
-    onToggleSequenceStep,
+    onConfirmSequenceStep,
+    onConfirmDistributionStep,
     onOpenTool,
     onModuleChange,
     onWeeklyCheckIn,
@@ -120,21 +126,55 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
     onProfileChange,
     onIcpStructuredSave,
     onAttributionChange,
-    onToggleInfraGate,
-    onToggleAsset,
-    onAcknowledgeDistribution,
+    onConfirmRiverStop,
+    onConfirmInfraGate,
+    onStartContentStudio,
+    onConfirmContentAsset,
     onAddMarketFitNote,
   } = props;
 
-  const suggestedPhase = resolveCampaignPhase(project, stage);
+  const suggestedPhase = resolveCampaignPhase(project, stage, opportunity);
   const [activePhase, setActivePhase] = useState<CampaignPhaseId>(suggestedPhase);
+  const [riverStopOverride, setRiverStopOverride] = useState<FoundationsRiverStopId | undefined>();
 
-  const scrollTo = useCallback((id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
-    if (id.includes("foundations")) setActivePhase("foundations");
-    if (id.includes("creation")) setActivePhase("creation");
-    if (id.includes("infra")) setActivePhase("creation");
+  useEffect(() => {
+    setActivePhase(resolveCampaignPhase(project, stage, opportunity));
+  }, [project, stage, opportunity]);
+
+  const mapAnchorToRiverStop = useCallback((id: string): FoundationsRiverStopId | undefined => {
+    const map: Record<string, FoundationsRiverStopId> = {
+      "foundations-audience": "audience",
+      "foundations-goal": "goal",
+      "foundations-message": "message",
+      "foundations-dock": "dock",
+      "foundations-screen": "intro",
+      "foundations-icp": "audience",
+    };
+    return map[id];
   }, []);
+
+  const scrollTo = useCallback(
+    (id: string) => {
+      if (id === "build-module") return;
+      if (id.includes("foundations") || id === "foundations-screen") {
+        setActivePhase("foundations");
+        const mapped = mapAnchorToRiverStop(id);
+        setRiverStopOverride(mapped ?? resolveFoundationsRiverStop(project));
+      }
+      if (id.includes("creation") || id === "infra-gates") setActivePhase("creation");
+      if (id.includes("diffusion")) setActivePhase("diffusion");
+      if (id.includes("measure")) setActivePhase("measure");
+
+      requestAnimationFrame(() => {
+        document.getElementById("foundations-screen")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+        document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    },
+    [mapAnchorToRiverStop, project],
+  );
 
   const buildState = getBuildJourneyState(project);
 
@@ -160,6 +200,7 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
       <div className="rounded-xl border border-border bg-card p-4 shadow-card">
         <CampaignPhaseStepper
           project={project}
+          opportunity={opportunity}
           stage={stage}
           activePhase={activePhase}
           onPhaseSelect={setActivePhase}
@@ -175,18 +216,19 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
               profile={profile}
               strategyBrief={strategyBrief}
               suggestScale={suggestScale}
+              initialRiverStop={riverStopOverride}
               onStageSelect={onStageSelect}
               onResetStageToRecommended={onResetStageToRecommended}
-              onChannelSelect={onChannelSelect}
-              onSaveGoal={onSaveGoal}
-              onApplyFullPlan={onApplyFullPlan}
-              onPositioningChange={onPositioningChange}
+              onConfirmRiverStop={onConfirmRiverStop}
               onBriefGenerated={onBriefGenerated}
               onMotionChange={onMotionChange}
               onProfileChange={onProfileChange}
               onIcpStructuredSave={onIcpStructuredSave}
               onAttributionChange={onAttributionChange}
-              onContinue={() => setActivePhase("creation")}
+              onContinue={() => {
+                setRiverStopOverride(undefined);
+                setActivePhase("creation");
+              }}
             />
           ) : null}
 
@@ -205,9 +247,11 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
               onKitGenerated={onKitGenerated}
               onRestoreVersion={onRestoreVersion}
               onReset={onReset}
-              onToggleAsset={onToggleAsset}
-              onToggleInfraGate={onToggleInfraGate}
+              onStartContentStudio={onStartContentStudio}
+              onConfirmContentAsset={onConfirmContentAsset}
               onContinue={() => setActivePhase("diffusion")}
+              onGoToFoundations={() => setActivePhase("foundations")}
+              onNavigate={scrollTo}
             />
           ) : null}
 
@@ -217,12 +261,15 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
               opportunity={opportunity}
               stage={stage}
               channel={channel}
-              onToggleSequenceStep={onToggleSequenceStep}
+              onConfirmSequenceStep={onConfirmSequenceStep}
+              onConfirmDistributionStep={onConfirmDistributionStep}
               onOpenTool={onOpenTool}
               onConnectIntegration={onConnectIntegration}
               onConfigureTracking={onConfigureTracking}
-              onAcknowledgeDistribution={onAcknowledgeDistribution ?? (() => {})}
+              onConfirmInfraGate={onConfirmInfraGate}
+              onEnableAttribution={() => onAttributionChange(true)}
               onContinue={() => setActivePhase("measure")}
+              onNavigate={scrollTo}
             />
           ) : null}
 
@@ -240,6 +287,7 @@ export function CampaignWorkspace(props: CampaignWorkspaceProps) {
               onStartNewCycle={onStartNewCycle}
               onModuleChange={onModuleChange}
               onAddMarketFitNote={onAddMarketFitNote}
+              onNavigate={scrollTo}
             />
           ) : null}
         </div>

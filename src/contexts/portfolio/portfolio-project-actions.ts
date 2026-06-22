@@ -10,10 +10,15 @@ import {
   type UserProject,
 } from "@/lib/portfolio";
 import { isOnboardingComplete } from "@/lib/build-launch";
+import type { Opportunity } from "@/types/opportunity";
 import type { PortfolioActionDeps } from "./portfolio-action-deps";
 export function createProjectActions(deps: PortfolioActionDeps) {
-  const addProject = (slug: string, input: AddProjectInput): UserProject | null => {
-      const opportunity = deps.getCatalogOpportunity(slug);
+  const addProject = (
+    slug: string,
+    input: AddProjectInput,
+    opportunityOverride?: Opportunity,
+  ): UserProject | null => {
+      const opportunity = opportunityOverride ?? deps.getCatalogOpportunity(slug);
       if (!opportunity) return null;
 
       let created: UserProject | null = null;

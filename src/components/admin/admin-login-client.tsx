@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Shield } from "lucide-react";
+import { BRAND_NAME } from "@/lib/brand";
+import { LogoMark } from "@/components/brand/logo-mark";
 import { createClient } from "@/lib/supabase/client";
 import { sanitizeAdminNext } from "@/lib/auth/callback-url";
 import { Button } from "@/components/ui/button";
@@ -132,12 +133,12 @@ function AdminLoginShell({ children }: { children: React.ReactNode }) {
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#0a0c10] px-4 text-foreground">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-white/5">
-            <Shield className="h-6 w-6 text-primary" aria-hidden />
+          <div className="flex h-12 w-12 items-center justify-center rounded-md border border-white/10 bg-white/5">
+            <LogoMark className="h-7" onDarkBackground aria-hidden={false} />
           </div>
           <div className="text-center">
-            <p className="font-data text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-              SaaS Radar
+            <p className="text-sm font-semibold tracking-tight text-white/90">
+              {BRAND_NAME}
             </p>
             <h1 className="mt-1 font-display text-2xl font-medium tracking-tight text-white">
               Administration

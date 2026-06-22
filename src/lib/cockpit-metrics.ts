@@ -343,7 +343,7 @@ export function buildCockpitMetrics(
     },
     {
       key: "target",
-      label: "Objectif Radar",
+      label: "Objectif Build Road",
       value: fmtCurrency(target),
       raw: target,
       delta: getDeltaPercent(latest.mrr, target),

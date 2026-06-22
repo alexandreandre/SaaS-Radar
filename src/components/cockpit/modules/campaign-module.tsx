@@ -55,15 +55,17 @@ export function CampaignModule({
     restoreCampaignVersion,
     resetCampaign,
     applyCampaignFullPlan,
-    acknowledgeCampaignDistribution,
-    toggleCampaignSequenceStep,
+    confirmCampaignSequenceStep,
+    confirmDistributionGuideStep,
     setCampaignGtmMotion,
     setCampaignIcpStructured,
     setCampaignAttributionQuestion,
     toggleCampaignInfraGate,
-    toggleCampaignAssetChecklist,
     addMessageMarketFitNote,
     setMarketingProfile,
+    confirmFoundationsRiverStop,
+    startCampaignContentStudio,
+    setCampaignContentAsset,
   } = usePortfolio();
 
   const bootstrappedRef = useRef(false);
@@ -150,6 +152,24 @@ export function CampaignModule({
     });
   }, [project, channel, setCampaignTrackingPlan]);
 
+  const handleStartContentStudio = useCallback(() => {
+    startCampaignContentStudio(project.id, opportunity);
+  }, [project.id, opportunity, startCampaignContentStudio]);
+
+  const handleConfirmContentAsset = useCallback(
+    (assetId: string, fields: Record<string, string>) => {
+      setCampaignContentAsset(project.id, assetId, fields, opportunity);
+    },
+    [project.id, opportunity, setCampaignContentAsset],
+  );
+
+  const handleConfirmRiverStop = useCallback(
+    (payload: import("@/lib/portfolio").ConfirmFoundationsRiverPayload) => {
+      confirmFoundationsRiverStop(project.id, payload, opportunity);
+    },
+    [project.id, opportunity, confirmFoundationsRiverStop],
+  );
+
   return (
     <div className="space-y-4">
       <CampaignWorkspace
@@ -186,13 +206,15 @@ export function CampaignModule({
         onReset={(opts) => resetCampaign(project.id, opts)}
         onConfigureTracking={handleConfigureTracking}
         onConnectIntegration={onConnectIntegration}
-        onToggleSequenceStep={(id) => toggleCampaignSequenceStep(project.id, id)}
+        onConfirmSequenceStep={(stepId) => confirmCampaignSequenceStep(project.id, stepId)}
+        onConfirmDistributionStep={(stepIndex) =>
+          confirmDistributionGuideStep(project.id, stepIndex)
+        }
         onOpenTool={handleOpenTool}
         onModuleChange={onModuleChange}
         onWeeklyCheckIn={(checkIn) => addCampaignWeeklyCheckIn(project.id, checkIn)}
         onCompleteRetrospective={(retro) => completeCampaignRetrospective(project.id, retro)}
         onStartNewCycle={() => startNewCampaignCycle(project.id)}
-        onAcknowledgeDistribution={() => acknowledgeCampaignDistribution(project.id)}
         onMotionChange={(m) => setCampaignGtmMotion(project.id, m)}
         onProfileChange={(p) => setMarketingProfile(project.id, p)}
         onIcpStructuredSave={(icp, summary) =>
@@ -201,8 +223,10 @@ export function CampaignModule({
         onAttributionChange={(enabled) =>
           setCampaignAttributionQuestion(project.id, enabled)
         }
-        onToggleInfraGate={(gateId) => toggleCampaignInfraGate(project.id, gateId)}
-        onToggleAsset={(index) => toggleCampaignAssetChecklist(project.id, index)}
+        onConfirmRiverStop={handleConfirmRiverStop}
+        onConfirmInfraGate={(gateId) => toggleCampaignInfraGate(project.id, gateId)}
+        onStartContentStudio={handleStartContentStudio}
+        onConfirmContentAsset={handleConfirmContentAsset}
         onAddMarketFitNote={(note) => addMessageMarketFitNote(project.id, note)}
       />
 

@@ -12,7 +12,7 @@ import type {
 export { parseResendCredential } from "@/lib/connectors/resend/keys";
 
 const RESEND_API_BASE = "https://api.resend.com";
-const USER_AGENT = "SaaS-Radar/1.0";
+const USER_AGENT = "The-Build-Road/1.0";
 const MAX_RETRIES = 3;
 const PAGE_SIZE = 100;
 

@@ -1,4 +1,4 @@
-import { Radar } from "lucide-react";
+import { LogoMark } from "@/components/brand/logo-mark";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
@@ -14,7 +14,7 @@ export function EmptyPortfolio({ weeklyPickSlug }: EmptyPortfolioProps) {
   return (
     <section className="rounded-xl border border-dashed border-primary/30 bg-accent/20 px-6 py-16 text-center">
       <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-        <Radar className="h-7 w-7 text-primary" aria-hidden />
+        <LogoMark className="h-8" aria-hidden />
       </div>
       <h2 className="mt-6 font-display text-2xl font-medium">Aucun SaaS en cours</h2>
       <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">

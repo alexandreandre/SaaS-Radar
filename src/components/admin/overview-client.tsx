@@ -391,7 +391,7 @@ export function OverviewClient({ initialMetrics, initialError }: OverviewClientP
         description={
           loadedAtLabel
             ? `Vue d'ensemble actualisée au ${loadedAtLabel}.`
-            : "Vue d'ensemble de la plateforme SaaS Radar."
+            : "Vue d'ensemble de la plateforme The Build Road."
         }
         actions={
           <Button

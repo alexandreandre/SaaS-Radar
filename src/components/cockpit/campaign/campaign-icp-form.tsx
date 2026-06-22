@@ -6,6 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
+function buildIcpSummary(icp: CampaignIcpStructured): string {
+  const parts = [
+    icp.segment?.trim(),
+    icp.size?.trim() ? `(${icp.size.trim()})` : undefined,
+    icp.pain?.trim() ? `Douleur : ${icp.pain.trim()}` : undefined,
+  ].filter(Boolean);
+  return parts.join(" · ");
+}
+
 type CampaignIcpFormProps = {
   icp?: CampaignIcpStructured;
   icpSummary?: string;
@@ -57,12 +66,10 @@ export function CampaignIcpForm({ icp, icpSummary, onSave }: CampaignIcpFormProp
       <Button
         type="button"
         size="sm"
-        onClick={() =>
-          onSave(
-            { segment, size, pain, trigger, champion, economicBuyer },
-            segment.trim(),
-          )
-        }
+        onClick={() => {
+          const structured = { segment, size, pain, trigger, champion, economicBuyer };
+          onSave(structured, buildIcpSummary(structured) || segment.trim());
+        }}
       >
         Enregistrer l&apos;ICP
       </Button>

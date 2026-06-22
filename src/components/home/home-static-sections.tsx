@@ -55,7 +55,7 @@ export function HomeStaticSections() {
               <thead>
                 <tr className="border-b border-border bg-muted/60">
                   <th className="px-6 py-4 text-left font-medium text-muted-foreground">Critère</th>
-                  <th className="px-6 py-4 text-center font-semibold text-primary">SaaS Radar</th>
+                  <th className="px-6 py-4 text-center font-semibold text-primary">The Build Road</th>
                   <th className="px-6 py-4 text-center font-medium text-muted-foreground">Formation classique</th>
                 </tr>
               </thead>

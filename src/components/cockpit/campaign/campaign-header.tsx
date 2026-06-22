@@ -9,6 +9,7 @@ import {
   GTM_ENGINE_LABELS,
   resolveGtmEngineFocus,
 } from "@/lib/campaign/gtm-engine";
+import { mapReadinessBlockerToAnchor } from "@/lib/campaign/phases";
 import { cn } from "@/lib/utils";
 
 type CampaignHeaderProps = {
@@ -85,7 +86,7 @@ export function CampaignHeader({
           <button
             key={blocker}
             type="button"
-            onClick={() => onBlockerClick?.("foundations-screen")}
+            onClick={() => onBlockerClick?.(mapReadinessBlockerToAnchor(blocker))}
             className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-800 hover:bg-amber-500/20 dark:text-amber-200"
           >
             {blocker}

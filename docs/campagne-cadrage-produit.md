@@ -7,6 +7,8 @@
 ## Refonte v2 (juin 2026 — livrée)
 
 - **4 écrans** : Fondations, Création, Diffusion, Mesure (plus d'onglets par canal).
+- **Atelier création de contenu** (juin 2026) : rivière canal par canal, pré-remplissage fil rouge, validation « C'est prêt » — voir [Parcours utilisateur atelier Création](./campagne-parcours-creation-contenu.md).
+- **Parcours utilisateur onglet Campagne** : [campagne-parcours-utilisateur.md](./campagne-parcours-utilisateur.md) (4 phases, gates, navigation).
 - **Moteur GTM** : `demand` vs `capture` (`gtm-engine.ts`), motion unique (`founder_led`, `outbound`, `content`, `paid_test`, `launch`).
 - **Séquences J1–Jn** (`sequences.ts`) remplacent le bootstrap multi-playbooks parallèle.
 - **Gates infra** (`infra-gates.ts`) bloquent la diffusion sans tracking/CRM/assets.

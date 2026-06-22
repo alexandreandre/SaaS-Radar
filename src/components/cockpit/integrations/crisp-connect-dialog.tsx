@@ -113,7 +113,7 @@ export function CrispConnectDialog({
           <DialogTitle>Connecter Crisp</DialogTitle>
           <DialogDescription>
             {step === 1
-              ? "Installez le plugin SaaS-Radar sur votre workspace Crisp, puis indiquez le Website ID."
+              ? "Installez le plugin The Build Road sur votre workspace Crisp, puis indiquez le Website ID."
               : "Confirmez la connexion de ce workspace au cockpit."}
           </DialogDescription>
         </DialogHeader>
@@ -124,7 +124,7 @@ export function CrispConnectDialog({
               <p className="font-medium text-foreground">Prérequis</p>
               <ol className="mt-2 list-inside list-decimal space-y-1">
                 <li>
-                  Installez le plugin SaaS-Radar depuis le{" "}
+                  Installez le plugin The Build Road depuis le{" "}
                   <a
                     href={installUrl}
                     target="_blank"

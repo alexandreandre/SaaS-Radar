@@ -26,6 +26,7 @@ import {
   getCampaignToolPostCopySteps,
 } from "@/lib/campaign/tool-content";
 import { getCockpitHref } from "@/lib/cockpit-modules";
+import { getConfirmedContentAssets } from "@/lib/campaign/content-derive";
 import { useTier } from "@/contexts/tier-context";
 import { hasTier } from "@/lib/tier";
 import { cn } from "@/lib/utils";
@@ -130,6 +131,7 @@ export function CampaignRecipeCard({
   const productName = resolveProductName(project, opportunity);
   const openHint = getCampaignToolOpenHint(tool.id);
   const postCopySteps = getCampaignToolPostCopySteps(tool.id);
+  const validatedContent = getConfirmedContentAssets(project.campaignSetup?.contentAssets ?? {});
 
   const generate = useCallback(async () => {
     setLoading(true);
@@ -146,6 +148,7 @@ export function CampaignRecipeCard({
           profile,
           channelKey: channel,
           strategyBrief,
+          contentAssetsValidated: validatedContent,
           language: "fr",
         }),
       });
@@ -157,7 +160,7 @@ export function CampaignRecipeCard({
     } finally {
       setLoading(false);
     }
-  }, [project, productName, tool.id, profile, channel, strategyBrief, onGenerated]);
+  }, [project, productName, tool.id, profile, channel, strategyBrief, validatedContent, onGenerated]);
 
   if (collapsed && kit?.primaryPrompt) {
     return (
@@ -220,6 +223,16 @@ export function CampaignRecipeCard({
           </Link>{" "}
           pour des prompts plus précis.
         </p>
+      ) : null}
+
+      {validatedContent.length > 0 ? (
+        <KitSection title="Vos contenus validés" subtitle="Le kit IA s'appuiera sur ces textes">
+          <ul className="space-y-1 text-xs text-muted-foreground">
+            {validatedContent.map((a) => (
+              <li key={a.id}>· {a.label}</li>
+            ))}
+          </ul>
+        </KitSection>
       ) : null}
 
       {!kit?.primaryPrompt ? (

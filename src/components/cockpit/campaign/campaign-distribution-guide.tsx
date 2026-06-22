@@ -1,84 +1,71 @@
 "use client";
 
 import type { CampaignPlaybookId } from "@/lib/campaign/playbooks";
+import type { UserProject } from "@/lib/portfolio";
+import { resolveDistributionGuideSteps } from "@/lib/campaign/distribution-guide-data";
+import { CampaignGuidedStep } from "@/components/cockpit/campaign/campaign-guided-step";
 import { Button } from "@/components/ui/button";
 
-const DISTRIBUTION_STEPS: Partial<Record<CampaignPlaybookId, string[]>> = {
-  meta: [
-    "Compte Meta Business Manager configuré",
-    "Pixel installé sur la landing",
-    "3 créas validées + UTM sur l'URL",
-    "Campagne test lancée (20 €/jour)",
-  ],
-  google: [
-    "Compte Google Ads + facturation",
-    "Mots-clés transactionnels sélectionnés",
-    "Landing alignée avec l'annonce",
-    "Campagne Search test lancée",
-  ],
-  tiktok: [
-    "Compte TikTok Ads + pixel",
-    "3 vidéos UGC 9:16 prêtes",
-    "Audience test définie",
-    "Campagne lancée à 20 €/jour",
-  ],
-  cold_email: [
-    "Domaine d'envoi + SPF/DKIM/DMARC",
-    "Warm-up domaine 5–7 jours",
-    "Liste 50 prospects importée",
-    "Séquence J1 activée (20 max)",
-  ],
-  linkedin: [
-    "Profil fondateur optimisé",
-    "1 post + 10 DMs rédigés",
-    "Calendrier publication défini",
-    "Première publication live",
-  ],
-  seo: [
-    "Mot-clé cible validé",
-    "Article ou page pilier publiée",
-    "Meta title + description optimisés",
-    "Soumis à Google Search Console",
-  ],
-};
-
 type CampaignDistributionGuideProps = {
+  project: UserProject;
   playbookId: CampaignPlaybookId;
   kitSteps?: string[];
-  acknowledged?: boolean;
-  onAcknowledge: () => void;
+  channelHook?: string;
+  onConfirmStep: (stepIndex: number) => void;
 };
 
 export function CampaignDistributionGuide({
+  project,
   playbookId,
   kitSteps,
-  acknowledged,
-  onAcknowledge,
+  channelHook,
+  onConfirmStep,
 }: CampaignDistributionGuideProps) {
-  const steps = kitSteps?.length ? kitSteps : DISTRIBUTION_STEPS[playbookId];
-  if (!steps?.length) return null;
+  const steps = resolveDistributionGuideSteps(playbookId, kitSteps);
+  if (steps.length === 0) return null;
+
+  const progress = project.campaignSetup?.distributionProgress ?? {};
+  const doneCount = steps.filter((_, i) => progress[`dist-${i}`]?.done).length;
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4 shadow-card">
-      <h4 className="text-sm font-semibold">Guide diffusion</h4>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Validez chaque étape avant de lancer.
-      </p>
-      <ol className="mt-3 space-y-2">
-        {steps.map((step, i) => (
-          <li key={i} className="flex gap-2 text-sm text-muted-foreground">
-            <span className="font-medium text-foreground">{i + 1}.</span>
-            {step}
-          </li>
-        ))}
-      </ol>
-      {!acknowledged ? (
-        <Button type="button" size="sm" className="mt-4" onClick={onAcknowledge}>
-          Marquer la diffusion prête
-        </Button>
-      ) : (
-        <p className="mt-3 text-xs text-emerald-600">Diffusion validée ✓</p>
-      )}
-    </div>
+    <section id="diffusion-guide" className="space-y-3">
+      <div className="rounded-xl border border-border bg-card px-5 py-4 shadow-card">
+        <h4 className="text-sm font-semibold">Guide diffusion canal</h4>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Validez chaque action une fois réalisée dans votre outil ads / CMS.
+        </p>
+        {channelHook ? (
+          <p className="mt-2 rounded-lg border border-border/60 bg-muted/10 px-3 py-2 text-xs text-muted-foreground">
+            Accroche validée : <span className="font-medium text-foreground">{channelHook}</span>
+          </p>
+        ) : null}
+        <p className="mt-2 text-xs text-muted-foreground">
+          {doneCount}/{steps.length} étapes validées
+        </p>
+      </div>
+
+      {steps.map((step, index) => {
+        const done = Boolean(progress[`dist-${index}`]?.done);
+        return (
+          <CampaignGuidedStep
+            key={index}
+            step={index + 1}
+            title={step}
+            done={done}
+            defaultOpen={!done && index === steps.findIndex((_, i) => !progress[`dist-${i}`]?.done)}
+          >
+            <div className="flex flex-wrap gap-2">
+              {!done ? (
+                <Button type="button" size="sm" onClick={() => onConfirmStep(index)}>
+                  C&apos;est fait
+                </Button>
+              ) : (
+                <span className="text-xs text-emerald-700 dark:text-emerald-300">Validé</span>
+              )}
+            </div>
+          </CampaignGuidedStep>
+        );
+      })}
+    </section>
   );
 }

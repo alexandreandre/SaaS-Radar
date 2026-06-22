@@ -3,7 +3,8 @@
 import { Suspense, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { LogOut, Radar, Rocket, Shield } from "lucide-react";
+import { LogOut, Rocket, Shield } from "lucide-react";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
@@ -65,17 +66,7 @@ function NavbarContent({
       )}
     >
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <Radar className="h-4 w-4 text-primary logo-pulse" aria-hidden />
-          <span
-            className={cn(
-              "font-data text-xs font-medium uppercase tracking-[0.18em]",
-              dark ? "text-hero-foreground" : "text-foreground"
-            )}
-          >
-            SaaS Radar
-          </span>
-        </Link>
+        <BrandLogo dark={dark} />
         <nav className="hidden items-center gap-7 md:flex">
           {links.map((link) => {
             const active = link.mapExplore

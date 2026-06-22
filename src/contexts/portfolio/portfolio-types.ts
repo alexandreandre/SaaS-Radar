@@ -90,7 +90,11 @@ export type ConnectIntegrationOptions = {
 export type PortfolioContextValue = {
   projects: UserProject[];
   hydrated: boolean;
-  addProject: (slug: string, input: AddProjectInput) => UserProject | null;
+  addProject: (
+    slug: string,
+    input: AddProjectInput,
+    opportunityOverride?: Opportunity,
+  ) => UserProject | null;
   registerProject: (project: UserProject) => void;
   removeProject: (id: string) => void;
   updateProject: (id: string, patch: Partial<UserProject>) => void;
@@ -134,6 +138,8 @@ export type PortfolioContextValue = {
     },
   ) => void;
   toggleCampaignSequenceStep: (id: string, stepId: string) => void;
+  confirmCampaignSequenceStep: (id: string, stepId: string) => void;
+  confirmDistributionGuideStep: (id: string, stepIndex: number) => void;
   setCampaignGtmMotion: (id: string, motion: import("@/lib/campaign/gtm-engine").GtmMotion) => void;
   setCampaignIcpStructured: (
     id: string,
@@ -158,6 +164,21 @@ export type PortfolioContextValue = {
   acknowledgeCampaignDistribution: (id: string) => void;
   acknowledgeCampaignMeasure: (id: string) => void;
   restoreCampaignVersion: (id: string, savedAt: string) => void;
+  confirmFoundationsRiverStop: (
+    id: string,
+    payload: import("@/lib/portfolio").ConfirmFoundationsRiverPayload,
+    opportunity?: import("@/types/opportunity").Opportunity,
+  ) => void;
+  startCampaignContentStudio: (
+    id: string,
+    opportunity?: import("@/types/opportunity").Opportunity,
+  ) => void;
+  setCampaignContentAsset: (
+    id: string,
+    assetId: string,
+    fields: Record<string, string>,
+    opportunity?: import("@/types/opportunity").Opportunity,
+  ) => void;
   resetCampaign: (id: string, opts?: ResetCampaignOptions) => void;
   setGitHubConnection: (id: string, connection: GitHubConnection | undefined) => void;
   setHostConnection: (id: string, connection: HostConnection | undefined) => void;

@@ -9,7 +9,7 @@ export function buildCampaignUtmUrl(
 ): string {
   const base = productionUrl.replace(/\/$/, "");
   const params = new URLSearchParams({
-    utm_source: "saas-radar",
+    utm_source: "the-build-road",
     utm_medium: channel,
     utm_campaign: sequenceId ?? "campaign",
     utm_content: variant,

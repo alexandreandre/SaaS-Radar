@@ -72,6 +72,30 @@ export function recommendChannelForStage(
   return getStageDefinition(stage).allowedChannels[0] ?? "linkedin";
 }
 
+const RIVER_CONVERSATION_PRIORITY: ExtendedChannelKey[] = [
+  "linkedin",
+  "referral",
+  "cold_email",
+];
+
+/** Canal rivière — priorise les canaux de conversation en stade early. */
+export function recommendRiverChannelForStage(
+  opportunity: Opportunity,
+  stage: AcquisitionStage,
+): ExtendedChannelKey {
+  const ficheChannels = opportunity.acquisition
+    .map((a) => resolveExtendedChannelKey(a.title))
+    .filter((c) => isChannelAllowedForStage(stage, c));
+
+  if (stage === "network" || stage === "outreach") {
+    for (const preferred of RIVER_CONVERSATION_PRIORITY) {
+      if (ficheChannels.includes(preferred)) return preferred;
+    }
+  }
+
+  return recommendChannelForStage(opportunity, stage);
+}
+
 export function recommendSmartGoal(stage: AcquisitionStage): CampaignSmartGoal {
   return defaultSmartGoalForStage(stage);
 }

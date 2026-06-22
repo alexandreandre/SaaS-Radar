@@ -14,6 +14,18 @@ describe("portfolioMetricsBodySchema", () => {
     assert.equal(result.success, true);
   });
 
+  it("accepte un projet catalogue avec projectSource catalog", () => {
+    const result = portfolioMetricsBodySchema.safeParse({
+      id: "proj-catalog",
+      opportunitySlug: "mouthwatch-teledent",
+      phase: "build",
+      currentMrr: 0,
+      targetScenario: "Réaliste",
+      projectSource: "catalog",
+    });
+    assert.equal(result.success, true);
+  });
+
   it("accepte un projet idée sans slug", () => {
     const result = portfolioMetricsBodySchema.safeParse({
       id: "proj-2",

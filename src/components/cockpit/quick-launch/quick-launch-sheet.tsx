@@ -7,6 +7,8 @@ import type { Opportunity } from "@/types/opportunity";
 import type { BuilderStage } from "@/lib/build-launch";
 import { getLaunchTeaser, getQuickLaunchDefaults } from "@/lib/build-launch";
 import { usePortfolio } from "@/contexts/portfolio-context";
+import { uploadAccountProject } from "@/lib/portfolio-sync-client";
+import { getCockpitHref } from "@/lib/cockpit-modules";
 import { StagePicker } from "@/components/cockpit/quick-launch/stage-picker";
 import { BuildProductNameCard } from "@/components/cockpit/build/build-product-name-card";
 import { Button } from "@/components/ui/button";
@@ -42,22 +44,34 @@ export function QuickLaunchSheet({
   const { addProject } = usePortfolio();
   const [stage, setStage] = useState<BuilderStage>("starting");
   const [productName, setProductName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const teaser = getLaunchTeaser(opportunity);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (submitting) return;
     const defaults = getQuickLaunchDefaults(stage);
     const trimmedName = productName.trim();
-    const project = addProject(opportunity.slug, {
-      ...defaults,
-      ...(trimmedName ? { productName: trimmedName } : {}),
-    });
+    const project = addProject(
+      opportunity.slug,
+      {
+        ...defaults,
+        ...(trimmedName ? { productName: trimmedName } : {}),
+      },
+      opportunity,
+    );
     onLaunch({
       ...defaults,
       ...(trimmedName ? { productName: trimmedName } : {}),
     });
-    onOpenChange(false);
-    if (project) {
-      router.push(`/cockpit/${project.id}`);
+    if (!project) return;
+
+    setSubmitting(true);
+    try {
+      await uploadAccountProject(project);
+      onOpenChange(false);
+      router.push(getCockpitHref(project.id, "build"));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -96,8 +110,8 @@ export function QuickLaunchSheet({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Plus tard
           </Button>
-          <Button onClick={handleSubmit}>
-            Lancer mon build
+          <Button onClick={() => void handleSubmit()} disabled={submitting}>
+            {submitting ? "Création…" : "Lancer mon build"}
             <ArrowRight className="h-4 w-4" />
           </Button>
         </DialogFooter>

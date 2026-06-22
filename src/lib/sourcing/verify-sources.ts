@@ -6,7 +6,7 @@ async function headOk(url: string): Promise<boolean> {
       method: "HEAD",
       redirect: "follow",
       signal: AbortSignal.timeout(8000),
-      headers: { "User-Agent": "SaaS-Radar-Sourcing/1.0" },
+      headers: { "User-Agent": "The-Build-Road-Sourcing/1.0" },
     });
     if (res.ok) return true;
     if (res.status === 405 || res.status === 403) {
@@ -14,7 +14,7 @@ async function headOk(url: string): Promise<boolean> {
         method: "GET",
         redirect: "follow",
         signal: AbortSignal.timeout(8000),
-        headers: { "User-Agent": "SaaS-Radar-Sourcing/1.0" },
+        headers: { "User-Agent": "The-Build-Road-Sourcing/1.0" },
       });
       return getRes.ok;
     }

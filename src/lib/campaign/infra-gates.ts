@@ -2,6 +2,7 @@ import type { UserProject } from "@/lib/portfolio";
 import { getBuildJourneyState } from "@/lib/build/journey";
 import { isTrackingConfigured } from "@/lib/campaign/kits";
 import type { GtmMotion } from "@/lib/campaign/gtm-engine";
+import { isContentCreativeReady } from "@/lib/campaign/content-derive";
 
 export type InfraGateId =
   | "app_live"
@@ -35,11 +36,6 @@ function isCrmConnected(project: UserProject): boolean {
   );
 }
 
-function hasKit(project: UserProject): boolean {
-  const kits = project.campaignSetup?.kitsByTool ?? {};
-  return Object.values(kits).some((k) => Boolean(k?.primaryPrompt));
-}
-
 export function getInfraGates(
   project: UserProject,
   motion: GtmMotion,
@@ -54,13 +50,9 @@ export function getInfraGates(
     isAnalyticsConnected(project) ||
     Boolean(setup?.attributionQuestionEnabled) ||
     Boolean(gates.tracking_or_attribution);
-  const crmOk =
-    isCrmConnected(project) ||
-    Boolean(gates.crm_or_tracker);
-  const emailAuthOk =
-    motion !== "outbound" ||
-    Boolean(gates.email_auth);
-  const creativeOk = hasKit(project) || Boolean(gates.creative_ready);
+  const crmOk = isCrmConnected(project) || Boolean(gates.crm_or_tracker);
+  const emailAuthOk = motion !== "outbound" || Boolean(gates.email_auth);
+  const creativeOk = isContentCreativeReady(project) || Boolean(gates.creative_ready);
 
   return [
     {
@@ -97,11 +89,11 @@ export function getInfraGates(
     },
     {
       id: "creative_ready",
-      label: "Kit / créas prêts",
-      detail: "Au moins un kit généré ou checklist assets validée.",
+      label: "Contenus prêts",
+      detail: "Landing et canaux validés dans l'atelier création.",
       required: true,
       satisfied: creativeOk,
-      blockerAnchor: "creation-screen",
+      blockerAnchor: "creation-content-studio",
     },
   ];
 }

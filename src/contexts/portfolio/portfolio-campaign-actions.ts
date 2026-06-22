@@ -23,6 +23,8 @@ import {
   acknowledgeCampaignDistribution,
   acknowledgeCampaignMeasure,
   toggleCampaignSequenceStep,
+  confirmCampaignSequenceStep,
+  confirmDistributionGuideStep,
   setCampaignGtmMotion,
   setCampaignIcpStructured,
   setCampaignAttributionQuestion,
@@ -31,10 +33,14 @@ import {
   addMessageMarketFitNote,
   restoreCampaignKitSnapshot,
   resetCampaignSetup,
+  confirmFoundationsRiverStop,
+  startCampaignContentStudio,
+  setCampaignContentAsset,
   type ResetCampaignOptions,
   type UserProject,
 } from "@/lib/portfolio";
 import type { PortfolioActionDeps } from "./portfolio-action-deps";
+import type { Opportunity } from "@/types/opportunity";
 
 export function createCampaignActions(deps: PortfolioActionDeps) {
   const setCampaignKitForProject = (id: string, kit: CampaignKit) => {
@@ -249,6 +255,24 @@ export function createCampaignActions(deps: PortfolioActionDeps) {
     );
   };
 
+  const confirmCampaignSequenceStepForProject = (id: string, stepId: string) => {
+    deps.commit((prev) =>
+      prev.map((project) => {
+        if (project.id !== id) return project;
+        return confirmCampaignSequenceStep(project, stepId);
+      }),
+    );
+  };
+
+  const confirmDistributionGuideStepForProject = (id: string, stepIndex: number) => {
+    deps.commit((prev) =>
+      prev.map((project) => {
+        if (project.id !== id) return project;
+        return confirmDistributionGuideStep(project, stepIndex);
+      }),
+    );
+  };
+
   const setCampaignGtmMotionForProject = (
     id: string,
     motion: import("@/lib/campaign/gtm-engine").GtmMotion,
@@ -313,6 +337,55 @@ export function createCampaignActions(deps: PortfolioActionDeps) {
     );
   };
 
+  const confirmFoundationsRiverStopForProject = (
+    id: string,
+    payload: import("@/lib/portfolio").ConfirmFoundationsRiverPayload,
+    opportunity?: Opportunity,
+  ) => {
+    deps.commit((prev) =>
+      prev.map((project) => {
+        if (project.id !== id) return project;
+        let next = confirmFoundationsRiverStop(project, payload);
+        if (payload.stop === "dock") {
+          const opp = opportunity ?? deps.getCatalogOpportunity(project.opportunitySlug);
+          if (opp) next = startCampaignContentStudio(next, opp);
+        }
+        return next;
+      }),
+    );
+  };
+
+  const startCampaignContentStudioForProject = (id: string, opportunity?: Opportunity) => {
+    deps.commit((prev) =>
+      prev.map((project) => {
+        if (project.id !== id) return project;
+        const opp = opportunity ?? deps.getCatalogOpportunity(project.opportunitySlug);
+        if (!opp) return project;
+        return startCampaignContentStudio(project, opp);
+      }),
+    );
+  };
+
+  const setCampaignContentAssetForProject = (
+    id: string,
+    assetId: string,
+    fields: Record<string, string>,
+    opportunity?: Opportunity,
+  ) => {
+    deps.commit((prev) =>
+      prev.map((project) => {
+        if (project.id !== id) return project;
+        const opp = opportunity ?? deps.getCatalogOpportunity(project.opportunitySlug);
+        if (!opp) return project;
+        return setCampaignContentAsset(project, opp, {
+          assetId,
+          fields,
+          confirmed: true,
+        });
+      }),
+    );
+  };
+
   const startNewCampaignCycleForProject = (id: string) => {
       deps.commit((prev) =>
         prev.map((project) => {
@@ -335,6 +408,8 @@ export function createCampaignActions(deps: PortfolioActionDeps) {
     setCampaignPositioning: setCampaignPositioningForProject,
     applyCampaignFullPlan: applyCampaignFullPlanForProject,
     toggleCampaignSequenceStep: toggleCampaignSequenceStepForProject,
+    confirmCampaignSequenceStep: confirmCampaignSequenceStepForProject,
+    confirmDistributionGuideStep: confirmDistributionGuideStepForProject,
     setCampaignGtmMotion: setCampaignGtmMotionForProject,
     setCampaignIcpStructured: setCampaignIcpStructuredForProject,
     setCampaignAttributionQuestion: setCampaignAttributionQuestionForProject,
@@ -350,5 +425,8 @@ export function createCampaignActions(deps: PortfolioActionDeps) {
     acknowledgeCampaignMeasure: acknowledgeCampaignMeasureForProject,
     restoreCampaignVersion,
     resetCampaign: resetCampaignForProject,
+    confirmFoundationsRiverStop: confirmFoundationsRiverStopForProject,
+    startCampaignContentStudio: startCampaignContentStudioForProject,
+    setCampaignContentAsset: setCampaignContentAssetForProject,
   };
 }

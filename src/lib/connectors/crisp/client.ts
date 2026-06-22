@@ -66,7 +66,7 @@ function parseErrorMessage(body: unknown, status: number): string {
     return "Identifiants plugin Crisp invalides.";
   }
   if (status === 403) {
-    return "Accès refusé. Installez d'abord le plugin SaaS-Radar sur ce workspace Crisp.";
+    return "Accès refusé. Installez d'abord le plugin The Build Road sur ce workspace Crisp.";
   }
   if (status === 404) {
     return "Website ID Crisp introuvable. Vérifiez l'identifiant copié depuis le dashboard.";

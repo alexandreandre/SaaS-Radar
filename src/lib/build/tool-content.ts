@@ -60,7 +60,7 @@ export const BUILTIN_DEPLOY_STEPS: Partial<Record<BuildToolId, string[]>> = {
     "Testez le parcours principal en preview Emergent.",
     "(Optionnel, plan Standard+) Connectez GitHub via votre profil → « Save to GitHub ».",
     "Cliquez Deploy — votre URL .emergent.host est prête en ~10–15 min.",
-    "Collez l'URL de production dans le suivi SaaS Radar ci-dessous.",
+    "Collez l'URL de production dans le suivi The Build Road ci-dessous.",
     "Domaine custom si besoin (réglages Emergent).",
   ],
 };

@@ -60,6 +60,34 @@ export type CampaignKitSnapshot = CampaignKit & {
   label?: string;
 };
 
+export type CampaignContentField = {
+  key: string;
+  label: string;
+  value: string;
+  maxLength?: number;
+  hint?: string;
+  required?: boolean;
+};
+
+export type CampaignContentAssetSource = "derived" | "edited" | "ai";
+
+export type CampaignContentAsset = {
+  id: string;
+  channel: ExtendedChannelKey | "landing";
+  label: string;
+  fields: CampaignContentField[];
+  confirmedAt?: string;
+  updatedAt?: string;
+  source: CampaignContentAssetSource;
+  schemaVersion?: number;
+};
+
+export type CampaignContentStudioState = {
+  startedAt?: string;
+  completedAt?: string;
+  lastEditedAssetId?: string;
+};
+
 export type CampaignSetup = {
   schemaVersion?: 1 | 2;
   acquisitionStage: AcquisitionStage;
@@ -97,7 +125,24 @@ export type CampaignSetup = {
   };
   infraGates?: Partial<Record<InfraGateId, boolean>>;
   distributionAcknowledgedAt?: string;
+  distributionProgress?: Record<string, { done: boolean; doneAt?: string }>;
   measureAcknowledgedAt?: string;
+  foundationsRiver?: {
+    startedAt?: string;
+    audienceConfirmedAt?: string;
+    goalConfirmedAt?: string;
+    messageConfirmedAt?: string;
+    completedAt?: string;
+    goalStrategyId?: "warm" | "trust" | "accelerate";
+    supportChannelKeys?: ExtendedChannelKey[];
+    messageAdaptations?: {
+      channel: ExtendedChannelKey | "landing";
+      label: string;
+      text: string;
+    }[];
+  };
+  contentAssets?: Record<string, CampaignContentAsset>;
+  contentStudio?: CampaignContentStudioState;
 };
 
 export type CampaignKitsByTool = Partial<Record<CampaignToolId, CampaignKit>>;
@@ -144,6 +189,9 @@ function migrateLegacySetup(setup: Partial<CampaignSetup>, project: UserProject)
     infraGates: setup.infraGates,
     distributionAcknowledgedAt: setup.distributionAcknowledgedAt,
     measureAcknowledgedAt: setup.measureAcknowledgedAt,
+    foundationsRiver: setup.foundationsRiver,
+    contentAssets: setup.contentAssets,
+    contentStudio: setup.contentStudio,
   };
   return migrateCampaignSetupV2(project, base);
 }

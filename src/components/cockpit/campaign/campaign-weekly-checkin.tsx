@@ -11,6 +11,7 @@ type CampaignWeeklyCheckInProps = {
   smartGoal?: CampaignSmartGoal;
   suggestedMetricValue?: number;
   onSubmit: (checkIn: CampaignWeeklyCheckIn) => void;
+  prominent?: boolean;
 };
 
 const METRIC_LABELS: Record<NonNullable<CampaignSmartGoal["metric"]>, string> = {
@@ -25,6 +26,7 @@ export function CampaignWeeklyCheckInForm({
   smartGoal,
   suggestedMetricValue,
   onSubmit,
+  prominent,
 }: CampaignWeeklyCheckInProps) {
   const [metricValue, setMetricValue] = useState("");
   const [notes, setNotes] = useState("");
@@ -41,7 +43,13 @@ export function CampaignWeeklyCheckInForm({
     : "Résultat cette semaine (nombre)";
 
   return (
-    <section className="rounded-xl border border-border bg-card p-5 shadow-card">
+    <section
+      className={
+        prominent
+          ? "rounded-xl border-0 bg-card p-5 shadow-none"
+          : "rounded-xl border border-border bg-card p-5 shadow-card"
+      }
+    >
       <h3 className="text-sm font-semibold">Check-in hebdo</h3>
       <p className="mt-1 text-xs text-muted-foreground">
         {smartGoal

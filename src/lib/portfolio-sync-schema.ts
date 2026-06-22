@@ -12,7 +12,7 @@ export const portfolioMetricsBodySchema = z
     currentMrr: z.number().min(0),
     targetScenario: targetScenarioSchema.optional(),
     ideaBrief: z.unknown().optional(),
-    projectSource: z.enum(["idea", "github", "opportunity"]).optional(),
+    projectSource: z.enum(["idea", "github", "catalog", "opportunity"]).optional(),
   })
   .passthrough()
   .refine(

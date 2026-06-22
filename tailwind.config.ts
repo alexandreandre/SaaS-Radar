@@ -59,7 +59,7 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-source-sans)", "system-ui", "sans-serif"],
-        display: ["var(--font-newsreader)", "Georgia", "serif"],
+        display: ["var(--font-source-sans)", "system-ui", "sans-serif"],
         data: ["var(--font-plex-mono)", "ui-monospace", "monospace"],
       },
       borderRadius: {
@@ -68,9 +68,9 @@ const config: Config = {
         sm: "calc(var(--radius) - 4px)",
       },
       boxShadow: {
-        card: "0 1px 2px oklch(0.14 0.012 260 / 0.04), 0 0 0 1px oklch(var(--border))",
+        card: "0 1px 2px oklch(0 0 0 / 0.04), 0 0 0 1px oklch(var(--border))",
         "card-hover":
-          "0 8px 24px -8px oklch(0.14 0.012 260 / 0.12), 0 0 0 1px oklch(var(--border))",
+          "0 8px 24px -8px oklch(0 0 0 / 0.12), 0 0 0 1px oklch(var(--border))",
         panel: "0 16px 48px -12px oklch(0 0 0 / 0.45)",
       },
       letterSpacing: {

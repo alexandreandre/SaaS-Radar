@@ -21,7 +21,7 @@ export function NewsletterIntro() {
     <section className="border-b border-border bg-background">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:px-6 lg:grid-cols-2 lg:gap-10 lg:py-10 lg:items-start">
         <div className="min-w-0">
-          <p className="label-data">Le Radar</p>
+          <p className="label-data">La route</p>
           <h1 className="mt-2 font-display text-2xl font-medium tracking-tight sm:text-3xl">
             L&apos;actu IA, tech et SaaS — lisible en 2 minutes.
           </h1>

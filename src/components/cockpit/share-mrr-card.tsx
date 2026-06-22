@@ -18,7 +18,7 @@ export function ShareMrrCard({ project, projectName }: ShareMrrCardProps) {
     `🚀 ${projectName}`,
     `MRR actuel : ${formatCurrency(project.currentMrr)}`,
     "",
-    "Suivi avec SaaS Radar — intelligence micro-SaaS pour la France",
+    "Suivi avec The Build Road — le compagnon de build pour fondateurs",
   ].join("\n");
 
   const handleCopy = async () => {

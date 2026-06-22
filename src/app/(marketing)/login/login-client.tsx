@@ -1,9 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Radar } from "lucide-react";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { createClient } from "@/lib/supabase/client";
 import { sanitizeAuthNext } from "@/lib/auth/callback-url";
 import { Button } from "@/components/ui/button";
@@ -47,12 +46,9 @@ export function LoginClient() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-background px-4 text-foreground">
       <div className="w-full max-w-sm">
-        <Link href="/" className="mb-8 flex items-center justify-center gap-2.5">
-          <Radar className="h-5 w-5 text-primary" aria-hidden />
-          <span className="font-data text-sm font-medium uppercase tracking-[0.18em]">
-            SaaS Radar
-          </span>
-        </Link>
+        <div className="mb-8 flex justify-center">
+          <BrandLogo />
+        </div>
 
         <div className="rounded-2xl border border-border bg-card p-6 shadow-card sm:p-8">
           <h1 className="text-center font-display text-2xl font-medium tracking-tight">

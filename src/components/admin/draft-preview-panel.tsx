@@ -91,7 +91,7 @@ export function DraftPreviewPanel({
 
       <div className="flex flex-wrap gap-2">
         <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
-          Analysé par Radar
+          Analysé par Build Road
         </span>
         {draft.source_verified && (
           <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs text-emerald-600">

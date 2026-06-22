@@ -38,6 +38,7 @@ type CampaignGoalCardProps = {
     activeSequenceId?: string;
   }) => void;
   collapsed?: boolean;
+  highlightFullPlan?: boolean;
 };
 
 export function CampaignGoalCard({
@@ -51,6 +52,7 @@ export function CampaignGoalCard({
   onSave,
   onApplyFullPlan,
   collapsed,
+  highlightFullPlan,
 }: CampaignGoalCardProps) {
   const { tier } = useTier();
   const canUseBuilder = tier === "builder" || tier === "pro";
@@ -64,7 +66,6 @@ export function CampaignGoalCard({
   const [horizonDays, setHorizonDays] = useState(
     String(smartGoal?.horizonDays ?? defaultGoal.horizonDays),
   );
-  const [icp, setIcp] = useState(icpProp ?? "");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -120,13 +121,15 @@ export function CampaignGoalCard({
       };
       onApplyFullPlan({
         smartGoal: goal,
-        icpSummary: data.icpSummary ?? icp,
+        icpSummary: data.icpSummary ?? icpProp ?? "",
         positioning: data.positioning ?? "",
         strategyBrief: data.strategyBrief ?? "",
         actionItems: data.actionItems,
         activeSequenceId: data.activeSequenceId,
       });
-      if (data.icpSummary) setIcp(data.icpSummary);
+      if (data.icpSummary) {
+        /* icp saved via onApplyFullPlan */
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur");
     } finally {
@@ -137,10 +140,10 @@ export function CampaignGoalCard({
   return (
     <section className="rounded-xl border border-border bg-card p-5 shadow-card">
       <div className="mb-4">
-        <p className="font-data text-[10px] uppercase tracking-data text-primary">Étape 1</p>
-        <h3 className="mt-1 text-lg font-semibold">Objectif & cible</h3>
+        <p className="font-data text-[10px] uppercase tracking-data text-primary">Phase 1 · Objectif</p>
+        <h3 className="mt-1 text-lg font-semibold">Objectif & canal</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Un objectif clair et un ICP — avant tout contenu ou outil.
+          Un objectif SMART et votre canal prioritaire — l&apos;ICP se remplit à l&apos;étape suivante.
         </p>
       </div>
 
@@ -187,15 +190,16 @@ export function CampaignGoalCard({
           </div>
         </div>
 
-        <div>
-          <Label htmlFor="campaign-icp">ICP (qui cibler)</Label>
-          <textarea
-            id="campaign-icp"
-            className="mt-1.5 flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-            value={icp}
-            onChange={(e) => setIcp(e.target.value)}
-          />
-        </div>
+        {!icpProp?.trim() ? (
+          <p className="text-xs text-muted-foreground">
+            L&apos;ICP se complète à l&apos;étape « ICP structuré » juste en dessous.
+          </p>
+        ) : (
+          <p className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-800 dark:text-emerald-200">
+            ICP enregistré : {icpProp.slice(0, 120)}
+            {icpProp.length > 120 ? "…" : ""}
+          </p>
+        )}
 
         <div>
           <p className="mb-2 text-sm font-medium">Canal prioritaire</p>
@@ -233,13 +237,18 @@ export function CampaignGoalCard({
                 horizonDays: Math.max(7, parseInt(horizonDays, 10) || 14),
                 setAt: new Date().toISOString(),
               };
-              onSave(goal, icp.trim());
+              onSave(goal, icpProp?.trim() ?? "");
             }}
           >
-            Valider la cible
+            Valider l&apos;objectif
           </Button>
           {canUseBuilder && onApplyFullPlan ? (
-            <Button type="button" variant="outline" onClick={generateFullPlan} disabled={loading}>
+            <Button
+              type="button"
+              variant={highlightFullPlan ? "default" : "outline"}
+              onClick={generateFullPlan}
+              disabled={loading}
+            >
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Générer mon plan complet
             </Button>

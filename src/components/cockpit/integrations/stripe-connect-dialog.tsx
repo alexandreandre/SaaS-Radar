@@ -82,7 +82,7 @@ export function StripeRakDialog({ open, onOpenChange, onConnect }: StripeRakDial
             <p className="mt-3">
               Aucune permission Analytics n&apos;est disponible côté Stripe pour les clés
               restreintes aujourd&apos;hui. Le MRR est calculé via l&apos;API standard (abonnements
-              et factures). Si Stripe ouvre l&apos;Analytics API aux RAK, SaaS Radar basculera
+              et factures). Si Stripe ouvre l&apos;Analytics API aux RAK, The Build Road basculera
               automatiquement sur des métriques plus riches.
             </p>
             <a

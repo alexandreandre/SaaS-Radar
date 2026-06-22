@@ -7,6 +7,8 @@ import type { Opportunity } from "@/types/opportunity";
 import type { ExtendedChannelKey } from "@/lib/campaign/channels";
 import type { MarketingProfile } from "@/lib/campaign/tools";
 import type { AcquisitionStage } from "@/lib/campaign/stages";
+import { resolveMessageAdaptations } from "@/lib/campaign/foundations-river";
+import { usesContentStudio } from "@/lib/campaign/content-derive";
 import { getDifferentiationAngles } from "@/lib/campaign/recommend";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Button } from "@/components/ui/button";
@@ -45,6 +47,7 @@ export function CampaignMessageCard({
   const [error, setError] = useState<string | null>(null);
   const productName = project.productName ?? opportunity.name;
   const differentiation = getDifferentiationAngles(opportunity);
+  const messageAdaptations = resolveMessageAdaptations(project.campaignSetup);
 
   if (collapsed && (positioning || strategyBrief)) {
     return (
@@ -87,7 +90,7 @@ export function CampaignMessageCard({
   return (
     <section className="rounded-xl border border-border bg-card p-5 shadow-card">
       <div className="mb-4">
-        <p className="font-data text-[10px] uppercase tracking-data text-primary">Étape 2</p>
+        <p className="font-data text-[10px] uppercase tracking-data text-primary">Phase 1 · Message</p>
         <h3 className="mt-1 text-lg font-semibold">Message & positionnement</h3>
         <p className="mt-1 text-sm text-muted-foreground">
           En une phrase : pourquoi votre cible devrait vous écouter maintenant.
@@ -115,6 +118,13 @@ export function CampaignMessageCard({
             onChange={(e) => onPositioningChange(e.target.value)}
             placeholder={`${productName} aide [ICP] à [résultat concret]`}
           />
+          {messageAdaptations.length > 0 ? (
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              {usesContentStudio(project.campaignSetup)
+                ? `${messageAdaptations.length} contenus préparés · voir l'atelier Création`
+                : `${messageAdaptations.length} déclinaisons prêtes pour vos canaux`}
+            </p>
+          ) : null}
         </div>
 
         {strategyBrief ? (

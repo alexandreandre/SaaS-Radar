@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Radar } from "lucide-react";
+import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { MAP_EXPLORE_HREF } from "@/lib/map-routes";
 
 export function Footer() {
@@ -8,13 +9,9 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="flex flex-col items-start justify-between gap-8 md:flex-row md:items-center">
           <div>
-            <div className="flex items-center gap-2">
-              <Radar className="h-4 w-4 text-primary" aria-hidden />
-              <p className="font-data text-xs font-medium uppercase tracking-[0.18em]">SaaS Radar</p>
-            </div>
+            <BrandLogo href={null} />
             <p className="mt-3 max-w-sm text-sm leading-relaxed text-muted-foreground">
-              Intelligence SaaS pour entrepreneurs français — opportunités validées, scores
-              d&apos;import, carte mondiale.
+              {BRAND_TAGLINE}
             </p>
           </div>
           <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-muted-foreground">
@@ -36,7 +33,7 @@ export function Footer() {
           </div>
         </div>
         <p className="mt-10 font-data text-[10px] uppercase tracking-data text-muted-foreground">
-          © {new Date().getFullYear()} SaaS Radar — Données indicatives, pas des conseils financiers.
+          © {new Date().getFullYear()} {BRAND_NAME} — Données indicatives, pas des conseils financiers.
         </p>
       </div>
     </footer>

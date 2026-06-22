@@ -33,7 +33,7 @@ export function DetailHeader({
     >
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-          Analysé par Radar
+          Analysé par Build Road
         </span>
         {meta?.sourceVerified && (
           <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-xs font-medium text-emerald-600">

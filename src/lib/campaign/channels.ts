@@ -35,7 +35,7 @@ export const CHANNEL_LABELS: Record<ExtendedChannelKey, string> = {
   cold_email: "Cold email",
   linkedin: "LinkedIn",
   seo: "SEO",
-  referral: "Referral",
+  referral: "Recommandation",
   tiktok: "TikTok Ads",
   meta: "Meta Ads",
   google: "Google Ads",

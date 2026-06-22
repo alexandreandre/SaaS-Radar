@@ -111,7 +111,7 @@ function HomeHeroInner({ mapStats, mapCatalog }: HomeHeroProps) {
 
   return (
     <section className="relative min-h-[min(100dvh,920px)] overflow-hidden bg-background text-foreground">
-      <div className="absolute inset-0 z-0 radar-grid opacity-30" />
+      <div className="absolute inset-0 z-0 road-grid opacity-30" />
       <div className="absolute inset-0 z-0">
         <HomeMapGateway
           unlocked={mapUnlocked}
@@ -217,7 +217,7 @@ function HomeHeroInner({ mapStats, mapCatalog }: HomeHeroProps) {
 function HomeHeroFallback({ mapStats }: { mapStats: HomeMapStats }) {
   return (
     <section className="relative min-h-[min(100dvh,920px)] overflow-hidden bg-background text-foreground">
-      <div className="absolute inset-0 z-0 radar-grid opacity-30" />
+      <div className="absolute inset-0 z-0 road-grid opacity-30" />
       <div className="pointer-events-none relative z-[60] min-h-[min(100dvh,920px)]">
         <div className="pointer-events-auto">
           <Navbar />

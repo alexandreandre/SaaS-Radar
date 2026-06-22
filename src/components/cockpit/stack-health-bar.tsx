@@ -44,7 +44,7 @@ export function StackHealthBar({
             {connected.length}/{recommended.length} connecteurs recommandés
           </h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Couverture {coveragePct} % de votre stack Radar
+            Couverture {coveragePct} % de votre stack
           </p>
         </div>
         {nextRecommended && onModuleChange ? (

@@ -11,6 +11,7 @@ import type {
   MarketingProfile,
 } from "@/lib/campaign/tools";
 import { getChannelLabel } from "@/lib/campaign/channels";
+import type { CampaignContentAsset } from "@/lib/campaign/kits";
 
 export type GeneratorType = "prompt" | "email" | "message";
 
@@ -33,6 +34,7 @@ export type CampaignPromptContext = {
   strategyBrief?: string;
   productionUrl?: string;
   language?: "fr" | "en";
+  contentAssetsValidated?: CampaignContentAsset[];
 };
 
 function buildContext(
@@ -468,11 +470,17 @@ Les prompts doivent être prêts à coller dans l'outil indiqué.`;
 
 export function buildKitUserPrompt(ctx: CampaignPromptContext): string {
   const staticPrompt = getStaticPromptForTool(ctx);
+  const validatedBlock =
+    ctx.contentAssetsValidated && ctx.contentAssetsValidated.length > 0
+      ? `\nContenus déjà validés par l'utilisateur (ne pas contredire, proposer variantes complémentaires) :\n${ctx.contentAssetsValidated
+          .map((a) => `- ${a.label}: ${a.fields.map((f) => `${f.label}=${f.value}`).join(" | ")}`)
+          .join("\n")}`
+      : "";
   const base = `Outil : ${ctx.tool.name} (${ctx.tool.category})
 Produit : ${ctx.productName}
 Canal : ${getChannelLabel(ctx.channel)}
 Profil : ${ctx.profile}
-${ctx.strategyBrief ? `\nBrief stratégie :\n${ctx.strategyBrief}` : ""}
+${ctx.strategyBrief ? `\nBrief stratégie :\n${ctx.strategyBrief}` : ""}${validatedBlock}
 ${staticPrompt ? `\nTemplate de base :\n${staticPrompt}` : ""}
 
 Génère un kit complet adapté à ${ctx.tool.name}.`;

@@ -1,5 +1,7 @@
 "use client";
 
+import { useCallback } from "react";
+import { ChevronDown } from "lucide-react";
 import type { Opportunity } from "@/types/opportunity";
 import type { UserProject } from "@/lib/portfolio";
 import type { CampaignKit } from "@/lib/campaign/kits";
@@ -7,22 +9,14 @@ import type { AcquisitionStage } from "@/lib/campaign/stages";
 import type { ExtendedChannelKey } from "@/lib/campaign/channels";
 import type { MarketingProfile } from "@/lib/campaign/tools";
 import type { CampaignTool } from "@/lib/campaign/tools";
-import { recommendGtmMotion } from "@/lib/campaign/gtm-engine";
-import { CampaignInfraGates } from "@/components/cockpit/campaign/campaign-infra-gates";
+import { isFoundationsComplete } from "@/lib/campaign/phases";
+import { getCreationGaps, isCreationComplete } from "@/lib/campaign/phases";
 import { CampaignKitSection } from "@/components/cockpit/campaign/campaign-kit-section";
+import { CampaignContentStudio } from "@/components/cockpit/campaign/campaign-content-studio";
 import { CampaignWorkflowDiagram } from "@/components/cockpit/campaign/campaign-workflow-diagram";
+import { CampaignPhaseGaps } from "@/components/cockpit/campaign/campaign-phase-gaps";
 import type { CampaignWorkflowNode } from "@/lib/campaign/workflows";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
-import type { InfraGateId } from "@/lib/campaign/infra-gates";
-import { isCreationComplete } from "@/lib/campaign/phases";
-
-const DEFAULT_ASSETS = [
-  "Promesse claire sur la landing",
-  "Copy canal prioritaire validée",
-  "Visuel ou vidéo principale",
-  "UTM prêt à coller",
-];
 
 type CampaignCreationScreenProps = {
   project: UserProject;
@@ -38,9 +32,11 @@ type CampaignCreationScreenProps = {
   onKitGenerated: (kit: CampaignKit, strategyBrief?: string) => void;
   onRestoreVersion: (savedAt: string) => void;
   onReset: (opts?: { keepStrategy?: boolean }) => void;
-  onToggleAsset: (index: number) => void;
-  onToggleInfraGate: (gateId: InfraGateId) => void;
+  onStartContentStudio: () => void;
+  onConfirmContentAsset: (assetId: string, fields: Record<string, string>) => void;
   onContinue: () => void;
+  onGoToFoundations: () => void;
+  onNavigate?: (anchorId: string) => void;
 };
 
 export function CampaignCreationScreen({
@@ -57,67 +53,86 @@ export function CampaignCreationScreen({
   onKitGenerated,
   onRestoreVersion,
   onReset,
-  onToggleAsset,
-  onToggleInfraGate,
+  onStartContentStudio,
+  onConfirmContentAsset,
   onContinue,
+  onGoToFoundations,
+  onNavigate,
 }: CampaignCreationScreenProps) {
-  const motion = recommendGtmMotion(stage, channel, project.campaignSetup);
-  const assets = project.campaignSetup?.assetChecklist ?? [];
-  const complete = isCreationComplete(project);
+  const setup = project.campaignSetup;
+  const foundationsReady = isFoundationsComplete(setup);
+  const complete = isCreationComplete(project, opportunity);
+  const gaps = getCreationGaps(project, opportunity);
+
+  const handleStartStudio = useCallback(() => {
+    onStartContentStudio();
+  }, [onStartContentStudio]);
 
   return (
     <div id="creation-screen" className="space-y-4">
+      {!complete ? <CampaignPhaseGaps gaps={gaps} onGapClick={onNavigate} /> : null}
+
+      {!foundationsReady ? (
+        <section className="rounded-xl border border-border bg-card p-6 shadow-card">
+          <p className="font-data text-[10px] uppercase tracking-data text-primary">Phase 2 · Création</p>
+          <h3 className="mt-1 text-lg font-semibold">On fabrique vos contenus</h3>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Commencez par les Fondations : audience, objectif et message. Ensuite, l&apos;atelier
+            pré-remplit landing et canaux — vous n&apos;aurez qu&apos;à valider avec « C&apos;est prêt ».
+          </p>
+          <Button type="button" className="mt-4" onClick={onGoToFoundations}>
+            Aller aux Fondations
+          </Button>
+        </section>
+      ) : (
+        <CampaignContentStudio
+          project={project}
+          opportunity={opportunity}
+          onStartStudio={handleStartStudio}
+          onConfirmAsset={onConfirmContentAsset}
+          onContinue={onContinue}
+          creationComplete={complete}
+        />
+      )}
+
+      <details className="group rounded-xl border border-border bg-card shadow-card">
+        <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-3 marker:content-none [&::-webkit-details-marker]:hidden">
+          <div>
+            <h3 className="text-sm font-semibold">Aller plus loin avec l&apos;IA</h3>
+            <p className="text-xs text-muted-foreground">Variantes et prompts optionnels</p>
+          </div>
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="border-t border-border px-5 pb-5 pt-3">
+          <div id="creation-kit">
+            <CampaignKitSection
+              project={project}
+              opportunity={opportunity}
+              stage={stage}
+              channel={channel}
+              profile={profile}
+              strategyBrief={strategyBrief}
+              activeTool={activeTool}
+              activeKit={activeKit}
+              onSelectTool={onSelectTool}
+              onKitGenerated={onKitGenerated}
+              onRestoreVersion={onRestoreVersion}
+              onReset={onReset}
+            />
+          </div>
+        </div>
+      </details>
+
       {workflow.length > 1 ? (
-        <section className="rounded-xl border border-border bg-card p-5 shadow-card">
-          <h3 className="text-sm font-semibold">Workflow outils</h3>
-          <div className="mt-3">
+        <details className="group rounded-xl border border-border bg-card shadow-card">
+          <summary className="flex cursor-pointer list-none items-center justify-between px-5 py-3 marker:content-none [&::-webkit-details-marker]:hidden">
+            <h3 className="text-sm font-semibold">Comment ça s&apos;enchaîne (outils)</h3>
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="border-t border-border px-5 pb-5 pt-3">
             <CampaignWorkflowDiagram workflow={workflow} />
           </div>
-        </section>
-      ) : null}
-
-      <CampaignKitSection
-        project={project}
-        opportunity={opportunity}
-        stage={stage}
-        channel={channel}
-        profile={profile}
-        strategyBrief={strategyBrief}
-        activeTool={activeTool}
-        activeKit={activeKit}
-        onSelectTool={onSelectTool}
-        onKitGenerated={onKitGenerated}
-        onRestoreVersion={onRestoreVersion}
-        onReset={onReset}
-      />
-
-      <section className="rounded-xl border border-border bg-card p-5 shadow-card">
-        <h3 className="text-sm font-semibold">Checklist assets</h3>
-        <ul className="mt-3 space-y-2">
-          {DEFAULT_ASSETS.map((label, i) => (
-            <li key={label} className="flex items-center gap-3">
-              <Checkbox
-                checked={Boolean(assets[i])}
-                onCheckedChange={() => onToggleAsset(i)}
-              />
-              <span className="text-sm">{label}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <CampaignInfraGates
-        project={project}
-        motion={motion}
-        onToggleGate={onToggleInfraGate}
-      />
-
-      {complete ? (
-        <div className="flex justify-end">
-          <Button type="button" onClick={onContinue}>
-            Continuer → Diffusion
-          </Button>
-        </div>
+        </details>
       ) : null}
     </div>
   );
