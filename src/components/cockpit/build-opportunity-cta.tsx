@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { QuickLaunchSheet } from "@/components/cockpit/quick-launch/quick-launch-sheet";
 import Link from "next/link";
 import { getCockpitHref } from "@/lib/cockpit-modules";
+import { isDiscoveryPhase } from "@/lib/product-phase";
 
 type BuildOpportunityCtaProps = {
   opportunity: Opportunity;
@@ -27,11 +28,13 @@ export function BuildOpportunityCta({
   className,
 }: BuildOpportunityCtaProps) {
   const portfolio = useOptionalPortfolio();
+  const [open, setOpen] = useState(false);
+
+  if (isDiscoveryPhase()) return null;
+
   const fromPortfolio =
     portfolio?.hydrated ? portfolio.getProjectBySlug(opportunity.slug) : undefined;
   const existing = fromPortfolio ?? (existingProjectId ? { id: existingProjectId } : undefined);
-
-  const [open, setOpen] = useState(false);
 
   if (existing) {
     const progress =

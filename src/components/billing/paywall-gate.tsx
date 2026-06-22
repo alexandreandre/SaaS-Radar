@@ -1,10 +1,11 @@
 "use client";
 
-import { useTier } from "@/contexts/tier-context";
+import { useEffectiveTier } from "@/hooks/use-effective-tier";
 import { hasTier, nextTierFor, type Tier } from "@/lib/tier";
 import { cn } from "@/lib/utils";
 import { TierBadge } from "@/components/billing/tier-badge";
 import { UnlockCta, unlockMessage } from "@/components/billing/unlock-cta";
+import { isDiscoveryPhase } from "@/lib/product-phase";
 import { Lock } from "lucide-react";
 
 export function PaywallGate({
@@ -20,7 +21,7 @@ export function PaywallGate({
   className?: string;
   message?: string;
 }) {
-  const { tier } = useTier();
+  const tier = useEffectiveTier();
   const unlocked = hasTier(tier, requiredTier);
 
   if (unlocked) {
@@ -28,6 +29,7 @@ export function PaywallGate({
   }
 
   const unlockTier = requiredTier === "free" ? "builder" : nextTierFor(requiredTier);
+  const discovery = isDiscoveryPhase();
 
   return (
     <div className={cn("relative overflow-hidden rounded-xl border border-dashed border-primary/30", className)}>
@@ -40,7 +42,11 @@ export function PaywallGate({
           <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
             <Lock className="h-9 w-9 text-primary" strokeWidth={2} aria-hidden />
           </div>
-          <TierBadge tier={unlockTier} className="text-xs px-3 py-1" />
+          {!discovery ? (
+            <TierBadge tier={unlockTier} className="text-xs px-3 py-1" />
+          ) : (
+            <span className="font-data text-xs uppercase tracking-data text-primary">Bientôt</span>
+          )}
           <p className="max-w-md text-center text-base font-medium leading-relaxed text-foreground">
             {message ?? unlockMessage(requiredTier)}
           </p>

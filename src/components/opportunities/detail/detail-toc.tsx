@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTier } from "@/contexts/tier-context";
 import { detailSections } from "@/components/opportunities/detail/detail-sections";
-import { hasTier } from "@/lib/tier";
+import { hasDetailSectionAccess } from "@/lib/product-phase";
 import { cn } from "@/lib/utils";
 import { Lock } from "lucide-react";
 
@@ -33,7 +33,7 @@ export function DetailToc() {
       <p className="text-sm font-semibold text-foreground">Où vous en êtes</p>
       <ul className="mt-4 space-y-1">
         {detailSections.map(({ id, label, tier: required }) => {
-          const unlocked = hasTier(tier, required);
+          const unlocked = hasDetailSectionAccess(tier, required, id);
           return (
             <li key={id}>
               <a

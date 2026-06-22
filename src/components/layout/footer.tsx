@@ -2,8 +2,11 @@ import Link from "next/link";
 import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { MAP_EXPLORE_HREF } from "@/lib/map-routes";
+import { isDiscoveryPhase } from "@/lib/product-phase";
 
 export function Footer() {
+  const discovery = isDiscoveryPhase();
+
   return (
     <footer className="border-t border-border bg-background py-14">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
@@ -27,9 +30,16 @@ export function Footer() {
             <Link href="/simulator" className="transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
               Simulateur
             </Link>
-            <Link href="/mes-saas" className="transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
-              Mes SaaS
-            </Link>
+            {!discovery ? (
+              <Link href="/mes-saas" className="transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
+                Mes SaaS
+              </Link>
+            ) : null}
+            {discovery ? (
+              <Link href="/newsletter" className="transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm">
+                Newsletter
+              </Link>
+            ) : null}
           </div>
         </div>
         <p className="mt-10 font-data text-[10px] uppercase tracking-data text-muted-foreground">

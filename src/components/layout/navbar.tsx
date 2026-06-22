@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { LogOut, Rocket, Shield } from "lucide-react";
@@ -17,12 +17,13 @@ import {
   isMapExploreActive,
 } from "@/lib/map-routes";
 import { prefetchAllAdminRoutes } from "@/lib/admin/route-prefetch";
+import { isCockpitEnabled, isDiscoveryPhase } from "@/lib/product-phase";
 
-const links = [
+const allLinks = [
   { href: MAP_EXPLORE_HREF, label: "Carte du monde", mapExplore: true },
   { href: "/opportunities", label: "Opportunités" },
   { href: "/newsletter", label: "Newsletter" },
-  { href: "/pricing", label: "Tarifs" },
+  { href: "/pricing", label: "Tarifs", discoveryHidden: true },
   { href: "/quiz", label: "Quel SaaS pour moi ?" },
 ];
 
@@ -44,6 +45,16 @@ function NavbarContent({
       : 0;
   const portfolioHydrated = portfolio?.hydrated ?? summary.hydrated;
   const { isAuthenticated, isAdmin } = useSession();
+  const discovery = isDiscoveryPhase();
+  const cockpitOn = isCockpitEnabled(isAdmin);
+
+  const links = useMemo(
+    () =>
+      discovery
+        ? allLinks.filter((link) => !link.discoveryHidden)
+        : allLinks,
+    [discovery],
+  );
 
   useEffect(() => {
     if (isAdmin) {
@@ -53,10 +64,10 @@ function NavbarContent({
   }, [isAdmin, router]);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && cockpitOn) {
       router.prefetch("/mes-saas");
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, cockpitOn, router]);
 
   return (
     <header
@@ -113,25 +124,27 @@ function NavbarContent({
                   </Link>
                 </Button>
               ) : null}
-              <Button
-                variant={dark ? "outline" : "ghost"}
-                size="sm"
-                className={cn(
-                  "relative hidden sm:inline-flex",
-                  dark
-                    ? "border-hero-foreground/15 bg-transparent text-hero-foreground hover:bg-hero-foreground/10"
-                    : ""
-                )}
-                asChild
-              >
-                <Link href="/mes-saas" prefetch>
-                  <Rocket className="h-4 w-4" />
-                  Mes SaaS
-                  {portfolioHydrated && overdueCheckIns > 0 ? (
-                    <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-background" />
-                  ) : null}
-                </Link>
-              </Button>
+              {cockpitOn ? (
+                <Button
+                  variant={dark ? "outline" : "ghost"}
+                  size="sm"
+                  className={cn(
+                    "relative hidden sm:inline-flex",
+                    dark
+                      ? "border-hero-foreground/15 bg-transparent text-hero-foreground hover:bg-hero-foreground/10"
+                      : ""
+                  )}
+                  asChild
+                >
+                  <Link href="/mes-saas" prefetch>
+                    <Rocket className="h-4 w-4" />
+                    Mes SaaS
+                    {portfolioHydrated && overdueCheckIns > 0 ? (
+                      <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-background" />
+                    ) : null}
+                  </Link>
+                </Button>
+              ) : null}
               <form action="/auth/signout" method="post">
                 <Button
                   type="submit"
@@ -148,7 +161,7 @@ function NavbarContent({
                 </Button>
               </form>
             </>
-          ) : (
+          ) : discovery ? null : (
             <Button
               variant={dark ? "outline" : "ghost"}
               size="sm"
@@ -164,7 +177,9 @@ function NavbarContent({
             </Button>
           )}
           <Button size="sm" asChild>
-            <Link href={MAP_EXPLORE_HREF}>Explorer</Link>
+            <Link href={discovery ? "/opportunities" : MAP_EXPLORE_HREF}>
+              {discovery ? "Opportunités" : "Explorer"}
+            </Link>
           </Button>
         </div>
       </div>

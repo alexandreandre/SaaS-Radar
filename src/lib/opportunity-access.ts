@@ -1,4 +1,5 @@
 import type { Opportunity } from "@/types/opportunity";
+import { resolveOpportunityAccessTier, isDiscoveryPhase } from "@/lib/product-phase";
 import { hasTier, type Tier } from "@/lib/tier";
 
 /**
@@ -22,6 +23,21 @@ export const PREMIUM_FIELDS: { field: keyof Opportunity; tier: Tier }[] = [
   { field: "partnersFR", tier: "pro" },
 ];
 
+/** Exécution (prompt, emails) — reste gated en phase discovery même pour visiteurs. */
+const DISCOVERY_EXECUTION_FIELDS = new Set<keyof Opportunity>([
+  "claudePrompt",
+  "emailTemplates",
+  "competitionAlerts",
+  "partnersFR",
+]);
+
+function accessTierForField(field: keyof Opportunity, userTier: Tier): Tier {
+  if (isDiscoveryPhase() && DISCOVERY_EXECUTION_FIELDS.has(field)) {
+    return userTier;
+  }
+  return resolveOpportunityAccessTier(userTier);
+}
+
 /** Valeur de remplacement pour un champ premier non autorise (preserve le typage). */
 function blankValue(current: unknown): unknown {
   if (typeof current === "string") return "";
@@ -41,7 +57,8 @@ export function gateOpportunityForTier(
   const gated: Opportunity = { ...opportunity };
   const record = gated as unknown as Record<string, unknown>;
   for (const { field, tier: required } of PREMIUM_FIELDS) {
-    if (hasTier(tier, required)) continue;
+    const accessTier = accessTierForField(field, tier);
+    if (hasTier(accessTier, required)) continue;
     record[field] = blankValue(record[field]);
   }
   return gated;

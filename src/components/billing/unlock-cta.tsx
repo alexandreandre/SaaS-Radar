@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import {
+  DISCOVERY_NEWSLETTER_CTA,
+  isDiscoveryPhase,
+} from "@/lib/product-phase";
 import { nextTierFor, tierPrices, type Tier } from "@/lib/tier";
 
 export function UnlockCta({
@@ -11,6 +15,15 @@ export function UnlockCta({
   label?: string;
   size?: "default" | "sm" | "lg";
 }) {
+  if (isDiscoveryPhase()) {
+    const text = label ?? DISCOVERY_NEWSLETTER_CTA;
+    return (
+      <Button size={size} asChild>
+        <Link href="/newsletter">{text}</Link>
+      </Button>
+    );
+  }
+
   const price = tierPrices[requiredTier];
   const planName = requiredTier === "pro" ? "Pro" : "Builder";
   const text = label ?? `Voir l'abonnement ${planName} — ${price}`;
@@ -23,6 +36,9 @@ export function UnlockCta({
 }
 
 export function unlockMessage(requiredTier: Tier): string {
+  if (isDiscoveryPhase()) {
+    return "Le cockpit de build arrive bientôt. Inscrivez-vous à la newsletter pour être informé en premier.";
+  }
   if (requiredTier === "free") return "";
   const tier = nextTierFor(requiredTier);
   return tier === "pro"

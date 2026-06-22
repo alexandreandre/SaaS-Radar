@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getStripe } from "@/lib/stripe/server";
 import { getCurrentUser, getProfile } from "@/lib/auth";
+import { checkoutApiGuard } from "@/lib/product-phase-api";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
   getPriceId,
@@ -23,6 +24,9 @@ function resolveOrigin(request: Request): string {
 }
 
 export async function POST(request: Request) {
+  const checkoutBlocked = checkoutApiGuard();
+  if (checkoutBlocked) return checkoutBlocked;
+
   const [user, profile] = await Promise.all([getCurrentUser(), getProfile()]);
   if (!user) {
     return NextResponse.json({ error: "Non authentifie" }, { status: 401 });
