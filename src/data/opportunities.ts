@@ -786,13 +786,4 @@ export function getDealOfTheDay(): Opportunity {
   return enrichOpportunity(raw);
 }
 
-export const sectorLabels: Record<string, string> = {
-  healthcare: "Santé",
-  construction: "BTP",
-  hr: "RH",
-  finance: "Finance",
-  legal: "Juridique",
-  retail: "Services",
-  education: "Éducation",
-  hospitality: "Restauration",
-};
+export { sectorLabels } from "./sector-labels";

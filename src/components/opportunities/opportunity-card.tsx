@@ -8,9 +8,9 @@ import { FavoriteButton } from "@/components/opportunities/favorite-button";
 import { ScoreGauge } from "@/components/scores/score-gauge";
 import { ScoreStars } from "@/components/scores/score-stars";
 import { formatCurrency, cn, excerptForCard } from "@/lib/utils";
-import { sectorLabels } from "@/data/opportunities";
+import { sectorLabels } from "@/data/sector-labels";
 import { isDiscoveryPhase } from "@/lib/product-phase";
-import { SCORE_AXIS_SHORT_LABELS, SUB_SCORE_KEYS } from "@/lib/scoring/rubric";
+import { SCORE_AXIS_SHORT_LABELS, SUB_SCORE_KEYS } from "@/lib/scores";
 import { ArrowRight } from "lucide-react";
 
 const subScores = SUB_SCORE_KEYS.map((key) => ({

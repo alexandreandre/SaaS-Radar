@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
 import { OpportunityCard } from "@/components/opportunities/opportunity-card";
-import { sectorLabels } from "@/data/opportunities";
+import { sectorLabels } from "@/data/sector-labels";
 import {
   defaultFilters,
   filterOpportunities,
@@ -226,6 +226,11 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
 
   const sectorChips = useMemo(
     () => getPresentSectorChips(opportunities.map((o) => o.sector)),
+    [opportunities]
+  );
+
+  const presentSectors = useMemo(
+    () => opportunities.map((o) => o.sector),
     [opportunities]
   );
 
@@ -514,6 +519,7 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
                     value={sectorPickerValue}
                     onChange={handleSectorPickerChange}
                     chipClass={sectorChipClass}
+                    presentSectors={presentSectors}
                   />
                 </div>
               </div>

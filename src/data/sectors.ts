@@ -1,4 +1,3 @@
-import { opportunities } from "@/data/opportunities";
 import type { Sector } from "@/types/opportunity";
 
 export type SectorCatalogEntry = {
@@ -161,14 +160,17 @@ const featuredPickerIds = [
 ] as const;
 
 /** Secteurs mis en avant à l'ouverture du menu (hors puces principales). */
-export function getTopSectorPickerSuggestions(limit = MAX_SUGGESTIONS): SectorCatalogEntry[] {
+export function getTopSectorPickerSuggestions(
+  presentSectors: Sector[] = [],
+  limit = MAX_SUGGESTIONS
+): SectorCatalogEntry[] {
   const seen = new Set<string>();
   const result: SectorCatalogEntry[] = [];
 
   const counts = new Map<Sector, number>();
-  for (const o of opportunities) {
-    if (pinnedChipIds.has(o.sector)) continue;
-    counts.set(o.sector, (counts.get(o.sector) ?? 0) + 1);
+  for (const sector of presentSectors) {
+    if (pinnedChipIds.has(sector)) continue;
+    counts.set(sector, (counts.get(sector) ?? 0) + 1);
   }
 
   const rankedSectors = Array.from(counts.entries())

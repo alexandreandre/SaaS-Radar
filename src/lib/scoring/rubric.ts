@@ -1,5 +1,6 @@
-/** Clés des 4 sous-scores (0–10) produits par Gemini puis corrigés par cohérence. */
-export type SubScoreKey = "franceFit" | "buildability" | "margin" | "competitionGap";
+import type { SubScoreKey } from "@/lib/scores";
+
+export type { SubScoreKey } from "@/lib/scores";
 
 export type SubScores = Record<SubScoreKey, number>;
 
@@ -72,17 +73,4 @@ export function buildRubricPromptBlock(): string {
   ].join("\n");
 }
 
-/** Libellés courts pour cartes catalogue (étoiles). */
-export const SCORE_AXIS_SHORT_LABELS: Record<SubScoreKey, string> = {
-  franceFit: "Adapté France",
-  buildability: "Facile à créer",
-  margin: "Rentabilité",
-  competitionGap: "Espace marché",
-};
-
-export const SUB_SCORE_KEYS: SubScoreKey[] = [
-  "franceFit",
-  "buildability",
-  "margin",
-  "competitionGap",
-];
+export { SCORE_AXIS_SHORT_LABELS, SUB_SCORE_KEYS } from "@/lib/scores";

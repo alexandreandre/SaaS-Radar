@@ -32,3 +32,20 @@ export const scoreStrokeClass: Record<ScoreColorVariant, string> = {
 export function scoreToFive(value: number, max: number): number {
   return Math.min(5, Math.max(0, Math.round((value / max) * 5)));
 }
+
+/** Clés des 4 sous-scores affichés sur les cartes catalogue. */
+export type SubScoreKey = "franceFit" | "buildability" | "margin" | "competitionGap";
+
+export const SUB_SCORE_KEYS: SubScoreKey[] = [
+  "franceFit",
+  "buildability",
+  "margin",
+  "competitionGap",
+];
+
+export const SCORE_AXIS_SHORT_LABELS: Record<SubScoreKey, string> = {
+  franceFit: "Adapté France",
+  buildability: "Facile à créer",
+  margin: "Rentabilité",
+  competitionGap: "Espace marché",
+};

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, Search, X } from "lucide-react";
+import type { Sector } from "@/types/opportunity";
 import type { SectorCatalogEntry } from "@/data/sectors";
 import {
   getSectorDisplayLabel,
@@ -48,9 +49,15 @@ type SectorSearchPickerProps = {
   value: string;
   onChange: (sectorId: string) => void;
   chipClass: (active: boolean) => string;
+  presentSectors?: Sector[];
 };
 
-export function SectorSearchPicker({ value, onChange, chipClass }: SectorSearchPickerProps) {
+export function SectorSearchPicker({
+  value,
+  onChange,
+  chipClass,
+  presentSectors = [],
+}: SectorSearchPickerProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const rootRef = useRef<HTMLDivElement>(null);
@@ -59,7 +66,7 @@ export function SectorSearchPicker({ value, onChange, chipClass }: SectorSearchP
 
   const isCatalogActive = !isPrimarySectorFilter(value) && value !== "all";
   const hasQuery = query.trim().length > 0;
-  const suggestions = getTopSectorPickerSuggestions();
+  const suggestions = getTopSectorPickerSuggestions(presentSectors);
   const results = hasQuery ? searchSectorCatalog(query) : [];
   const selectedLabel = isCatalogActive ? getSectorDisplayLabel(value) : null;
 
