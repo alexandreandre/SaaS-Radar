@@ -1,8 +1,10 @@
 import { Suspense } from "react";
 import { LoginClient } from "./login-client";
 
+import { BRAND_NAME } from "@/lib/brand";
+
 export const metadata = {
-  title: "Connexion — SaaS Radar",
+  title: `Connexion — ${BRAND_NAME}`,
 };
 
 export default function LoginPage() {

@@ -163,7 +163,7 @@ export function SlackConnectDialog({
             <>
               <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
                 Les alertes seront publiées dans le canal choisi. Pour un canal privé, invitez le
-                bot avec <span className="font-mono">/invite @SaaS-Radar</span>.
+                bot avec <span className="font-mono">/invite @The-Build-Road</span>.
               </div>
               {loadingChannels ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">

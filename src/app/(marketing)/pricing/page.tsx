@@ -15,8 +15,10 @@ const PricingFaq = dynamic(
   { loading: () => <div className="mx-auto h-48 max-w-2xl px-4" aria-hidden /> },
 );
 
+import { BRAND_NAME } from "@/lib/brand";
+
 export const metadata = {
-  title: "Tarifs — SaaS Radar",
+  title: `Tarifs — ${BRAND_NAME}`,
 };
 
 const testimonials = [
@@ -35,7 +37,7 @@ const testimonials = [
     mrr: "4 800€ MRR",
   },
   {
-    quote: "Sans SaaS Radar j'aurais encore cherché mon idée. Là je code depuis 2 semaines.",
+    quote: "Sans The Build Road j'aurais encore cherché mon idée. Là je code depuis 2 semaines.",
     name: "Kevin D.",
     location: "Paris",
     plan: "Builder",
@@ -225,7 +227,7 @@ export default function PricingPage() {
 
         <section className="mx-auto max-w-4xl px-4 py-16">
           <h2 className="mb-10 text-center font-display text-2xl font-medium tracking-tight text-foreground">
-            Ils ont lancé avec SaaS Radar
+            Ils ont lancé avec The Build Road
           </h2>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             {testimonials.map((t) => (

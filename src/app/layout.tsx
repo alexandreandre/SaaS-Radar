@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Newsreader, Source_Sans_3, IBM_Plex_Mono } from "next/font/google";
+import { Source_Sans_3, IBM_Plex_Mono } from "next/font/google";
+import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,14 +16,6 @@ const sourceSans = Source_Sans_3({
   display: "swap",
 });
 
-const newsreader = Newsreader({
-  subsets: ["latin"],
-  variable: "--font-newsreader",
-  display: "swap",
-  weight: ["400", "500", "600"],
-  adjustFontFallback: false,
-});
-
 const plexMono = IBM_Plex_Mono({
   subsets: ["latin"],
   weight: ["400", "500"],
@@ -31,12 +24,14 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SaaS Radar — Intelligence SaaS pour la France",
-  description:
-    "Opportunités SaaS validées à l'étranger, scores France Fit et Buildability, carte mondiale et outil d'analyste pour entrepreneurs français.",
+  title: `${BRAND_NAME} — Le compagnon de build pour fondateurs`,
+  description: BRAND_TAGLINE,
   icons: {
-    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
-    apple: [{ url: "/apple-touch-icon.svg", type: "image/svg+xml" }],
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", type: "image/png", sizes: "180x180" }],
   },
 };
 
@@ -55,7 +50,7 @@ export default async function RootLayout({
   return (
     <html lang="fr" className="dark" suppressHydrationWarning>
       <body
-        className={`${sourceSans.variable} ${newsreader.variable} ${plexMono.variable} font-sans`}
+        className={`${sourceSans.variable} ${plexMono.variable} font-sans`}
       >
         {process.env.NODE_ENV === "development" ? <DevChunkRecovery /> : null}
         <WebVitalsReporter />

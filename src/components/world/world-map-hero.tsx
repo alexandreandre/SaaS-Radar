@@ -188,7 +188,7 @@ export function WorldMapHero({
 
         <div
           className={cn(
-            "h-full w-full transition-[filter,opacity] duration-500",
+            "h-full w-full translate-x-[1%] transition-[filter,opacity] duration-500 sm:translate-x-[1.5%]",
             !unlocked && "saturate-[1.07] brightness-[1.04]",
             mapReady ? "opacity-100" : "opacity-0"
           )}
@@ -196,8 +196,8 @@ export function WorldMapHero({
           {mapReady && topology && (
             <ComposableMap
               projection="geoMercator"
-              projectionConfig={{ scale: 155, center: [12, 18] }}
-              className="h-full w-full [&_svg]:h-full [&_svg]:w-full"
+              projectionConfig={{ scale: 155, center: [11, 19] }}
+              className="h-full w-full [&_svg]:mx-auto [&_svg]:h-full [&_svg]:w-full"
               style={{ width: "100%", height: "100%" }}
             >
               <Geographies geography={topology}>
@@ -233,7 +233,7 @@ export function WorldMapHero({
 
         <m.div
           aria-hidden
-          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-background via-background/54 to-transparent sm:via-background/28"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-background via-background/48 to-transparent sm:via-background/26"
           initial={false}
           animate={{ opacity: unlocked ? 0 : 1 }}
           transition={{ duration: 0.55, ease: [0.25, 0.1, 0.25, 1] }}

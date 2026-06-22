@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { isDiscoveryPhase } from "@/lib/product-phase";
 
 const comparison = [
   { feature: "Opportunités validées à l'étranger", us: true, training: false },
@@ -42,6 +43,8 @@ const pricing = [
 ];
 
 export function HomeStaticSections() {
+  if (isDiscoveryPhase()) return null;
+
   return (
     <>
       <section className="border-y border-border bg-muted/50 py-20">
@@ -55,7 +58,7 @@ export function HomeStaticSections() {
               <thead>
                 <tr className="border-b border-border bg-muted/60">
                   <th className="px-6 py-4 text-left font-medium text-muted-foreground">Critère</th>
-                  <th className="px-6 py-4 text-center font-semibold text-primary">SaaS Radar</th>
+                  <th className="px-6 py-4 text-center font-semibold text-primary">The Build Road</th>
                   <th className="px-6 py-4 text-center font-medium text-muted-foreground">Formation classique</th>
                 </tr>
               </thead>

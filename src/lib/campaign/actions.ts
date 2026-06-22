@@ -532,7 +532,7 @@ export function buildTrackingPlan(
 ): { utmBase: string; requiredConnectors: ConnectorId[] } {
   const base = productionUrl?.replace(/\/$/, "") ?? "https://votre-site.fr";
   return {
-    utmBase: `${base}?utm_source=saas-radar&utm_medium={canal}&utm_campaign={campagne}`,
+    utmBase: `${base}?utm_source=the-build-road&utm_medium={canal}&utm_campaign={campagne}`,
     requiredConnectors: getRequiredConnectorsForStage(stage),
   };
 }

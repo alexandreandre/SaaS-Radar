@@ -1,7 +1,8 @@
 "use client";
 
 import { Suspense } from "react";
-import { Lock, Radar } from "lucide-react";
+import { Lock } from "lucide-react";
+import { LogoMark } from "@/components/brand/logo-mark";
 import type { CockpitModuleId } from "@/lib/cockpit-modules";
 import type { UserProject } from "@/lib/portfolio";
 import type { Opportunity } from "@/types/opportunity";
@@ -54,7 +55,7 @@ function BuildAppTrackingInner({
             Suivi
           </p>
           <h3 className="mt-1 flex items-center gap-2 text-lg font-semibold">
-            <Radar className="h-5 w-5" />
+            <LogoMark className="h-5" aria-hidden />
             Suivi de mon app
           </h3>
         </div>

@@ -204,7 +204,7 @@ function missingP0Callout(connectorId: string): ModuleCalloutDef {
   return {
     id: "missing-p0",
     title: "Connecteur essentiel manquant",
-    description: `Connectez ${name} pour compléter votre stack Radar (priorité P0).`,
+    description: `Connectez ${name} pour compléter votre stack (priorité P0).`,
     actionModule: "integrations",
     actionLabel: "Connecteurs",
     variant: "warning",

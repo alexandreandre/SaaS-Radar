@@ -159,7 +159,7 @@ export function KpiCard({
         {targetProgressPct !== undefined && targetLabel ? (
           <div className="mt-4">
             <div className="flex items-center justify-between gap-2 text-xs">
-              <span className="text-muted-foreground">Objectif Radar</span>
+              <span className="text-muted-foreground">Objectif Build Road</span>
               <span className="font-medium tabular-nums">{targetLabel}</span>
             </div>
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">

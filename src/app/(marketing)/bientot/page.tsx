@@ -4,8 +4,10 @@ import { Footer } from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
 import { MAP_EXPLORE_HREF } from "@/lib/map-routes";
 
+import { BRAND_NAME } from "@/lib/brand";
+
 export const metadata = {
-  title: "Bientôt — SaaS Radar",
+  title: `Bientôt — ${BRAND_NAME}`,
   description:
     "Le cockpit de build arrive bientôt. Explorez les opportunités micro-SaaS et inscrivez-vous à la newsletter.",
 };

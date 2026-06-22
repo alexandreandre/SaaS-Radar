@@ -242,7 +242,7 @@ export function PennylaneConnectDialog({
             <section className="space-y-3 rounded-lg border border-dashed border-border p-4">
               <p className="text-sm font-medium">Ou via OAuth plateforme</p>
               <p className="text-xs text-muted-foreground">
-                Connexion « Sign in with Pennylane » si l&apos;application SaaS-Radar est enregistrée
+                Connexion « Sign in with Pennylane » si l&apos;application The Build Road est enregistrée
                 chez Pennylane Partenariats.
               </p>
               <Button type="button" variant="secondary" size="sm" onClick={startOAuth} disabled={connecting}>

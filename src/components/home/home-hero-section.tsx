@@ -8,7 +8,7 @@ import { ArrowRight } from "lucide-react";
 import { Navbar } from "@/components/layout/navbar";
 import { MAP_EXPLORE_QUERY, MAP_EXPLORE_VALUE } from "@/lib/map-routes";
 import type { MapCatalogOpportunity } from "@/context/map-catalog-context";
-import { isDiscoveryPhase, isMapDefaultUnlocked } from "@/lib/product-phase";
+import { isDiscoveryPhase } from "@/lib/product-phase";
 import { cn } from "@/lib/utils";
 
 const HomeMapGateway = dynamic(
@@ -26,10 +26,6 @@ const IDEA_PLACEHOLDERS = [
   "Un outil de devis pour plombiers…",
   "Une app de rappels RDV pour cabinets médicaux…",
 ];
-
-function discoveryDefaultMapUnlocked(): boolean {
-  return isMapDefaultUnlocked();
-}
 
 export type HomeMapStats = {
   countriesTracked: number;
@@ -143,7 +139,7 @@ function HomeHeroInner({ mapStats, mapCatalog }: HomeHeroProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const discovery = isDiscoveryPhase();
-  const [mapUnlocked, setMapUnlocked] = useState(discoveryDefaultMapUnlocked());
+  const [mapUnlocked, setMapUnlocked] = useState(false);
   const exploreParam = searchParams.get(MAP_EXPLORE_QUERY);
 
   useEffect(() => {
@@ -157,7 +153,6 @@ function HomeHeroInner({ mapStats, mapCatalog }: HomeHeroProps) {
   }, []);
 
   const handleMapLock = useCallback(() => {
-    if (discoveryDefaultMapUnlocked()) return;
     setMapUnlocked(false);
     if (exploreParam === MAP_EXPLORE_VALUE) {
       router.replace("/", { scroll: false });
@@ -165,27 +160,31 @@ function HomeHeroInner({ mapStats, mapCatalog }: HomeHeroProps) {
   }, [exploreParam, router]);
 
   return (
-    <section className="relative min-h-[min(100dvh,920px)] overflow-hidden bg-background text-foreground">
-      <div className="absolute inset-0 z-0 radar-grid opacity-30" />
+    <section
+      id="home-hero"
+      className="relative min-h-[min(100dvh,920px)] overflow-hidden bg-background text-foreground"
+    >
+      <div className="absolute inset-0 z-0 road-grid opacity-30" />
       <div className="absolute inset-0 z-0">
         <HomeMapGateway
           unlocked={mapUnlocked}
           showDashboard={exploreParam === MAP_EXPLORE_VALUE}
           onUnlock={handleMapUnlock}
           onLock={handleMapLock}
-          deferMap={!discovery && exploreParam !== MAP_EXPLORE_VALUE}
+          deferMap={exploreParam !== MAP_EXPLORE_VALUE && !mapUnlocked}
           mapCatalog={mapCatalog}
         />
       </div>
 
       <div className="pointer-events-none relative z-[60] min-h-[min(100dvh,920px)]">
-        <div className="pointer-events-auto">
-          <Navbar />
-        </div>
+        <Navbar overlay />
 
         <div
           className={cn(
-            "flex min-h-[calc(min(100dvh,920px)-3.5rem)] flex-col items-center justify-center px-4 pb-48 pt-4 text-center transition-all duration-500 ease-out sm:px-6 sm:pb-52",
+            "flex min-h-[min(100dvh,920px)] flex-col items-center px-4 pt-4 text-center transition-all duration-500 ease-out sm:px-6",
+            discovery
+              ? "justify-end pb-[40vh] sm:pb-[38vh]"
+              : "justify-center pb-48 sm:pb-52",
             mapUnlocked && "pointer-events-none opacity-0 -translate-y-6",
           )}
         >
@@ -208,26 +207,25 @@ function HomeHeroInner({ mapStats, mapCatalog }: HomeHeroProps) {
               </span>
             </div>
             <p className="mt-4 font-data text-sm uppercase tracking-data text-foreground/90">
-              {discovery ? "Explorez la carte ou parcourez le catalogue" : "Clique sur la carte"}
+              Clique sur la carte
             </p>
           </div>
         </div>
 
         {discovery ? (
-          <div
-            className={cn(
-              "pointer-events-auto absolute inset-x-0 bottom-0 z-10 mx-auto w-full max-w-2xl px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center sm:bottom-2 sm:px-6",
-              mapUnlocked && "scale-[0.98] transition-transform duration-500 ease-out",
-            )}
-          >
-            <Link
-              href="/opportunities"
-              className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/25 transition-opacity hover:opacity-90"
+          mapUnlocked ? (
+            <div
+              className="pointer-events-auto absolute inset-x-0 bottom-0 z-10 mx-auto w-full max-w-2xl px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center transition-transform duration-500 ease-out sm:bottom-2 sm:px-6 scale-[0.98]"
             >
-              Parcourir les opportunités
-              <ArrowRight className="h-4 w-4" aria-hidden />
-            </Link>
-          </div>
+              <Link
+                href="/opportunities"
+                className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/25 transition-opacity hover:opacity-90"
+              >
+                Parcourir les opportunités
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </Link>
+            </div>
+          ) : null
         ) : (
           <HomeHeroBuildCta mapUnlocked={mapUnlocked} />
         )}
@@ -237,14 +235,24 @@ function HomeHeroInner({ mapStats, mapCatalog }: HomeHeroProps) {
 }
 
 function HomeHeroFallback({ mapStats }: { mapStats: HomeMapStats }) {
+  const discovery = isDiscoveryPhase();
+
   return (
-    <section className="relative min-h-[min(100dvh,920px)] overflow-hidden bg-background text-foreground">
-      <div className="absolute inset-0 z-0 radar-grid opacity-30" />
+    <section
+      id="home-hero"
+      className="relative min-h-[min(100dvh,920px)] overflow-hidden bg-background text-foreground"
+    >
+      <div className="absolute inset-0 z-0 road-grid opacity-30" />
       <div className="pointer-events-none relative z-[60] min-h-[min(100dvh,920px)]">
-        <div className="pointer-events-auto">
-          <Navbar />
-        </div>
-        <div className="flex min-h-[calc(min(100dvh,920px)-3.5rem)] flex-col items-center justify-center px-4 pb-48 pt-4 text-center sm:px-6 sm:pb-52">
+        <Navbar overlay />
+        <div
+          className={cn(
+            "flex min-h-[min(100dvh,920px)] flex-col items-center px-4 pt-4 text-center sm:px-6",
+            discovery
+              ? "justify-end pb-[40vh] sm:pb-[38vh]"
+              : "justify-center pb-48 sm:pb-52",
+          )}
+        >
           <div className="max-w-xl">
             <div className="h-10 animate-pulse rounded-lg bg-muted sm:h-12" />
             <p className="mt-8 font-data text-xs uppercase tracking-data text-muted-foreground">

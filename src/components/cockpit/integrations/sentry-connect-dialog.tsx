@@ -146,7 +146,7 @@ export function SentryConnectDialog({
         <DialogHeader>
           <DialogTitle>Connecter Sentry</DialogTitle>
           <DialogDescription>
-            Autorisez l&apos;intégration SaaS-Radar sur Sentry, puis choisissez le projet à
+            Autorisez l&apos;intégration The Build Road sur Sentry, puis choisissez le projet à
             monitorer. Métriques : issues ouvertes, taux d&apos;erreur et crash-free sessions.
           </DialogDescription>
         </DialogHeader>
@@ -157,7 +157,7 @@ export function SentryConnectDialog({
               <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
                 <p className="font-medium text-foreground">Prérequis</p>
                 <ul className="mt-2 list-inside list-disc space-y-1">
-                  <li>Public Integration Sentry configurée côté SaaS-Radar</li>
+                  <li>Public Integration Sentry configurée côté The Build Road</li>
                   <li>Permissions : org:read, project:read, event:read, project:releases</li>
                   <li>Release Health activé pour le crash-free rate</li>
                 </ul>

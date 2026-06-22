@@ -67,7 +67,7 @@ export function formatSlackAlertBlocks(
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `${emoji} *Alerte SaaS-Radar*\n${alert.message}`,
+          text: `${emoji} *Alerte The Build Road*\n${alert.message}`,
         },
       },
       {
@@ -89,7 +89,7 @@ export function formatSlackWelcomeBlocks(channelName?: string): {
   text: string;
 } {
   const label = channelName?.trim() || "ce canal";
-  const text = `SaaS-Radar est connecté à ${label}. Vous recevrez ici les alertes MRR, churn, ROAS et santé intégrations.`;
+  const text = `The Build Road est connecté à ${label}. Vous recevrez ici les alertes MRR, churn, ROAS et santé intégrations.`;
 
   return {
     text,
@@ -98,7 +98,7 @@ export function formatSlackWelcomeBlocks(channelName?: string): {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `:white_check_mark: *SaaS-Radar connecté*\nLes alertes cockpit seront publiées dans ${label}.\n\n_Canal privé ?_ Invitez le bot SaaS-Radar dans le canal (/invite @SaaS-Radar).`,
+          text: `:white_check_mark: *The Build Road connecté*\nLes alertes cockpit seront publiées dans ${label}.\n\n_Canal privé ?_ Invitez le bot The Build Road dans le canal (/invite @The-Build-Road).`,
         },
       },
     ],
@@ -124,7 +124,7 @@ export function parseSlackOAuthResponse(data: SlackOAuthAccessResponse): SlackCr
 export function mapSlackPostError(errorCode: string | undefined): string {
   switch (errorCode) {
     case "not_in_channel":
-      return "Le bot n'est pas membre de ce canal. Invitez-le avec /invite @SaaS-Radar ou choisissez un canal public.";
+      return "Le bot n'est pas membre de ce canal. Invitez-le avec /invite @The-Build-Road ou choisissez un canal public.";
     case "channel_not_found":
       return "Canal introuvable. Resélectionnez un canal dans les paramètres Slack.";
     case "invalid_auth":

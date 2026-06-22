@@ -66,7 +66,7 @@ export function PaddleConnectDialog({
         <DialogHeader>
           <DialogTitle>Connecter Paddle</DialogTitle>
           <DialogDescription>
-            Clé API Billing Paddle en lecture seule. SaaS Radar synchronise MRR, clients et
+            Clé API Billing Paddle en lecture seule. The Build Road synchronise MRR, clients et
             paiements sans modifier votre compte.
           </DialogDescription>
         </DialogHeader>

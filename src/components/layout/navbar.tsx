@@ -3,7 +3,8 @@
 import { Suspense, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { LogOut, Radar, Rocket, Shield } from "lucide-react";
+import { LogOut, Rocket, Shield } from "lucide-react";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/layout/theme-toggle";
@@ -17,6 +18,7 @@ import {
 } from "@/lib/map-routes";
 import { prefetchAllAdminRoutes } from "@/lib/admin/route-prefetch";
 import { isCockpitEnabled, isDiscoveryPhase } from "@/lib/product-phase";
+import { DiscoveryFloatingNav } from "@/components/layout/discovery-floating-nav";
 
 const allLinks = [
   { href: MAP_EXPLORE_HREF, label: "Carte du monde", mapExplore: true },
@@ -28,9 +30,12 @@ const allLinks = [
 
 function NavbarContent({
   dark = false,
+  overlay = false,
   explore,
 }: {
   dark?: boolean;
+  /** Hero plein écran — pas de marge sous la nav flottante */
+  overlay?: boolean;
   explore?: string | null;
 }) {
   const pathname = usePathname();
@@ -68,6 +73,28 @@ function NavbarContent({
     }
   }, [isAuthenticated, cockpitOn, router]);
 
+  const ghostBtnClass = cn(
+    dark
+      ? "border-hero-foreground/15 bg-transparent text-hero-foreground hover:bg-hero-foreground/10"
+      : "",
+  );
+
+  if (discovery) {
+    const hideAnchorId =
+      pathname === "/"
+        ? "home-hero"
+        : pathname === "/opportunities"
+          ? "opportunities-hero"
+          : null;
+
+    return (
+      <>
+        <DiscoveryFloatingNav dark={dark} hideAnchorId={hideAnchorId} />
+        {!overlay ? <div className="h-20 shrink-0" aria-hidden /> : null}
+      </>
+    );
+  }
+
   return (
     <header
       className={cn(
@@ -76,17 +103,7 @@ function NavbarContent({
       )}
     >
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <Radar className="h-4 w-4 text-primary logo-pulse" aria-hidden />
-          <span
-            className={cn(
-              "font-data text-xs font-medium uppercase tracking-[0.18em]",
-              dark ? "text-hero-foreground" : "text-foreground"
-            )}
-          >
-            SaaS Radar
-          </span>
-        </Link>
+        <BrandLogo dark={dark} />
         <nav className="hidden items-center gap-7 md:flex">
           {links.map((link) => {
             const active = link.mapExplore
@@ -120,11 +137,7 @@ function NavbarContent({
                 <Button
                   variant={dark ? "outline" : "ghost"}
                   size="sm"
-                  className={cn(
-                    dark
-                      ? "border-hero-foreground/15 bg-transparent text-hero-foreground hover:bg-hero-foreground/10"
-                      : ""
-                  )}
+                  className={ghostBtnClass}
                   asChild
                 >
                   <Link href="/admin" prefetch>
@@ -137,12 +150,7 @@ function NavbarContent({
                 <Button
                   variant={dark ? "outline" : "ghost"}
                   size="sm"
-                  className={cn(
-                    "relative hidden sm:inline-flex",
-                    dark
-                      ? "border-hero-foreground/15 bg-transparent text-hero-foreground hover:bg-hero-foreground/10"
-                      : ""
-                  )}
+                  className={cn("relative hidden sm:inline-flex", ghostBtnClass)}
                   asChild
                 >
                   <Link href="/mes-saas" prefetch>
@@ -160,35 +168,24 @@ function NavbarContent({
                   variant={dark ? "outline" : "ghost"}
                   size="sm"
                   aria-label="Se déconnecter"
-                  className={cn(
-                    dark
-                      ? "border-hero-foreground/15 bg-transparent text-hero-foreground hover:bg-hero-foreground/10"
-                      : ""
-                  )}
+                  className={ghostBtnClass}
                 >
                   <LogOut className="h-4 w-4" />
                 </Button>
               </form>
             </>
-          ) : discovery ? null : (
+          ) : (
             <Button
               variant={dark ? "outline" : "ghost"}
               size="sm"
-              className={cn(
-                "hidden sm:inline-flex",
-                dark
-                  ? "border-hero-foreground/15 bg-transparent text-hero-foreground hover:bg-hero-foreground/10"
-                  : ""
-              )}
+              className={cn("hidden sm:inline-flex", ghostBtnClass)}
               asChild
             >
               <Link href="/login">Connexion</Link>
             </Button>
           )}
           <Button size="sm" asChild>
-            <Link href={discovery ? "/opportunities" : MAP_EXPLORE_HREF}>
-              {discovery ? "Opportunités" : "Explorer"}
-            </Link>
+            <Link href={MAP_EXPLORE_HREF}>Explorer</Link>
           </Button>
         </div>
       </div>
@@ -196,12 +193,12 @@ function NavbarContent({
   );
 }
 
-function NavbarWithSearchParams(props: { dark?: boolean }) {
+function NavbarWithSearchParams(props: { dark?: boolean; overlay?: boolean }) {
   const explore = useSearchParams().get(MAP_EXPLORE_QUERY);
   return <NavbarContent {...props} explore={explore} />;
 }
 
-export function Navbar(props: { dark?: boolean }) {
+export function Navbar(props: { dark?: boolean; overlay?: boolean }) {
   return (
     <Suspense fallback={<NavbarContent {...props} />}>
       <NavbarWithSearchParams {...props} />

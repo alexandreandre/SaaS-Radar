@@ -5,7 +5,8 @@ import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
-import type { Opportunity, Sector } from "@/types/opportunity";
+import type { Opportunity } from "@/types/opportunity";
+import { getProfileRecommendation } from "@/lib/scoring/personal-match";
 
 const questions = [
   {
@@ -90,62 +91,6 @@ const questions = [
   },
 ];
 
-const QUIZ_SECTOR_MAP: Record<string, Sector[]> = {
-  health: ["healthcare"],
-  construction: ["construction"],
-  finance: ["finance", "legal"],
-};
-
-function scoreOpportunityForQuiz(opp: Opportunity, answers: Record<string, string>): number {
-  let score = opp.scores.opportunity;
-
-  const preferredSectors = QUIZ_SECTOR_MAP[answers.sector];
-  if (preferredSectors?.includes(opp.sector)) score += 20;
-
-  if (answers.tech === "none" && opp.techComplexity === "low") score += 12;
-  if (answers.tech === "medium" && opp.techComplexity !== "high") score += 6;
-  if (answers.tech === "dev") {
-    if (opp.techComplexity !== "low") score += 6;
-    if (opp.scores.buildability >= 7) score += 4;
-  }
-
-  if (opp.buildableUnder30Days) {
-    if (answers.time === "low") score += 10;
-    if (answers.experience === "never") score += 8;
-    if (answers.situation === "cdi" || answers.situation === "student") score += 6;
-  }
-
-  if (answers.goal === "quick") {
-    if (opp.revenueMin <= 5000) score += 6;
-    if (opp.buildableUnder30Days) score += 6;
-    if (opp.techComplexity === "low") score += 4;
-  }
-  if (answers.goal === "scale") {
-    score += opp.scores.franceFit;
-    if (opp.scores.competitionGap >= 7) score += 5;
-  }
-  if (answers.goal === "test" && opp.buildableUnder30Days) score += 8;
-
-  if (answers.situation === "fulltime") score += opp.scores.opportunity * 0.05;
-  if (answers.experience === "already") score += opp.scores.margin * 0.5;
-  if (answers.time === "high" && opp.techComplexity === "high") score += 4;
-
-  if (opp.lowCompetition) score += 4;
-  if (opp.boringBusiness) score += 2;
-
-  return score;
-}
-
-function getRecommendation(
-  answers: Record<string, string>,
-  catalog: Opportunity[]
-): Opportunity | null {
-  if (catalog.length === 0) return null;
-  return [...catalog].sort(
-    (a, b) => scoreOpportunityForQuiz(b, answers) - scoreOpportunityForQuiz(a, answers)
-  )[0];
-}
-
 function getMatchReasons(answers: Record<string, string>, opp: Opportunity): string[] {
   const reasons: string[] = [];
 
@@ -194,7 +139,7 @@ export function QuizClient({ opportunities }: { opportunities: Opportunity[] }) 
     if (step < questions.length - 1) {
       setStep((s) => s + 1);
     } else {
-      setRecommended(getRecommendation(newAnswers, opportunities));
+      setRecommended(getProfileRecommendation(newAnswers, opportunities));
     }
   };
 

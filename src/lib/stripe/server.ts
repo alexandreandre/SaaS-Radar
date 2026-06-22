@@ -16,7 +16,7 @@ export function getStripe(): Stripe {
     stripeClient = new Stripe(key, {
       apiVersion: "2026-05-27.dahlia",
       typescript: true,
-      appInfo: { name: "SaaS Radar" },
+      appInfo: { name: "The Build Road" },
     });
   }
   return stripeClient;
