@@ -113,12 +113,12 @@ export function resolveSourcingScale(count: number): SourcingScale {
 }
 
 /** @deprecated Préférer resolveSourcingScale().maxLeads */
-export function resolveMaxLeadsToProcess(count: number, _catalogue?: boolean): number {
+export function resolveMaxLeadsToProcess(count: number): number {
   return resolveSourcingScale(count).maxLeads;
 }
 
 /** @deprecated Préférer resolveSourcingScale().discoveryRequest */
-export function resolveDiscoveryRequestCount(count: number, _overfetchFactor?: number): number {
+export function resolveDiscoveryRequestCount(count: number): number {
   return resolveSourcingScale(count).discoveryRequest;
 }
 

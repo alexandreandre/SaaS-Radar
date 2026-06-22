@@ -3,7 +3,6 @@ import { getSupabaseUrl } from "@/lib/supabase/env";
 import { toOpportunityRow } from "@/lib/supabase/mappers";
 import type { Opportunity } from "@/types/opportunity";
 import {
-  MAX_DISCOVERY_REQUEST,
   MAX_DISCOVERY_ROUNDS,
   MODELS,
   resolveSourcingScale,

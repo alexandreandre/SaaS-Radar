@@ -17,7 +17,7 @@ export function normalizeUrlKey(url: string): string {
     const parsed = new URL(url.trim());
     parsed.hash = "";
     parsed.search = "";
-    let path = parsed.pathname.replace(/\/+$/, "") || "/";
+    const path = parsed.pathname.replace(/\/+$/, "") || "/";
     return `${parsed.protocol}//${parsed.hostname.toLowerCase()}${path}`.toLowerCase();
   } catch {
     return url.toLowerCase().trim().replace(/\/+$/, "");

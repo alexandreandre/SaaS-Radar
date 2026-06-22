@@ -3,7 +3,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Opportunity } from "@/types/opportunity";
 import type { DedupMatch, DedupIndex } from "@/lib/admin/sourcing-dedup.shared";
 import {
-  normalizeUrlKey,
   registerOpportunityInDedupIndex,
   rootDomainFromUrl,
 } from "@/lib/admin/sourcing-dedup.shared";
