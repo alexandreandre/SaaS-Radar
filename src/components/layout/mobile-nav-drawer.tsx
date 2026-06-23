@@ -14,7 +14,7 @@ import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { cn } from "@/lib/utils";
 import { resolveNavLinks, type NavLinkItem } from "@/lib/nav-links";
 import { getNavLinkIcon } from "@/lib/nav-link-icons";
-import { isMapExploreActive, MAP_EXPLORE_HREF } from "@/lib/map-routes";
+import { MAP_EXPLORE_HREF } from "@/lib/map-routes";
 import { isCockpitEnabled, isDiscoveryPhase } from "@/lib/product-phase";
 import { useSession } from "@/contexts/session-context";
 import { useOptionalPortfolio } from "@/contexts/portfolio-context";
@@ -39,9 +39,7 @@ function DrawerLink({
   onNavigate: () => void;
 }) {
   const Icon = getNavLinkIcon(link.icon);
-  const active = link.mapExplore
-    ? isMapExploreActive(pathname, explore)
-    : pathname === link.href || pathname.startsWith(`${link.href}/`);
+  const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
 
   return (
     <Link
@@ -78,7 +76,7 @@ export function MobileNavDrawer({
   const discovery = isDiscoveryPhase();
   const cockpitOn = isCockpitEnabled(isAdmin);
 
-  const links = resolveNavLinks({ discovery, cockpitOn, isAdmin });
+  const links = resolveNavLinks({ discovery });
   const close = () => onOpenChange(false);
 
   return (

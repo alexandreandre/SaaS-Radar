@@ -12,9 +12,7 @@ import {
   type NavLinkItem,
 } from "@/lib/nav-links";
 import { getNavLinkIcon } from "@/lib/nav-link-icons";
-import { isMapExploreActive } from "@/lib/map-routes";
-import { isCockpitEnabled, isDiscoveryPhase } from "@/lib/product-phase";
-import { useSession } from "@/contexts/session-context";
+import { isDiscoveryPhase } from "@/lib/product-phase";
 
 type MobileBottomNavProps = {
   onOpenMenu: () => void;
@@ -31,9 +29,7 @@ function NavItem({
   explore: string | null;
 }) {
   const Icon = getNavLinkIcon(link.icon);
-  const isActive = link.mapExplore
-    ? isMapExploreActive(pathname, explore)
-    : pathname === link.href || pathname.startsWith(`${link.href}/`);
+  const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
 
   return (
     <Link
@@ -52,29 +48,21 @@ function NavItem({
 
 export function MobileBottomNav({ onOpenMenu, explore = null }: MobileBottomNavProps) {
   const pathname = usePathname();
-  const { isAdmin } = useSession();
   const [mounted, setMounted] = useState(false);
 
-  const links = useMemo(
-    () =>
-      getBottomNavLinks({
-        discovery: isDiscoveryPhase(),
-        cockpitOn: isCockpitEnabled(isAdmin),
-        isAdmin,
-      }),
-    [isAdmin],
-  );
+  const links = useMemo(() => getBottomNavLinks(), []);
 
   const hidden = shouldHideMobileBottomNav(pathname);
 
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    document.body.classList.toggle("has-mobile-bottom-nav", mounted && !hidden);
+    const show = mounted && !hidden && !isDiscoveryPhase();
+    document.body.classList.toggle("has-mobile-bottom-nav", show);
     return () => document.body.classList.remove("has-mobile-bottom-nav");
   }, [mounted, hidden]);
 
-  if (!mounted || hidden) return null;
+  if (isDiscoveryPhase() || !mounted || hidden) return null;
 
   return createPortal(
     <nav

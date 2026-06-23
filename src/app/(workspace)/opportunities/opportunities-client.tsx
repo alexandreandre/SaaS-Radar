@@ -380,33 +380,25 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
     <>
       <Navbar />
       <main className="mx-auto max-w-6xl px-4 py-6 mobile-page-pad sm:px-6 sm:py-10">
-        <div id="opportunities-hero" className="mb-8">
-          <p className="label-data">Opportunités</p>
-          <h1 className="mt-2 font-display text-2xl font-medium tracking-tight sm:text-3xl">
-            Trouve ton idée dès maintenant
-          </h1>
-          <p className="mt-2 font-data text-[10px] uppercase tracking-data text-muted-foreground">
-            {opportunities.length} fiche{opportunities.length > 1 ? "s" : ""} dans la base analyste
-          </p>
+        <div id="opportunities-hero" className="h-0 overflow-hidden" aria-hidden />
 
-          {activeChips.length > 0 && (
-            <div className="mt-3 flex flex-wrap items-center gap-1.5">
-              {activeChips.map((chip) => (
-                <span key={chip.key} className={chipClass(true)}>
-                  {chip.label}
-                  <button
-                    type="button"
-                    className="inline-flex rounded p-0.5 opacity-80 hover:opacity-100"
-                    aria-label={`Retirer le filtre ${chip.label}`}
-                    onClick={chip.onRemove}
-                  >
-                    <X className="size-3" strokeWidth={2.5} aria-hidden />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
+        {activeChips.length > 0 && (
+          <div className="mb-6 flex flex-wrap items-center gap-1.5">
+            {activeChips.map((chip) => (
+              <span key={chip.key} className={chipClass(true)}>
+                {chip.label}
+                <button
+                  type="button"
+                  className="inline-flex rounded p-0.5 opacity-80 hover:opacity-100"
+                  aria-label={`Retirer le filtre ${chip.label}`}
+                  onClick={chip.onRemove}
+                >
+                  <X className="size-3" strokeWidth={2.5} aria-hidden />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
 
         {guestHint && !discovery && (
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
@@ -653,7 +645,7 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
           </aside>
 
           <div className="min-w-0 flex-1">
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mb-4 mt-7 flex flex-col gap-3 sm:mt-9 sm:flex-row sm:items-center sm:justify-between">
               <p className="font-data text-[10px] uppercase tracking-data text-muted-foreground">
                 {resultLabel}
               </p>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-/** Masque le chrome flottant quand l’ancre hero sort du viewport. */
+/** Masque le chrome flottant quand l'ancre hero sort du viewport. */
 export function useChromeVisible(anchorId?: string | null) {
   const [visible, setVisible] = useState(true);
 

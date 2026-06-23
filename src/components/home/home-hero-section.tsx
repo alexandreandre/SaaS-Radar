@@ -87,7 +87,7 @@ function HomeHeroBuildCta({ mapUnlocked }: { mapUnlocked: boolean }) {
   return (
     <div
       className={cn(
-        "pointer-events-auto absolute inset-x-0 bottom-0 z-10 mx-auto w-full max-w-2xl px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center transition-transform duration-500 ease-out sm:bottom-2 sm:px-6",
+        "pointer-events-auto absolute inset-x-0 bottom-10 z-10 mx-auto w-full max-w-2xl px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center transition-transform duration-500 ease-out sm:bottom-16 sm:px-6",
         mapUnlocked && "scale-[0.98]",
       )}
     >
@@ -177,7 +177,9 @@ function HomeHeroInner({ mapStats, mapCatalog }: HomeHeroProps) {
       </div>
 
       <div className="pointer-events-none relative z-[60] min-h-[min(100dvh,920px)]">
-        <Navbar overlay />
+        <div className="pointer-events-auto">
+          <Navbar />
+        </div>
 
         <div
           className={cn(
@@ -244,7 +246,9 @@ function HomeHeroFallback({ mapStats }: { mapStats: HomeMapStats }) {
     >
       <div className="absolute inset-0 z-0 road-grid opacity-30" />
       <div className="pointer-events-none relative z-[60] min-h-[min(100dvh,920px)]">
-        <Navbar overlay />
+        <div className="pointer-events-auto">
+          <Navbar />
+        </div>
         <div
           className={cn(
             "flex min-h-[min(100dvh,920px)] flex-col items-center px-4 pt-4 text-center sm:px-6",

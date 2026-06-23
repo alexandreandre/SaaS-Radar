@@ -5,7 +5,13 @@ import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
-export function ThemeToggle({ dark = false }: { dark?: boolean }) {
+export function ThemeToggle({
+  dark = false,
+  className,
+}: {
+  dark?: boolean;
+  className?: string;
+}) {
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
@@ -25,7 +31,8 @@ export function ThemeToggle({ dark = false }: { dark?: boolean }) {
         "inline-flex h-8 w-8 items-center justify-center rounded-sm border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         dark
           ? "border-hero-foreground/15 text-map-muted hover:text-hero-foreground hover:bg-hero-foreground/10"
-          : "border-border text-muted-foreground hover:bg-muted hover:text-foreground"
+          : "border-border text-muted-foreground hover:bg-muted hover:text-foreground",
+        className,
       )}
       aria-label={isDark ? "Passer en mode clair" : "Passer en mode sombre"}
     >

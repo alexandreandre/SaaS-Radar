@@ -14,14 +14,10 @@ import { useChromeVisible } from "@/components/layout/use-chrome-visible";
 import { useOptionalPortfolio } from "@/contexts/portfolio-context";
 import { usePortfolioSummary } from "@/hooks/use-portfolio-summary";
 import { useSession } from "@/contexts/session-context";
-import {
-  MAP_EXPLORE_HREF,
-  MAP_EXPLORE_QUERY,
-  isMapExploreActive,
-} from "@/lib/map-routes";
+import { MAP_EXPLORE_HREF, MAP_EXPLORE_QUERY } from "@/lib/map-routes";
 import { prefetchAllAdminRoutes } from "@/lib/admin/route-prefetch";
 import { isCockpitEnabled, isDiscoveryPhase } from "@/lib/product-phase";
-import { getFloatingNavHideAnchor, resolveNavLinks } from "@/lib/nav-links";
+import { getDiscoveryChromeHideAnchor, resolveNavLinks } from "@/lib/nav-links";
 
 const MobileNavChrome = dynamic(
   () =>
@@ -33,11 +29,9 @@ const MobileNavChrome = dynamic(
 
 function NavbarContent({
   dark = false,
-  overlay = false,
   explore,
 }: {
   dark?: boolean;
-  overlay?: boolean;
   explore?: string | null;
 }) {
   const pathname = usePathname();
@@ -56,15 +50,18 @@ function NavbarContent({
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const hideAnchorId = overlay ? null : getFloatingNavHideAnchor(pathname);
+  const hideAnchorId = getDiscoveryChromeHideAnchor(pathname);
   const chromeVisible = useChromeVisible(hideAnchorId);
   const hideChrome = Boolean(hideAnchorId && !chromeVisible);
-  const isOpportunityDetail = /^\/opportunities\/[^/]+$/.test(pathname);
+  const pinDiscoveryLogo = pathname === "/opportunities";
+  const discoveryCta =
+    pathname === "/"
+      ? { href: "/opportunities", label: "Opportunités" }
+      : pathname === "/opportunities"
+        ? { href: "/", label: "Accueil" }
+        : null;
 
-  const links = useMemo(
-    () => resolveNavLinks({ discovery, cockpitOn, isAdmin }),
-    [discovery, cockpitOn, isAdmin],
-  );
+  const links = useMemo(() => resolveNavLinks(), []);
 
   useEffect(() => setMounted(true), []);
 
@@ -87,200 +84,191 @@ function NavbarContent({
       : "",
   );
 
-  const floatingChrome = (
-    <div
-      className={cn(
-        "pointer-events-none fixed inset-x-0 top-0 z-[100] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] transition-opacity duration-300 sm:px-6",
-        hideChrome && "opacity-0",
-        dark && "text-hero-foreground",
-      )}
-      aria-hidden={hideChrome}
-    >
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-        <div className={cn("pointer-events-auto min-w-0", hideChrome && "pointer-events-none")}>
-          <BrandLogo
-            dark={dark}
-            markClassName="h-10 sm:h-11"
-            textClassName="text-base sm:text-lg"
-          />
-        </div>
-        <div
-          className={cn(
-            "pointer-events-auto flex shrink-0 items-center gap-2",
-            hideChrome && "pointer-events-none",
-          )}
-        >
-          {!isOpportunityDetail ? (
-            <Button
-              size="sm"
+  if (discovery) {
+    if (!hideAnchorId) return null;
+
+    const floatingChrome = (
+      <div
+        className={cn(
+          "pointer-events-none fixed inset-x-0 top-0 z-[100] px-4 pt-[max(0.75rem,env(safe-area-inset-top))] transition-opacity duration-300 sm:px-6",
+          !pinDiscoveryLogo && hideChrome && "opacity-0",
+          dark && "text-hero-foreground",
+        )}
+        aria-hidden={!pinDiscoveryLogo && hideChrome}
+      >
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+          <div
+            className={cn(
+              "pointer-events-auto min-w-0",
+              !pinDiscoveryLogo && hideChrome && "pointer-events-none",
+            )}
+          >
+            <BrandLogo
+              dark={dark}
+              markClassName="h-10 sm:h-11"
+              textClassName="text-base sm:text-lg"
+            />
+          </div>
+          <div
+            className={cn(
+              "pointer-events-auto flex shrink-0 items-center gap-2 transition-opacity duration-300",
+              hideChrome && "pointer-events-none opacity-0",
+            )}
+          >
+            <ThemeToggle
+              dark={dark}
               className={cn(
-                "hidden min-h-10 sm:inline-flex",
-                !dark && "shadow-sm",
+                "h-9 w-9 shrink-0 border-border/40 bg-background/55 shadow-none backdrop-blur-sm",
                 dark &&
-                  "border-hero-foreground/20 bg-hero-foreground/10 text-hero-foreground backdrop-blur-sm hover:bg-hero-foreground/20",
+                  "border-hero-foreground/15 bg-hero-foreground/10 text-map-muted hover:text-hero-foreground",
               )}
-              variant={dark ? "outline" : "default"}
-              asChild
-            >
-              <Link href="/opportunities">Opportunités</Link>
-            </Button>
-          ) : null}
-          <Button
-            type="button"
-            size="sm"
-            variant={dark ? "outline" : "ghost"}
-            className={cn("min-h-11 min-w-11 px-0 md:hidden", ghostBtnClass)}
-            aria-label="Ouvrir le menu"
-            onClick={() => setMenuOpen(true)}
-          >
-            <Menu className="size-5" aria-hidden />
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const stickyHeader = (
-    <header
-      className={cn(
-        "sticky top-0 z-50 border-b backdrop-blur-md",
-        dark ? "border-hero-foreground/10 bg-hero/85" : "border-border bg-background/85",
-      )}
-    >
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4 sm:px-6">
-        <BrandLogo dark={dark} />
-        <nav className="hidden items-center gap-7 md:flex" aria-label="Sections">
-          {links.map((link) => {
-            const active = link.mapExplore
-              ? isMapExploreActive(pathname, explore)
-              : pathname === link.href;
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
+            />
+            {discoveryCta ? (
+              <Button
+                size="sm"
                 className={cn(
-                  "text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm",
-                  dark
-                    ? active
-                      ? "text-hero-foreground"
-                      : "text-map-muted hover:text-hero-foreground"
-                    : active
-                      ? "text-foreground font-medium"
-                      : "text-muted-foreground hover:text-foreground",
+                  "min-h-10",
+                  !dark && "shadow-sm",
+                  dark &&
+                    "border-hero-foreground/20 bg-hero-foreground/10 text-hero-foreground backdrop-blur-sm hover:bg-hero-foreground/20",
                 )}
+                variant={dark ? "outline" : "default"}
+                asChild
               >
-                {link.label}
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          <ThemeToggle dark={dark} />
-          {isAuthenticated ? (
-            <>
-              {isAdmin ? (
-                <Button
-                  variant={dark ? "outline" : "ghost"}
-                  size="sm"
-                  className={cn("hidden min-h-10 sm:inline-flex", ghostBtnClass)}
-                  asChild
-                >
-                  <Link href="/admin" prefetch>
-                    <Shield className="h-4 w-4" />
-                    <span className="hidden sm:inline">Admin</span>
-                  </Link>
-                </Button>
-              ) : null}
-              {cockpitOn ? (
-                <Button
-                  variant={dark ? "outline" : "ghost"}
-                  size="sm"
-                  className={cn("relative hidden min-h-10 sm:inline-flex", ghostBtnClass)}
-                  asChild
-                >
-                  <Link href="/mes-saas" prefetch>
-                    <Rocket className="h-4 w-4" />
-                    Mes SaaS
-                    {portfolioHydrated && overdueCheckIns > 0 ? (
-                      <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-background" />
-                    ) : null}
-                  </Link>
-                </Button>
-              ) : null}
-              <form action="/auth/signout" method="post" className="hidden sm:block">
-                <Button
-                  type="submit"
-                  variant={dark ? "outline" : "ghost"}
-                  size="sm"
-                  aria-label="Se déconnecter"
-                  className={ghostBtnClass}
-                >
-                  <LogOut className="h-4 w-4" />
-                </Button>
-              </form>
-            </>
-          ) : (
-            <Button
-              variant={dark ? "outline" : "ghost"}
-              size="sm"
-              className={cn("hidden min-h-10 sm:inline-flex", ghostBtnClass)}
-              asChild
-            >
-              <Link href="/login">Connexion</Link>
-            </Button>
-          )}
-          <Button size="sm" className="hidden min-h-10 md:inline-flex" asChild>
-            <Link href={MAP_EXPLORE_HREF}>Explorer</Link>
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={dark ? "outline" : "ghost"}
-            className={cn("min-h-11 min-w-11 px-0 md:hidden", ghostBtnClass)}
-            aria-label="Ouvrir le menu"
-            onClick={() => setMenuOpen(true)}
-          >
-            <Menu className="size-5" aria-hidden />
-          </Button>
+                <Link href={discoveryCta.href}>{discoveryCta.label}</Link>
+              </Button>
+            ) : null}
+          </div>
         </div>
       </div>
-    </header>
-  );
-
-  const mobileChrome = (
-    <MobileNavChrome
-      menuOpen={menuOpen}
-      onMenuOpenChange={setMenuOpen}
-      explore={explore}
-      dark={dark}
-    />
-  );
-
-  if (overlay) {
-    return (
-      <>
-        {mounted ? createPortal(floatingChrome, document.body) : null}
-        {mobileChrome}
-      </>
     );
+
+    return mounted ? createPortal(floatingChrome, document.body) : null;
   }
 
   return (
     <>
-      {stickyHeader}
-      {mobileChrome}
+      <header
+        className={cn(
+          "sticky top-0 z-50 border-b backdrop-blur-md",
+          dark ? "border-hero-foreground/10 bg-hero/85" : "border-border bg-background/85",
+        )}
+      >
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4 sm:px-6">
+          <BrandLogo dark={dark} />
+          <nav className="hidden items-center gap-7 md:flex" aria-label="Sections">
+            {links.map((link) => {
+              const active =
+                pathname === link.href || pathname.startsWith(`${link.href}/`);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={cn(
+                    "text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm",
+                    dark
+                      ? active
+                        ? "text-hero-foreground"
+                        : "text-map-muted hover:text-hero-foreground"
+                      : active
+                        ? "text-foreground font-medium"
+                        : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <ThemeToggle dark={dark} />
+            {isAuthenticated ? (
+              <>
+                {isAdmin ? (
+                  <Button
+                    variant={dark ? "outline" : "ghost"}
+                    size="sm"
+                    className={cn("hidden min-h-10 sm:inline-flex", ghostBtnClass)}
+                    asChild
+                  >
+                    <Link href="/admin" prefetch>
+                      <Shield className="h-4 w-4" />
+                      <span className="hidden sm:inline">Admin</span>
+                    </Link>
+                  </Button>
+                ) : null}
+                {cockpitOn ? (
+                  <Button
+                    variant={dark ? "outline" : "ghost"}
+                    size="sm"
+                    className={cn("relative hidden min-h-10 sm:inline-flex", ghostBtnClass)}
+                    asChild
+                  >
+                    <Link href="/mes-saas" prefetch>
+                      <Rocket className="h-4 w-4" />
+                      Mes SaaS
+                      {portfolioHydrated && overdueCheckIns > 0 ? (
+                        <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-background" />
+                      ) : null}
+                    </Link>
+                  </Button>
+                ) : null}
+                <form action="/auth/signout" method="post" className="hidden sm:block">
+                  <Button
+                    type="submit"
+                    variant={dark ? "outline" : "ghost"}
+                    size="sm"
+                    aria-label="Se déconnecter"
+                    className={ghostBtnClass}
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                </form>
+              </>
+            ) : (
+              <Button
+                variant={dark ? "outline" : "ghost"}
+                size="sm"
+                className={cn("hidden min-h-10 sm:inline-flex", ghostBtnClass)}
+                asChild
+              >
+                <Link href="/login">Connexion</Link>
+              </Button>
+            )}
+            <Button size="sm" className="hidden min-h-10 md:inline-flex" asChild>
+              <Link href={MAP_EXPLORE_HREF}>Explorer</Link>
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={dark ? "outline" : "ghost"}
+              className={cn("min-h-11 min-w-11 px-0 md:hidden", ghostBtnClass)}
+              aria-label="Ouvrir le menu"
+              onClick={() => setMenuOpen(true)}
+            >
+              <Menu className="size-5" aria-hidden />
+            </Button>
+          </div>
+        </div>
+      </header>
+      <MobileNavChrome
+        menuOpen={menuOpen}
+        onMenuOpenChange={setMenuOpen}
+        explore={explore}
+        dark={dark}
+      />
     </>
   );
 }
 
-function NavbarWithSearchParams(props: { dark?: boolean; overlay?: boolean }) {
+function NavbarWithSearchParams(props: { dark?: boolean }) {
   const explore = useSearchParams().get(MAP_EXPLORE_QUERY);
   return <NavbarContent {...props} explore={explore} />;
 }
 
-export function Navbar(props: { dark?: boolean; overlay?: boolean }) {
+export function Navbar(props: { dark?: boolean }) {
   return (
-    <Suspense fallback={<NavbarContent {...props} />}>
+    <Suspense fallback={null}>
       <NavbarWithSearchParams {...props} />
     </Suspense>
   );
