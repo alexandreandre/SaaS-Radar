@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { resolveNavLinks, type NavLinkItem } from "@/lib/nav-links";
 import { getNavLinkIcon } from "@/lib/nav-link-icons";
 import { MAP_EXPLORE_HREF } from "@/lib/map-routes";
-import { isCockpitEnabled, isDiscoveryPhase } from "@/lib/product-phase";
+import { isCockpitEnabled } from "@/lib/product-phase";
 import { useSession } from "@/contexts/session-context";
 import { useOptionalPortfolio } from "@/contexts/portfolio-context";
 import { usePortfolioSummary } from "@/hooks/use-portfolio-summary";
@@ -30,12 +30,10 @@ type MobileNavDrawerProps = {
 function DrawerLink({
   link,
   pathname,
-  explore,
   onNavigate,
 }: {
   link: NavLinkItem;
   pathname: string;
-  explore?: string | null;
   onNavigate: () => void;
 }) {
   const Icon = getNavLinkIcon(link.icon);
@@ -60,7 +58,6 @@ function DrawerLink({
 export function MobileNavDrawer({
   open,
   onOpenChange,
-  explore = null,
   dark = false,
 }: MobileNavDrawerProps) {
   const pathname = usePathname();
@@ -73,10 +70,9 @@ export function MobileNavDrawer({
       ? summary.overdueCheckIns
       : 0;
   const portfolioHydrated = portfolio?.hydrated ?? summary.hydrated;
-  const discovery = isDiscoveryPhase();
   const cockpitOn = isCockpitEnabled(isAdmin);
 
-  const links = resolveNavLinks({ discovery });
+  const links = resolveNavLinks();
   const close = () => onOpenChange(false);
 
   return (
@@ -99,7 +95,6 @@ export function MobileNavDrawer({
                 key={link.href}
                 link={link}
                 pathname={pathname}
-                explore={explore}
                 onNavigate={close}
               />
             ))}

@@ -28,8 +28,6 @@ import { flagFromAlpha2 } from "@/lib/country-code";
 import { getPresentSectorChips, getSectorFilterKey } from "@/data/sectors";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Filter, Search, SearchX, X } from "lucide-react";
-import { isDiscoveryPhase } from "@/lib/product-phase";
-
 const SectorSearchPicker = dynamic(
   () =>
     import("@/components/opportunities/sector-search-picker").then((m) => m.SectorSearchPicker),
@@ -62,6 +60,15 @@ const revenueLabels: Record<number, string> = {
   20000: "20 000€+/mois",
 };
 
+/** Espace sous le logo flottant discovery (mobile). */
+const MOBILE_DISCOVERY_CHROME_TOP =
+  "max(0.75rem, env(safe-area-inset-top, 0px)) + 2.5rem + 1.25rem";
+
+const mobileFilterStickyTop = (discovery: boolean) =>
+  discovery
+    ? `calc(${MOBILE_DISCOVERY_CHROME_TOP})`
+    : "3.5rem";
+
 const chipClass = (active: boolean) =>
   cn(
     "inline-flex items-center gap-1 rounded-sm px-2 py-1 font-data text-[10px] font-medium uppercase tracking-data transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -78,6 +85,7 @@ const sectorChipClass = (active: boolean) =>
 
 type OpportunitiesClientProps = {
   opportunities: OpportunityListItem[];
+  discovery: boolean;
 };
 
 type ActiveChip = {
@@ -128,10 +136,10 @@ function describeRestrictiveFilters(filters: FilterState): string[] {
   return parts.slice(0, 3);
 }
 
-export function OpportunitiesClient({ opportunities }: OpportunitiesClientProps) {
+export function OpportunitiesClient({ opportunities, discovery }: OpportunitiesClientProps) {
   return (
     <Suspense fallback={<OpportunitiesFallback />}>
-      <OpportunitiesContent opportunities={opportunities} />
+      <OpportunitiesContent opportunities={opportunities} discovery={discovery} />
     </Suspense>
   );
 }
@@ -148,10 +156,9 @@ function OpportunitiesFallback() {
   );
 }
 
-function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
+function OpportunitiesContent({ opportunities, discovery }: OpportunitiesClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const discovery = isDiscoveryPhase();
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const { favoriteSlugs, guestHint, clearGuestHint } = useFavorites();
@@ -379,7 +386,14 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
   return (
     <>
       <Navbar />
-      <main className="mx-auto max-w-6xl px-4 py-6 mobile-page-pad sm:px-6 sm:py-10">
+      <main
+        className={cn(
+          "mx-auto max-w-6xl px-4 pb-6 mobile-page-pad sm:px-6 sm:py-10",
+          discovery
+            ? "max-lg:pt-[calc(max(0.75rem,env(safe-area-inset-top,0px))+2.5rem+1.25rem)]"
+            : "py-6",
+        )}
+      >
         <div id="opportunities-hero" className="h-0 overflow-hidden" aria-hidden />
 
         {activeChips.length > 0 && (
@@ -413,11 +427,15 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
           </div>
         )}
 
-        <div className="flex flex-col gap-8 lg:flex-row">
+        <div className="flex flex-col gap-4 lg:flex-row lg:gap-8">
           <aside className="w-full shrink-0 lg:w-64">
             <button
               type="button"
-              className="mb-3 flex min-h-12 w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium lg:hidden"
+              className={cn(
+                "mb-3 flex min-h-12 w-full items-center justify-between rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium lg:hidden",
+                "sticky z-40 border-border/80 bg-background/95 backdrop-blur-sm",
+              )}
+              style={{ top: mobileFilterStickyTop(discovery) }}
               onClick={() => setMobileFiltersOpen((v) => !v)}
               aria-expanded={mobileFiltersOpen}
             >
@@ -433,7 +451,7 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
               <ChevronDown
                 className={cn(
                   "size-4 text-muted-foreground transition-transform",
-                  mobileFiltersOpen && "rotate-180"
+                  mobileFiltersOpen && "rotate-180",
                 )}
                 aria-hidden
               />
@@ -442,7 +460,7 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
             <div
               className={cn(
                 "sticky top-24 space-y-4 rounded-lg border border-border bg-card p-5 shadow-card",
-                !mobileFiltersOpen && "hidden lg:block"
+                !mobileFiltersOpen && "hidden lg:block",
               )}
             >
               <div className="space-y-4">
@@ -645,7 +663,7 @@ function OpportunitiesContent({ opportunities }: OpportunitiesClientProps) {
           </aside>
 
           <div className="min-w-0 flex-1">
-            <div className="mb-4 mt-7 flex flex-col gap-3 sm:mt-9 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mb-4 flex flex-col gap-3 sm:mt-9 sm:flex-row sm:items-center sm:justify-between lg:mt-7">
               <p className="font-data text-[10px] uppercase tracking-data text-muted-foreground">
                 {resultLabel}
               </p>

@@ -22,11 +22,9 @@ type MobileBottomNavProps = {
 function NavItem({
   link,
   pathname,
-  explore,
 }: {
   link: NavLinkItem;
   pathname: string;
-  explore: string | null;
 }) {
   const Icon = getNavLinkIcon(link.icon);
   const isActive = pathname === link.href || pathname.startsWith(`${link.href}/`);
@@ -46,7 +44,7 @@ function NavItem({
   );
 }
 
-export function MobileBottomNav({ onOpenMenu, explore = null }: MobileBottomNavProps) {
+export function MobileBottomNav({ onOpenMenu }: MobileBottomNavProps) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
 
@@ -71,12 +69,7 @@ export function MobileBottomNav({ onOpenMenu, explore = null }: MobileBottomNavP
     >
       <div className="mx-auto flex max-w-lg items-stretch justify-around">
         {links.map((link) => (
-          <NavItem
-            key={link.href}
-            link={link}
-            pathname={pathname}
-            explore={explore}
-          />
+          <NavItem key={link.href} link={link} pathname={pathname} />
         ))}
         <button
           type="button"

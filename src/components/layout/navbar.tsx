@@ -17,7 +17,12 @@ import { useSession } from "@/contexts/session-context";
 import { MAP_EXPLORE_HREF, MAP_EXPLORE_QUERY } from "@/lib/map-routes";
 import { prefetchAllAdminRoutes } from "@/lib/admin/route-prefetch";
 import { isCockpitEnabled, isDiscoveryPhase } from "@/lib/product-phase";
-import { getDiscoveryChromeHideAnchor, resolveNavLinks } from "@/lib/nav-links";
+import {
+  getDiscoveryChromeHideAnchor,
+  getDiscoveryChromeVariant,
+  getDiscoveryContextualCta,
+  resolveNavLinks,
+} from "@/lib/nav-links";
 
 const MobileNavChrome = dynamic(
   () =>
@@ -44,33 +49,29 @@ function NavbarContent({
       ? summary.overdueCheckIns
       : 0;
   const portfolioHydrated = portfolio?.hydrated ?? summary.hydrated;
-  const { isAuthenticated, isAdmin } = useSession();
+  const { isAuthenticated, isAdmin, hasAdminGate } = useSession();
   const discovery = isDiscoveryPhase();
   const cockpitOn = isCockpitEnabled(isAdmin);
   const [mounted, setMounted] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  const discoveryVariant = discovery ? getDiscoveryChromeVariant(pathname) : null;
   const hideAnchorId = getDiscoveryChromeHideAnchor(pathname);
   const chromeVisible = useChromeVisible(hideAnchorId);
   const hideChrome = Boolean(hideAnchorId && !chromeVisible);
   const pinDiscoveryLogo = pathname === "/opportunities";
-  const discoveryCta =
-    pathname === "/"
-      ? { href: "/opportunities", label: "Opportunités" }
-      : pathname === "/opportunities"
-        ? { href: "/", label: "Accueil" }
-        : null;
+  const discoveryCta = discovery ? getDiscoveryContextualCta(pathname) : null;
 
   const links = useMemo(() => resolveNavLinks(), []);
 
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin && hasAdminGate) {
       router.prefetch("/admin");
       prefetchAllAdminRoutes();
     }
-  }, [isAdmin, router]);
+  }, [isAdmin, hasAdminGate, router]);
 
   useEffect(() => {
     if (isAuthenticated && cockpitOn) {
@@ -85,7 +86,30 @@ function NavbarContent({
   );
 
   if (discovery) {
-    if (!hideAnchorId) return null;
+    if (!discoveryVariant) return null;
+
+    if (discoveryVariant === "sticky-compact") {
+      return (
+        <header
+          className={cn(
+            "sticky top-0 z-50 border-b backdrop-blur-md pt-[max(0px,env(safe-area-inset-top))]",
+            dark ? "border-hero-foreground/10 bg-hero/85" : "border-border bg-background/90",
+          )}
+        >
+          <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4 sm:px-6">
+            <BrandLogo dark={dark} />
+            <div className="flex shrink-0 items-center gap-2">
+              <ThemeToggle dark={dark} />
+              {discoveryCta ? (
+                <Button size="sm" className="min-h-10 shrink-0" asChild>
+                  <Link href={discoveryCta.href}>{discoveryCta.label}</Link>
+                </Button>
+              ) : null}
+            </div>
+          </div>
+        </header>
+      );
+    }
 
     const floatingChrome = (
       <div
