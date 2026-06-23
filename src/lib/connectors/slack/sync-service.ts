@@ -15,7 +15,10 @@ import { exchangeSlackCode } from "@/lib/connectors/slack/oauth";
 import type { SlackChannelSummary, SlackCredential } from "@/lib/connectors/slack/types";
 import type { ConnectorSyncResult } from "@/lib/connectors/types";
 import { resolveCockpitOpportunity } from "@/lib/idea/to-opportunity";
-import { getEnrichedOpportunityBySlug } from "@/lib/opportunities";
+import {
+  getEnrichedOpportunityBySlug,
+  getEnrichedOpportunityBySlugIncludingArchived,
+} from "@/lib/opportunities";
 import { loadUserProjectAsService } from "@/lib/portfolio-sync";
 import type { UserProject } from "@/lib/portfolio";
 import type { Opportunity } from "@/types/opportunity";
@@ -48,9 +51,12 @@ async function persistSlackCredential(
 async function loadCockpitOpportunityForProject(
   project: UserProject,
 ): Promise<Opportunity | null> {
-  const catalog = project.opportunitySlug
+  let catalog = project.opportunitySlug
     ? await getEnrichedOpportunityBySlug(project.opportunitySlug)
     : null;
+  if (!catalog && project.opportunitySlug) {
+    catalog = await getEnrichedOpportunityBySlugIncludingArchived(project.opportunitySlug);
+  }
   return resolveCockpitOpportunity(project, catalog);
 }
 

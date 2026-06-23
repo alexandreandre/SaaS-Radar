@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser, getTier } from "@/lib/auth";
-import { getEnrichedOpportunityBySlug } from "@/lib/opportunities";
+import { getEnrichedOpportunityBySlugIncludingArchived } from "@/lib/opportunities";
 import { gateOpportunityForTier } from "@/lib/opportunity-access";
 import { loadUserProject } from "@/lib/portfolio-sync";
 import { migrateProject } from "@/lib/portfolio";
@@ -22,7 +22,7 @@ export default async function CockpitPage({ params }: { params: { id: string } }
   const migrated = migrateProject(project);
   let initialOpportunity = null;
   if (migrated.opportunitySlug) {
-    const raw = await getEnrichedOpportunityBySlug(migrated.opportunitySlug);
+    const raw = await getEnrichedOpportunityBySlugIncludingArchived(migrated.opportunitySlug);
     if (raw) {
       const tier = await getTier();
       initialOpportunity = gateOpportunityForTier(raw, tier);

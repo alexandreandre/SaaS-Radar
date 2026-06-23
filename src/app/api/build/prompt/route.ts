@@ -15,7 +15,10 @@ import { parseBuildPromptLanguage } from "@/lib/build/prompt-language";
 import { getBuildTool, type BuildToolId } from "@/lib/build/tools";
 import { ideaBriefToOpportunity } from "@/lib/idea/to-opportunity";
 import { loadUserProject } from "@/lib/portfolio-sync";
-import { getEnrichedOpportunityBySlug } from "@/lib/opportunities";
+import {
+  getEnrichedOpportunityBySlug,
+  getEnrichedOpportunityBySlugIncludingArchived,
+} from "@/lib/opportunities";
 import { cockpitApiGuard } from "@/lib/product-phase-api";
 import { hasTier } from "@/lib/tier";
 
@@ -103,6 +106,8 @@ export async function POST(request: Request) {
     const project = await loadUserProject(user.id, projectId);
     if (project?.ideaBrief) {
       opportunity = ideaBriefToOpportunity(project.ideaBrief, project.id);
+    } else if (opportunitySlug) {
+      opportunity = await getEnrichedOpportunityBySlugIncludingArchived(opportunitySlug);
     }
   }
 

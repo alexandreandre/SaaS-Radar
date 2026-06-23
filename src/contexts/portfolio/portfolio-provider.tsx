@@ -74,6 +74,24 @@ export function PortfolioProvider({
   );
   const mergeDoneRef = useRef(Boolean(serverUserId));
 
+  const publishedSlugs = useMemo(
+    () => new Set(catalogIndex.map((o) => o.slug)),
+    [catalogIndex],
+  );
+
+  const portfolioSlugs = useMemo(
+    () =>
+      new Set(
+        projects.map((p) => p.opportunitySlug).filter((slug): slug is string => Boolean(slug)),
+      ),
+    [projects],
+  );
+
+  const isFetchableCatalogSlug = useCallback(
+    (slug: string) => publishedSlugs.has(slug) || portfolioSlugs.has(slug),
+    [publishedSlugs, portfolioSlugs],
+  );
+
   useEffect(() => {
     flushPortfolioSyncQueue();
   }, []);
@@ -173,6 +191,7 @@ export function PortfolioProvider({
     (slug: string) => {
       const found = getCachedOpportunity(slug);
       if (!found) {
+        if (!isFetchableCatalogSlug(slug)) return undefined;
         void fetchOpportunityBySlug(slug).then((loaded) => {
           if (loaded) setCatalogVersion((v) => v + 1);
         });
@@ -183,13 +202,14 @@ export function PortfolioProvider({
     },
     // catalogVersion invalide le cache client après fetch lazy
     // eslint-disable-next-line react-hooks/exhaustive-deps -- catalogVersion
-    [tier, catalogVersion],
+    [tier, catalogVersion, isFetchableCatalogSlug],
   );
 
   const ensureCatalogOpportunity = useCallback(
     async (slug: string) => {
       const cached = getCatalogOpportunity(slug);
       if (cached) return cached;
+      if (!isFetchableCatalogSlug(slug)) return null;
       const loaded = await fetchOpportunityBySlug(slug);
       if (!loaded) return null;
       primeOpportunityCache(loaded);
@@ -197,14 +217,17 @@ export function PortfolioProvider({
       const enriched = enrichOpportunity(loaded);
       return gateOpportunityForTier(enriched, tier);
     },
-    [getCatalogOpportunity, tier],
+    [getCatalogOpportunity, tier, isFetchableCatalogSlug],
   );
 
   useEffect(() => {
     if (!hydrated || projects.length === 0) return;
-    const slugs = projects.map((p) => p.opportunitySlug).filter(Boolean);
+    const slugs = projects
+      .map((p) => p.opportunitySlug)
+      .filter((slug): slug is string => Boolean(slug) && publishedSlugs.has(slug));
+    if (slugs.length === 0) return;
     void prefetchOpportunitySlugs(slugs).then(() => setCatalogVersion((v) => v + 1));
-  }, [hydrated, projects]);
+  }, [hydrated, projects, publishedSlugs]);
 
   const opportunityCatalog = useMemo(() => {
     void catalogVersion;

@@ -4,7 +4,11 @@ import { cockpitApiGuard } from "@/lib/product-phase-api";
 import { generateDeployRecipeMarkdown } from "@/lib/ai/gemini";
 import { buildDeployRecipePrompt } from "@/lib/build/prompt-templates";
 import { getBuildTool } from "@/lib/build/tools";
-import { getEnrichedOpportunityBySlug } from "@/lib/opportunities";
+import {
+  getEnrichedOpportunityBySlug,
+  getEnrichedOpportunityBySlugIncludingArchived,
+} from "@/lib/opportunities";
+import { userHasProjectWithOpportunitySlug } from "@/lib/portfolio-sync";
 import { hasTier } from "@/lib/tier";
 
 export const runtime = "nodejs";
@@ -39,7 +43,13 @@ export async function POST(request: Request) {
   const toolId = typeof b.toolId === "string" ? b.toolId.trim() : "";
 
   const tool = getBuildTool(toolId);
-  const opportunity = await getEnrichedOpportunityBySlug(opportunitySlug);
+  let opportunity = await getEnrichedOpportunityBySlug(opportunitySlug);
+  if (!opportunity) {
+    const ownsProject = await userHasProjectWithOpportunitySlug(user.id, opportunitySlug);
+    if (ownsProject) {
+      opportunity = await getEnrichedOpportunityBySlugIncludingArchived(opportunitySlug);
+    }
+  }
   if (!tool || !opportunity || !productName) {
     return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
   }

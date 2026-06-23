@@ -46,6 +46,24 @@ function rowToUserProject(row: UserProjectRow): UserProject {
   });
 }
 
+export async function userHasProjectWithOpportunitySlug(
+  userId: string,
+  slug: string,
+): Promise<boolean> {
+  const normalized = slug.trim();
+  if (!normalized) return false;
+
+  const supabase = await createServerSupabaseClient();
+  const { count, error } = await supabase
+    .from("user_projects")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("opportunity_slug", normalized);
+
+  if (error) throw error;
+  return (count ?? 0) > 0;
+}
+
 export async function loadUserProject(
   userId: string,
   projectId: string,

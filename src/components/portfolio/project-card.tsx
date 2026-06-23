@@ -51,9 +51,9 @@ function formatOriginCountryCode(code: string): string {
 
 export function ProjectCard({ project, onPause, onResume, onRemove }: ProjectCardProps) {
   const router = useRouter();
-  const { getCatalogOpportunity } = usePortfolio();
-  const opportunity = project.opportunitySlug
-    ? getCatalogOpportunity(project.opportunitySlug)
+  const { catalogIndex } = usePortfolio();
+  const catalogEntry = project.opportunitySlug
+    ? catalogIndex.find((o) => o.slug === project.opportunitySlug)
     : undefined;
 
   const cockpitHref = getCockpitHref(project.id, "build");
@@ -68,22 +68,26 @@ export function ProjectCard({ project, onPause, onResume, onRemove }: ProjectCar
     router.push(cockpitHref);
   }, [cockpitHref, router]);
 
-  if (!opportunity && !project.ideaBrief && project.projectSource !== "github") return null;
+  if (!catalogEntry && !project.ideaBrief && project.projectSource !== "github" && !project.opportunitySlug) {
+    return null;
+  }
 
   const quip = getProjectCardQuip(project);
   const metrics = getProjectCardMetrics(project);
   const overdue = isCheckInOverdue(project);
   const paused = project.phase === "paused";
   const daysSinceCheckIn = daysSince(project.lastCheckInAt ?? project.createdAt);
-  const displayName = resolveProductName(project, opportunity);
-  const originLabel = opportunity
-    ? formatOriginCountryCode(opportunity.originCountryCode)
+  const displayName = resolveProductName(project);
+  const originLabel = catalogEntry
+    ? formatOriginCountryCode(catalogEntry.originCountryCode)
     : "FR";
-  const subtitle = opportunity
-    ? `Inspiré de ${opportunity.name}, ${originLabel}`
+  const subtitle = catalogEntry
+    ? `Inspiré de ${catalogEntry.name}, ${originLabel}`
     : project.ideaBrief
       ? project.ideaBrief.identity.pitch.slice(0, 72)
-      : "Projet · GitHub";
+      : project.opportunitySlug
+        ? "Fiche catalogue archivée"
+        : "Projet · GitHub";
 
   return (
     <motion.article
@@ -127,7 +131,7 @@ export function ProjectCard({ project, onPause, onResume, onRemove }: ProjectCar
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              {opportunity ? (
+              {catalogEntry ? (
                 <DropdownMenuItem asChild>
                   <Link href={`/opportunities/${project.opportunitySlug}`}>
                     <ExternalLink className="mr-2 h-4 w-4" />
@@ -135,7 +139,7 @@ export function ProjectCard({ project, onPause, onResume, onRemove }: ProjectCar
                   </Link>
                 </DropdownMenuItem>
               ) : null}
-              {opportunity ? <DropdownMenuSeparator /> : null}
+              {catalogEntry ? <DropdownMenuSeparator /> : null}
               {paused ? (
                 <DropdownMenuItem onClick={() => onResume(project.id)}>
                   <Play className="mr-2 h-4 w-4" />

@@ -11,6 +11,9 @@ import type { MapCatalogOpportunity } from '@/context/map-catalog-context'
 /** Tag invalidé par POST /api/revalidate après chaque run de sourcing. */
 export const OPPORTUNITIES_CACHE_TAG = 'opportunities'
 
+const MAP_CATALOG_SELECT =
+  'slug, name, pitch, origin_country_code, scores, revenue_min, revenue_max'
+
 async function fetchOpportunityListItemsFromDb(): Promise<OpportunityListItem[]> {
   if (!isSupabaseDataConfigured()) return []
   const supabase = createDataSupabaseClient()
@@ -62,35 +65,53 @@ async function fetchAllOpportunitiesFromDb(): Promise<Opportunity[]> {
 }
 
 /**
- * Catalogue complet — cache cross-requêtes (ISR) avec tag pour invalidation à la demande.
- * Sans ce tag, revalidateTag('opportunities') était un no-op : la liste restait figée
- * alors que les fiches /opportunities/[slug] (dynamicParams) se régénéraient à la volée.
+ * Catalogue complet — déduplication intra-requête uniquement.
+ * unstable_cache évité : le payload dépasse la limite Next.js de 2 Mo (~111 fiches).
+ * L'ISR page-level (revalidate / revalidatePath) couvre home, quiz, etc.
  */
-const getCachedAllOpportunities = unstable_cache(
-  fetchAllOpportunitiesFromDb,
-  ['all-opportunities-v2'],
+export const getAllOpportunities = cache(async (): Promise<Opportunity[]> => {
+  if (!isSupabaseDataConfigured()) return []
+  try {
+    return await fetchAllOpportunitiesFromDb()
+  } catch (err) {
+    console.warn(
+      `[opportunities] getAllOpportunities indisponible — fallback []: ${err instanceof Error ? err.message : err}`
+    )
+    return []
+  }
+})
+
+async function fetchMapCatalogFromDb(): Promise<MapCatalogOpportunity[]> {
+  if (!isSupabaseDataConfigured()) return []
+  const supabase = createDataSupabaseClient()
+  const { data, error } = await supabase
+    .from('opportunities')
+    .select(MAP_CATALOG_SELECT)
+    .eq('status', 'published')
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((row) => {
+    const scores = row.scores as { opportunity?: number } | null
+    return {
+      slug: row.slug as string,
+      name: row.name as string,
+      pitch: row.pitch as string,
+      originCountryCode: row.origin_country_code as string,
+      scores: { opportunity: scores?.opportunity ?? 0 },
+      revenueMin: row.revenue_min as number,
+      revenueMax: row.revenue_max as number,
+    }
+  })
+}
+
+const getCachedMapCatalog = unstable_cache(
+  fetchMapCatalogFromDb,
+  ['map-catalog-v1'],
   {
     tags: [OPPORTUNITIES_CACHE_TAG],
     revalidate: process.env.NODE_ENV === 'development' ? 30 : 3600,
   }
 )
-
-/** Déduplication intra-requête (layout + page) + cache ISR taggé. */
-export const getAllOpportunities = cache(async (): Promise<Opportunity[]> => {
-  if (!isSupabaseDataConfigured()) return []
-  try {
-    return await getCachedAllOpportunities()
-  } catch (err) {
-    console.warn(
-      `[opportunities] getAllOpportunities indisponible — fallback direct: ${err instanceof Error ? err.message : err}`
-    )
-    try {
-      return await fetchAllOpportunitiesFromDb()
-    } catch {
-      return []
-    }
-  }
-})
 
 export async function getOpportunityBySlug(slug: string): Promise<Opportunity | null> {
   if (!isSupabaseDataConfigured()) return null
@@ -102,6 +123,22 @@ export async function getOpportunityBySlug(slug: string): Promise<Opportunity | 
     .eq('status', 'published')
     .single()
   if (error) return null
+  return mapRowToOpportunity(data)
+}
+
+/** Fiche publiée ou archivée — réservé aux projets portfolio déjà créés. */
+export async function getOpportunityBySlugIncludingArchived(
+  slug: string,
+): Promise<Opportunity | null> {
+  if (!isSupabaseDataConfigured()) return null
+  const supabase = createDataSupabaseClient()
+  const { data, error } = await supabase
+    .from('opportunities')
+    .select('*')
+    .eq('slug', slug)
+    .in('status', ['published', 'archived'])
+    .maybeSingle()
+  if (error || !data) return null
   return mapRowToOpportunity(data)
 }
 
@@ -125,16 +162,19 @@ export const getWeeklyPick = cache(async (): Promise<Opportunity | null> => {
  * Dérivée au runtime depuis Supabase → reflète le sourcing sans rebuild.
  */
 export async function getMapCatalog(): Promise<MapCatalogOpportunity[]> {
-  const all = await getAllOpportunities()
-  return all.map((o) => ({
-    slug: o.slug,
-    name: o.name,
-    pitch: o.pitch,
-    originCountryCode: o.originCountryCode,
-    scores: { opportunity: o.scores.opportunity },
-    revenueMin: o.revenueMin,
-    revenueMax: o.revenueMax,
-  }))
+  if (!isSupabaseDataConfigured()) return []
+  try {
+    return await getCachedMapCatalog()
+  } catch (err) {
+    console.warn(
+      `[opportunities] getMapCatalog indisponible — fallback direct: ${err instanceof Error ? err.message : err}`
+    )
+    try {
+      return await fetchMapCatalogFromDb()
+    } catch {
+      return []
+    }
+  }
 }
 
 export async function getOpportunitiesBySector(sector: string): Promise<Opportunity[]> {
@@ -169,6 +209,14 @@ export async function getDealOfTheDay(): Promise<Opportunity | null> {
 
 export async function getEnrichedOpportunityBySlug(slug: string): Promise<Opportunity | null> {
   const raw = await getOpportunityBySlug(slug)
+  if (!raw) return null
+  return enrichOpportunity(raw)
+}
+
+export async function getEnrichedOpportunityBySlugIncludingArchived(
+  slug: string,
+): Promise<Opportunity | null> {
+  const raw = await getOpportunityBySlugIncludingArchived(slug)
   if (!raw) return null
   return enrichOpportunity(raw)
 }

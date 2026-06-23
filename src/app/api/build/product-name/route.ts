@@ -5,7 +5,11 @@ import {
   buildProductNameSystemPrompt,
   buildProductNameUserPrompt,
 } from "@/lib/build/product-name";
-import { getEnrichedOpportunityBySlug } from "@/lib/opportunities";
+import {
+  getEnrichedOpportunityBySlug,
+  getEnrichedOpportunityBySlugIncludingArchived,
+} from "@/lib/opportunities";
+import { userHasProjectWithOpportunitySlug } from "@/lib/portfolio-sync";
 import { cockpitApiGuard } from "@/lib/product-phase-api";
 import { hasTier } from "@/lib/tier";
 
@@ -44,7 +48,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Paramètres invalides" }, { status: 400 });
   }
 
-  const opportunity = await getEnrichedOpportunityBySlug(opportunitySlug);
+  let opportunity = await getEnrichedOpportunityBySlug(opportunitySlug);
+  if (!opportunity) {
+    const ownsProject = await userHasProjectWithOpportunitySlug(user.id, opportunitySlug);
+    if (ownsProject) {
+      opportunity = await getEnrichedOpportunityBySlugIncludingArchived(opportunitySlug);
+    }
+  }
   if (!opportunity) {
     return NextResponse.json({ error: "Opportunité introuvable" }, { status: 404 });
   }

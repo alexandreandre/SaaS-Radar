@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
-import { getEnrichedOpportunityBySlug } from "@/lib/opportunities";
-import { getTier } from "@/lib/auth";
+import {
+  getEnrichedOpportunityBySlug,
+  getEnrichedOpportunityBySlugIncludingArchived,
+} from "@/lib/opportunities";
+import { getCurrentUser, getTier } from "@/lib/auth";
 import { gateOpportunityForTier } from "@/lib/opportunity-access";
+import { userHasProjectWithOpportunitySlug } from "@/lib/portfolio-sync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,10 +21,16 @@ export async function GET(
   }
 
   try {
-    const [opportunity, tier] = await Promise.all([
-      getEnrichedOpportunityBySlug(slug),
-      getTier(),
-    ]);
+    const [tier, user] = await Promise.all([getTier(), getCurrentUser()]);
+    let opportunity = await getEnrichedOpportunityBySlug(slug);
+
+    if (!opportunity && user) {
+      const ownsProject = await userHasProjectWithOpportunitySlug(user.id, slug);
+      if (ownsProject) {
+        opportunity = await getEnrichedOpportunityBySlugIncludingArchived(slug);
+      }
+    }
+
     if (!opportunity) {
       return NextResponse.json({ error: "Introuvable" }, { status: 404 });
     }
