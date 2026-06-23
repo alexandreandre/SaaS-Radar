@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { TierProvider } from "@/contexts/tier-context";
 import { getCurrentUser, getTier, isAdmin } from "@/lib/auth";
+import { hasAdminGate } from "@/lib/admin/page-guard";
 import { SessionProvider } from "@/contexts/session-context";
 import { DevChunkRecovery } from "@/components/dev-chunk-recovery";
 import { WebVitalsReporter } from "@/components/performance/web-vitals-reporter";
@@ -46,10 +47,11 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [user, serverTier, serverIsAdmin] = await Promise.all([
+  const [user, serverTier, serverIsAdmin, serverHasAdminGate] = await Promise.all([
     getCurrentUser(),
     getTier(),
     isAdmin(),
+    hasAdminGate(),
   ]);
   const isAuthenticated = !!user;
 
@@ -61,7 +63,11 @@ export default async function RootLayout({
         {process.env.NODE_ENV === "development" ? <DevChunkRecovery /> : null}
         <WebVitalsReporter />
         <ThemeProvider>
-          <SessionProvider isAuthenticated={isAuthenticated} isAdmin={serverIsAdmin}>
+          <SessionProvider
+            isAuthenticated={isAuthenticated}
+            isAdmin={serverIsAdmin}
+            hasAdminGate={serverHasAdminGate}
+          >
             <TierProvider serverTier={serverTier} isAuthenticated={isAuthenticated}>
               <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
             </TierProvider>

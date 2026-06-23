@@ -55,3 +55,10 @@ export async function requireAdminGateOnly(next = "/admin"): Promise<void> {
 export function requireAdminGateApi(request: Request): boolean {
   return hasAdminGateFromRequest(request);
 }
+
+/** True si le cookie admin_gate est valide (ou si le token d'accès n'est pas configuré). */
+export async function hasAdminGate(): Promise<boolean> {
+  if (!isAdminAccessTokenConfigured()) return true;
+  const cookieStore = await cookies();
+  return verifyAdminGateCookieValue(cookieStore.get(ADMIN_GATE_COOKIE)?.value);
+}

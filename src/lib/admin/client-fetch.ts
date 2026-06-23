@@ -10,6 +10,8 @@ const cache = new Map<string, CacheEntry>();
 const inflight = new Map<string, Promise<CacheEntry>>();
 
 const DEFAULT_TTL_MS = 60_000;
+/** Évite de relancer les prefetch admin non autorisés (ex. gate absent). */
+const UNAUTHORIZED_TTL_MS = 30_000;
 
 export function invalidateAdminCache(urlPrefix?: string) {
   if (!urlPrefix) {
@@ -32,12 +34,15 @@ export async function adminFetchJson<T = unknown>(
 
   if (isGet && !skipCache) {
     const hit = cache.get(url);
-    if (hit && Date.now() - hit.fetchedAt < ttl && hit.status >= 200 && hit.status < 300) {
-      return {
-        ok: true,
-        status: hit.status,
-        data: hit.data as T,
-      };
+    if (hit) {
+      const ttlMs = hit.status === 401 ? UNAUTHORIZED_TTL_MS : ttl;
+      if (Date.now() - hit.fetchedAt < ttlMs) {
+        return {
+          ok: hit.status >= 200 && hit.status < 300,
+          status: hit.status,
+          data: hit.data as T,
+        };
+      }
     }
     const pending = inflight.get(url);
     if (pending) {
@@ -54,7 +59,7 @@ export async function adminFetchJson<T = unknown>(
     const res = await fetch(url, init);
     const data = await res.json().catch(() => ({}));
     const entry: CacheEntry = { data, status: res.status, fetchedAt: Date.now() };
-    if (isGet && !skipCache && res.ok) cache.set(url, entry);
+    if (isGet && !skipCache && (res.ok || res.status === 401)) cache.set(url, entry);
     if (!isGet) invalidateAdminCache();
     return entry;
   };
