@@ -12,7 +12,7 @@ export const portfolioMetricsBodySchema = z
     currentMrr: z.number().min(0),
     targetScenario: targetScenarioSchema.optional(),
     ideaBrief: z.unknown().optional(),
-    projectSource: z.enum(["idea", "github", "opportunity"]).optional(),
+    projectSource: z.enum(["idea", "github", "opportunity", "catalog"]).optional(),
   })
   .passthrough()
   .refine(
@@ -20,6 +20,8 @@ export const portfolioMetricsBodySchema = z
       data.ideaBrief != null ||
       data.projectSource === "idea" ||
       data.projectSource === "github" ||
+      data.projectSource === "opportunity" ||
+      data.projectSource === "catalog" ||
       Boolean(data.opportunitySlug?.trim()),
     { message: "opportunitySlug requis hors projet idée/github" },
   );

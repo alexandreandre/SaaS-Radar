@@ -25,6 +25,17 @@ describe("portfolioMetricsBodySchema", () => {
     assert.equal(result.success, true);
   });
 
+  it("accepte un projet opportunité legacy catalog", () => {
+    const result = portfolioMetricsBodySchema.safeParse({
+      id: "proj-4",
+      opportunitySlug: "test-saas",
+      phase: "build",
+      currentMrr: 0,
+      projectSource: "catalog",
+    });
+    assert.equal(result.success, true);
+  });
+
   it("rejette un projet sans slug ni idée", () => {
     const result = portfolioMetricsBodySchema.safeParse({
       id: "proj-3",

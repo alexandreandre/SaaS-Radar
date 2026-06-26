@@ -132,7 +132,7 @@ export type ResetCampaignOptions = {
   clearAllKits?: boolean;
 };
 
-export type ProjectSource = "catalog" | "idea" | "github";
+export type ProjectSource = "opportunity" | "idea" | "github";
 
 export type UserProject = {
   id: string;
@@ -412,7 +412,7 @@ export function createProjectFromOpportunity(
   return {
     id: generateProjectId(),
     opportunitySlug: opportunity.slug,
-    projectSource: "catalog",
+    projectSource: "opportunity",
     ...(productName ? { productName } : {}),
     startedAt: input.startedAt,
     phase: opportunity.buildableUnder30Days ? "build" : "launch",
@@ -689,8 +689,10 @@ export function getCurrentStepTitle(project: UserProject): string {
 
 export function migrateProject(project: UserProject): UserProject {
   const hasLegacyOnboardingFlag = "onboardingCompleted" in project;
+  const legacySource = (project as { projectSource?: string }).projectSource;
   const base: UserProject = {
     ...project,
+    ...(legacySource === "catalog" ? { projectSource: "opportunity" as const } : {}),
     metricsHistory: project.metricsHistory ?? [],
     campaigns: project.campaigns ?? [],
     expenses: project.expenses ?? [],
