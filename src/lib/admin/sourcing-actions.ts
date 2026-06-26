@@ -9,7 +9,8 @@ import {
   MAX_COUNTRIES_PER_BATCH,
 } from "@/lib/sourcing/countries";
 import { SECTORS } from "@/lib/sourcing/constants";
-import { getMinScore } from "@/lib/sourcing/assemble";
+import { getAutoPublishMinScore, getMinScore } from "@/lib/sourcing/assemble";
+import { assertAutoPublishMinScoreValid } from "@/lib/sourcing/lead-routing";
 import { startSourcingBatch, getSourcingRun } from "@/lib/admin/sourcing-jobs";
 import { stopSourcingRuns } from "@/lib/admin/sourcing-cancel";
 
@@ -39,9 +40,10 @@ export async function launchSourcingAction(input: {
   count: number;
   countries: string[];
   sector?: string;
-  mode?: "draft" | "direct";
+  mode?: "draft" | "direct" | "auto";
   premium?: boolean;
   minScore?: number;
+  autoPublishMinScore?: number;
 }): Promise<{ runIds: string[]; batchId: string }> {
   const ctx = await getAdminContext();
   if (!ctx || !canEditAdmin(ctx.role)) {
@@ -67,12 +69,20 @@ export async function launchSourcingAction(input: {
   }
 
   const countries = await assertValidCountryCodes(input.countries);
-  const mode = input.mode === "direct" ? "direct" : "draft";
+  const mode: "draft" | "direct" | "auto" =
+    input.mode === "direct" ? "direct" : input.mode === "auto" ? "auto" : "draft";
   const premium = input.premium ?? false;
   const minScore =
     input.minScore != null && Number.isFinite(input.minScore)
       ? input.minScore
       : getMinScore();
+  const autoPublishMinScore =
+    input.autoPublishMinScore != null && Number.isFinite(input.autoPublishMinScore)
+      ? input.autoPublishMinScore
+      : getAutoPublishMinScore();
+  if (mode === "auto") {
+    assertAutoPublishMinScoreValid(minScore, autoPublishMinScore);
+  }
   const config = {
     count: input.count,
     countries: countries.map((c) => c.code),
@@ -80,6 +90,7 @@ export async function launchSourcingAction(input: {
     premium,
     minScore,
     mode,
+    ...(mode === "auto" ? { autoPublishMinScore } : {}),
     pipelineProfile: "standard" as const,
   };
 
@@ -90,9 +101,10 @@ export async function launchSourcingAction(input: {
     premium,
     minScore,
     mode,
+    ...(mode === "auto" ? { autoPublishMinScore } : {}),
     triggeredBy: ctx.userId,
     config,
-    revalidate: mode === "direct",
+    revalidate: mode === "direct" || mode === "auto",
     manageWeeklyPick: false,
   });
 
@@ -137,11 +149,29 @@ export async function relaunchSourcingRunAction(
     throw new Error("Ce run n'a pas de pays d'origine — relance impossible");
   }
 
+  const runConfig = (run.config ?? {}) as Record<string, unknown>;
+  const relaunchMode =
+    runConfig.mode === "direct" || runConfig.mode === "auto" || runConfig.mode === "draft"
+      ? (runConfig.mode as "draft" | "direct" | "auto")
+      : "auto";
+  const relaunchMinScore =
+    typeof runConfig.minScore === "number" && Number.isFinite(runConfig.minScore)
+      ? runConfig.minScore
+      : undefined;
+  const relaunchAutoMin =
+    typeof runConfig.autoPublishMinScore === "number" &&
+    Number.isFinite(runConfig.autoPublishMinScore)
+      ? runConfig.autoPublishMinScore
+      : undefined;
+
   const { runIds, batchId } = await launchSourcingAction({
     count: Number(run.count_requested) || 3,
     countries: [country],
     sector: (run.sector as string | null) ?? undefined,
-    premium: true,
+    premium: run.premium === true,
+    mode: relaunchMode,
+    minScore: relaunchMinScore,
+    autoPublishMinScore: relaunchAutoMin,
   });
 
   return { runIds, batchId };

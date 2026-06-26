@@ -262,12 +262,15 @@ export function SourcingConsole({
   const role = useAdminRole();
   const canEdit = canEditAdmin(role);
   const defaultMinScore = process.env.NEXT_PUBLIC_SOURCING_MIN_SCORE ?? "65";
+  const defaultAutoPublishMinScore =
+    process.env.NEXT_PUBLIC_SOURCING_AUTO_PUBLISH_MIN_SCORE ?? "80";
 
   const [count, setCount] = useState(3);
   const [sector, setSector] = useState("");
-  const [mode, setMode] = useState<"draft" | "direct">("draft");
+  const [mode, setMode] = useState<"draft" | "direct" | "auto">("auto");
   const [premium, setPremium] = useState(false);
   const [minScore, setMinScore] = useState("");
+  const [autoPublishMinScore, setAutoPublishMinScore] = useState("");
   const [markets, setMarkets] = useState<MarketOption[]>(() =>
     ((initialData?.markets as MarketOption[] | undefined) ?? []).map((m) => ({
       code: m.code,
@@ -545,11 +548,20 @@ export function SourcingConsole({
         mode,
         premium,
         minScore: minScore.trim() ? Number.parseInt(minScore, 10) : undefined,
+        autoPublishMinScore:
+          mode === "auto" && autoPublishMinScore.trim()
+            ? Number.parseInt(autoPublishMinScore, 10)
+            : undefined,
       });
       setActiveRunIds(runIds.filter(Boolean));
       activeRunIdsRef.current = runIds.filter(Boolean);
       setActiveRunsMap({});
-      const modeLabel = mode === "draft" ? "Brouillon" : "Publication directe";
+      const modeLabel =
+        mode === "draft"
+          ? "Brouillon"
+          : mode === "auto"
+            ? "Auto (score + garde-fous)"
+            : "Publication directe";
       setLaunchFeedback(
         `${modeLabel} lancé : ${selectedCountries.join(", ")} — jusqu'à ${selectedCountries.length * count} fiche(s)`
       );
@@ -744,7 +756,7 @@ export function SourcingConsole({
     <div className="w-full space-y-8">
       <AdminPageHeader
         title="Sourcing v2"
-        description="Pipeline IA — brouillon ou publication directe."
+        description="Pipeline IA — auto, brouillon ou publication directe."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Link
@@ -988,18 +1000,41 @@ export function SourcingConsole({
             <select
               value={mode}
               disabled={!canEdit}
-              onChange={(e) => setMode(e.target.value === "direct" ? "direct" : "draft")}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "draft" || v === "direct" || v === "auto") setMode(v);
+              }}
               className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
             >
+              <option value="auto">Auto (score + garde-fous)</option>
               <option value="draft">Brouillon (relecture)</option>
               <option value="direct">Publication directe</option>
             </select>
             <p className="mt-1 text-xs text-muted-foreground">
               {mode === "draft"
-                ? "Les fiches vont dans la file de brouillons pour validation."
-                : "Publication immédiate dans le catalogue — vérifiez le score min."}
+                ? "100 % des fiches vont en brouillon pending."
+                : mode === "auto"
+                  ? "Score ≥ seuil auto → catalogue ; sinon ou si doublon/URLs invalides → brouillon."
+                  : "100 % publiées directement dans le catalogue."}
             </p>
           </div>
+          {mode === "auto" ? (
+            <div>
+              <label className="text-xs uppercase text-muted-foreground">
+                Seuil auto-publication
+              </label>
+              <input
+                value={autoPublishMinScore}
+                disabled={!canEdit}
+                onChange={(e) => setAutoPublishMinScore(e.target.value)}
+                placeholder={`ex. ${defaultAutoPublishMinScore}`}
+                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Vide = SOURCING_AUTO_PUBLISH_MIN_SCORE (défaut 80). Doit être ≥ score min pipeline.
+              </p>
+            </div>
+          ) : null}
           <div>
             <label className="text-xs uppercase text-muted-foreground">Score min (pipeline)</label>
             <input

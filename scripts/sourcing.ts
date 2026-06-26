@@ -12,7 +12,8 @@ interface Args {
   count: number;
   country: string;
   sector?: string;
-  mode: "draft" | "direct";
+  mode: "draft" | "direct" | "auto";
+  autoPublishMinScore?: number;
 }
 
 function parseArgs(): Args {
@@ -20,7 +21,8 @@ function parseArgs(): Args {
   let count = DEFAULT_COUNT;
   let country = DEFAULT_SOURCING_COUNTRY;
   let sector: string | undefined;
-  let mode: "draft" | "direct" = "draft";
+  let mode: "draft" | "direct" | "auto" = "auto";
+  let autoPublishMinScore: number | undefined;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -40,7 +42,9 @@ function parseArgs(): Args {
       mode = "direct";
     } else if (arg.startsWith("--mode=")) {
       const m = arg.slice("--mode=".length);
-      if (m === "direct" || m === "draft") mode = m;
+      if (m === "direct" || m === "draft" || m === "auto") mode = m;
+    } else if (arg.startsWith("--auto-publish-min-score=")) {
+      autoPublishMinScore = Number.parseInt(arg.slice("--auto-publish-min-score=".length), 10) || undefined;
     }
   }
 
@@ -50,11 +54,11 @@ function parseArgs(): Args {
     );
   }
 
-  return { count, country, sector, mode };
+  return { count, country, sector, mode, autoPublishMinScore };
 }
 
 async function main(): Promise<void> {
-  const { count, country, sector, mode } = parseArgs();
+  const { count, country, sector, mode, autoPublishMinScore } = parseArgs();
   const resolved = await assertValidCountryCode(country);
 
   if (mode === "direct") {
@@ -70,6 +74,7 @@ async function main(): Promise<void> {
     sector,
     premium: true,
     mode,
+    ...(mode === "auto" && autoPublishMinScore != null ? { autoPublishMinScore } : {}),
     originCountryCode: resolved.code,
     manageWeeklyPick: false,
   });

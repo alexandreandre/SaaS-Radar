@@ -19,6 +19,14 @@ export type SourcingEvent =
       countryMismatch: boolean;
     }
   | { type: "lead-ok"; name: string; slug: string; score: number }
+  | {
+      type: "lead-routed";
+      name: string;
+      slug: string;
+      score: number;
+      destination: "direct" | "draft";
+      reason: string;
+    }
   | { type: "score-gate-skip"; name: string; slug: string; score: number; min: number }
   | { type: "upsert-ok"; count: number }
   | { type: "warn"; message: string }
@@ -77,6 +85,11 @@ export function consoleLogger(): LogFn {
       case "lead-ok":
         console.log(
           `🧠 structuré + ✅ validé "${event.name}" (slug: ${event.slug}, score: ${event.score})`
+        );
+        break;
+      case "lead-routed":
+        console.log(
+          `🔀 routé "${event.name}" → ${event.destination === "direct" ? "catalogue" : "brouillon"} (${event.reason}, score: ${event.score})`
         );
         break;
       case "score-gate-skip":

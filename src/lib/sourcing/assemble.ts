@@ -137,6 +137,18 @@ export function getMinScore(): number {
 }
 
 /**
+ * Seuil de routage auto : score >= cette valeur → publication directe (mode auto).
+ * Défaut 80 si SOURCING_AUTO_PUBLISH_MIN_SCORE absent/invalide.
+ */
+export function getAutoPublishMinScore(): number {
+  const raw = process.env.SOURCING_AUTO_PUBLISH_MIN_SCORE;
+  if (!raw) return 80;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 80;
+  return Math.min(parsed, 100);
+}
+
+/**
  * Garde-fou qualité (publication directe — pas d'état draft) : une fiche dont
  * scores.opportunity est sous le seuil est rejetée avant upsert (skip + log).
  */

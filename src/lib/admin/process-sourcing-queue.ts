@@ -213,7 +213,8 @@ async function runJob(job: QueuedJob): Promise<void> {
   try {
     await executeJob(job);
     await completeJob(job.id, "done");
-    if ((job.payload?.mode ?? "direct") === "direct") {
+    const jobMode = job.payload?.mode ?? "direct";
+    if (jobMode === "direct" || jobMode === "auto") {
       revalidateOpportunitiesCache();
     }
     console.log(`✓ Job ${job.id} terminé`);
