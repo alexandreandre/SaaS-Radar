@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import Link from "next/link";
 import { ChevronDown, ExternalLink, Loader2, Octagon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -240,7 +241,8 @@ export function SourcingConsole({
 
   const [count, setCount] = useState(3);
   const [sector, setSector] = useState("");
-  const [premium] = useState(false);
+  const [mode, setMode] = useState<"draft" | "direct">("draft");
+  const [premium, setPremium] = useState(false);
   const [minScore, setMinScore] = useState("");
   const [markets, setMarkets] = useState<MarketOption[]>(() =>
     ((initialData?.markets as MarketOption[] | undefined) ?? []).map((m) => ({
@@ -505,14 +507,16 @@ export function SourcingConsole({
         count,
         countries: selectedCountries,
         sector: sector || undefined,
+        mode,
         premium,
-        minScore: minScore ? Number.parseInt(minScore, 10) : undefined,
+        minScore: minScore.trim() ? Number.parseInt(minScore, 10) : undefined,
       });
       setActiveRunIds(runIds.filter(Boolean));
       activeRunIdsRef.current = runIds.filter(Boolean);
       setActiveRunsMap({});
+      const modeLabel = mode === "draft" ? "Brouillon" : "Publication directe";
       setLaunchFeedback(
-        `Publication directe lancée : ${selectedCountries.join(", ")} — jusqu'à ${selectedCountries.length * count} fiche(s)`
+        `${modeLabel} lancé : ${selectedCountries.join(", ")} — jusqu'à ${selectedCountries.length * count} fiche(s)`
       );
       void load();
     } catch (err) {
@@ -705,7 +709,7 @@ export function SourcingConsole({
     <div className="w-full space-y-8">
       <AdminPageHeader
         title="Sourcing v2"
-        description="Pipeline IA avec publication directe dans le catalogue."
+        description="Pipeline IA — brouillon ou publication directe."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Link
@@ -872,7 +876,7 @@ export function SourcingConsole({
       {/* Lancement */}
       <section className="rounded-lg border border-border bg-card p-5">
         <h2 className="mb-4 text-lg font-medium">Lancer un sourcing</h2>
-        <div className="grid gap-4 sm:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
           <div>
             <label className="text-xs uppercase text-muted-foreground">Fiches (par pays)</label>
             <input
@@ -902,6 +906,23 @@ export function SourcingConsole({
             </select>
           </div>
           <div>
+            <label className="text-xs uppercase text-muted-foreground">Mode</label>
+            <select
+              value={mode}
+              disabled={!canEdit}
+              onChange={(e) => setMode(e.target.value === "direct" ? "direct" : "draft")}
+              className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="draft">Brouillon (relecture)</option>
+              <option value="direct">Publication directe</option>
+            </select>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {mode === "draft"
+                ? "Les fiches vont dans la file de brouillons pour validation."
+                : "Publication immédiate dans le catalogue — vérifiez le score min."}
+            </p>
+          </div>
+          <div>
             <label className="text-xs uppercase text-muted-foreground">Score min (pipeline)</label>
             <input
               value={minScore}
@@ -910,11 +931,29 @@ export function SourcingConsole({
               placeholder={`ex. ${defaultMinScore}`}
               className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
             />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Vide = seuil serveur (SOURCING_MIN_SCORE).
+            </p>
+          </div>
+          <div className="flex flex-col justify-end gap-2">
+            <label className="text-xs uppercase text-muted-foreground">Premium</label>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={premium}
+                disabled={!canEdit}
+                onCheckedChange={setPremium}
+                aria-label="Activer le prompt Gemini enrichi"
+              />
+              <span className="text-sm text-muted-foreground">
+                {premium ? "Prompt enrichi" : "Standard"}
+              </span>
+            </div>
           </div>
           <div className="flex items-end">
             <Button
               onClick={() => void launch()}
               disabled={!canEdit || loading || isSourcingBusy}
+              className="w-full sm:w-auto"
             >
               {loading || isSourcingBusy ? "En cours…" : "Lancer"}
             </Button>

@@ -9,6 +9,7 @@ import {
   MAX_COUNTRIES_PER_BATCH,
 } from "@/lib/sourcing/countries";
 import { SECTORS } from "@/lib/sourcing/constants";
+import { getMinScore } from "@/lib/sourcing/assemble";
 import { startSourcingBatch, getSourcingRun } from "@/lib/admin/sourcing-jobs";
 import { stopSourcingRuns } from "@/lib/admin/sourcing-cancel";
 
@@ -38,6 +39,7 @@ export async function launchSourcingAction(input: {
   count: number;
   countries: string[];
   sector?: string;
+  mode?: "draft" | "direct";
   premium?: boolean;
   minScore?: number;
 }): Promise<{ runIds: string[]; batchId: string }> {
@@ -65,15 +67,19 @@ export async function launchSourcingAction(input: {
   }
 
   const countries = await assertValidCountryCodes(input.countries);
+  const mode = input.mode === "direct" ? "direct" : "draft";
   const premium = input.premium ?? false;
-  const minScore = input.minScore ?? 0;
+  const minScore =
+    input.minScore != null && Number.isFinite(input.minScore)
+      ? input.minScore
+      : getMinScore();
   const config = {
     count: input.count,
     countries: countries.map((c) => c.code),
     sector,
     premium,
     minScore,
-    mode: "direct" as const,
+    mode,
     pipelineProfile: "standard" as const,
   };
 
@@ -83,10 +89,10 @@ export async function launchSourcingAction(input: {
     sector,
     premium,
     minScore,
-    mode: "direct",
+    mode,
     triggeredBy: ctx.userId,
     config,
-    revalidate: true,
+    revalidate: mode === "direct",
     manageWeeklyPick: false,
   });
 

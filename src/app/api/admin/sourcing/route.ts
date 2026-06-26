@@ -121,7 +121,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const premium = true;
+  const premium = body.premium !== false;
   const isAsync = body.async !== false;
   const maxCostUsd =
     body.maxCostUsd != null ? Number.parseFloat(String(body.maxCostUsd)) : undefined;
