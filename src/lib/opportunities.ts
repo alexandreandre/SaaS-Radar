@@ -7,9 +7,9 @@ import type { OpportunityRow } from './supabase/types'
 import type { Opportunity } from '@/types/opportunity'
 import type { OpportunityListItem } from '@/types/opportunity'
 import type { MapCatalogOpportunity } from '@/context/map-catalog-context'
+import { OPPORTUNITIES_CACHE_TAG } from '@/lib/opportunities-cache-tag'
 
-/** Tag invalidé par POST /api/revalidate après chaque run de sourcing. */
-export const OPPORTUNITIES_CACHE_TAG = 'opportunities'
+export { OPPORTUNITIES_CACHE_TAG } from '@/lib/opportunities-cache-tag'
 
 const MAP_CATALOG_SELECT =
   'slug, name, pitch, origin_country_code, scores, revenue_min, revenue_max'

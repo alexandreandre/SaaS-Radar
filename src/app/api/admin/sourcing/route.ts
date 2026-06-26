@@ -12,7 +12,7 @@ import {
 } from "@/lib/admin/sourcing-jobs";
 import { kickSourcingExecution, recoverStuckQueueJobs } from "@/lib/admin/process-sourcing-queue";
 import { runSourcing } from "@/lib/sourcing/run";
-import { OPPORTUNITIES_CACHE_TAG } from "@/lib/opportunities";
+import { OPPORTUNITIES_CACHE_TAG } from "@/lib/opportunities-cache-tag";
 import {
   assertValidCountryCodes,
   MAX_COUNTRIES_PER_BATCH,

@@ -1,7 +1,7 @@
 import "server-only";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { OPPORTUNITIES_CACHE_TAG } from "@/lib/opportunities";
+import { OPPORTUNITIES_CACHE_TAG } from "@/lib/opportunities-cache-tag";
 
 export async function promoteWeeklyPick(slug: string): Promise<void> {
   const admin = createAdminClient();

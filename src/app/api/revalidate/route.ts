@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { OPPORTUNITIES_CACHE_TAG } from "@/lib/opportunities";
+import { OPPORTUNITIES_CACHE_TAG } from "@/lib/opportunities-cache-tag";
 
 export const dynamic = "force-dynamic";
 
