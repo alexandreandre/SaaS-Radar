@@ -3,8 +3,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { Opportunity } from "@/types/opportunity";
 import type { DedupMatch, DedupIndex } from "@/lib/admin/sourcing-dedup.shared";
 import {
+  createEmptyDedupIndex,
   registerOpportunityInDedupIndex,
   rootDomainFromUrl,
+  normalizeUrlKey,
 } from "@/lib/admin/sourcing-dedup.shared";
 
 export type { DedupMatch } from "@/lib/admin/sourcing-dedup.shared";
@@ -32,63 +34,91 @@ function nameSimilarity(a: string, b: string): number {
   return 1 - levenshtein(na, nb) / maxLen;
 }
 
-function rootDomain(url: string): string | null {
-  return rootDomainFromUrl(url);
+function matchMeta(
+  index: DedupIndex,
+  existingSlug?: string
+): Pick<DedupMatch, "source" | "existingDraftId"> {
+  if (!existingSlug) return {};
+  const isPending = index.pendingDraftSlugs.has(existingSlug);
+  return {
+    source: isPending ? "pending_draft" : "catalogue",
+    existingDraftId: index.slugToDraftId.get(existingSlug),
+  };
+}
+
+function shouldSkipSelfMatch(
+  match: DedupMatch,
+  opts?: { excludeDraftId?: string; excludeSlug?: string }
+): boolean {
+  if (!opts) return false;
+  if (opts.excludeDraftId && match.existingDraftId === opts.excludeDraftId) return true;
+  if (opts.excludeSlug && match.existingSlug === opts.excludeSlug && match.type === "slug") {
+    return true;
+  }
+  return false;
 }
 
 export function findDedupMatches(
   opportunity: Opportunity,
-  existing: {
-    slugs: Set<string>;
-    names: Set<string>;
-    urls: Set<string>;
-    nameToSlug?: Map<string, string>;
-    domainToSlug?: Map<string, string>;
-  }
+  existing: DedupIndex,
+  opts?: { excludeDraftId?: string; excludeSlug?: string }
 ): DedupMatch[] {
   const matches: DedupMatch[] = [];
   const slug = opportunity.slug;
   const nameKey = opportunity.name.toLowerCase().trim();
 
+  const push = (match: DedupMatch) => {
+    if (shouldSkipSelfMatch(match, opts)) return;
+    matches.push(match);
+  };
+
   if (existing.slugs.has(slug)) {
-    matches.push({ type: "slug", value: slug, existingSlug: slug });
+    push({
+      type: "slug",
+      value: slug,
+      existingSlug: slug,
+      ...matchMeta(existing, slug),
+    });
   }
   if (existing.names.has(nameKey)) {
-    matches.push({
+    const existingSlug = existing.nameToSlug.get(nameKey);
+    push({
       type: "name",
       value: nameKey,
       existingName: opportunity.name,
-      existingSlug: existing.nameToSlug?.get(nameKey),
+      existingSlug,
+      ...matchMeta(existing, existingSlug),
     });
   }
   if (opportunity.url) {
-    const urlKey = opportunity.url.toLowerCase().trim();
+    const urlKey = normalizeUrlKey(opportunity.url);
     if (existing.urls.has(urlKey)) {
-      matches.push({ type: "url", value: urlKey });
+      push({ type: "url", value: urlKey });
     }
-    const domain = rootDomain(opportunity.url);
-    if (domain && existing.domainToSlug?.has(domain)) {
-      matches.push({
+    const domain = rootDomainFromUrl(opportunity.url);
+    if (domain && existing.domainToSlug.has(domain)) {
+      const existingSlug = existing.domainToSlug.get(domain);
+      push({
         type: "domain",
         value: domain,
-        existingSlug: existing.domainToSlug.get(domain),
+        existingSlug,
+        ...matchMeta(existing, existingSlug),
       });
     }
   }
 
-  if (existing.nameToSlug) {
-    for (const [existingName, existingSlug] of Array.from(existing.nameToSlug.entries())) {
-      if (existingName === nameKey) continue;
-      const sim = nameSimilarity(nameKey, existingName);
-      if (sim >= 0.88) {
-        matches.push({
-          type: "name_fuzzy",
-          value: existingName,
-          existingName,
-          existingSlug,
-          similarity: Math.round(sim * 100) / 100,
-        });
-      }
+  for (const [existingName, existingSlug] of Array.from(existing.nameToSlug.entries())) {
+    if (existingName === nameKey) continue;
+    const sim = nameSimilarity(nameKey, existingName);
+    if (sim >= 0.88) {
+      push({
+        type: "name_fuzzy",
+        value: existingName,
+        existingName,
+        existingSlug,
+        similarity: Math.round(sim * 100) / 100,
+        ...matchMeta(existing, existingSlug),
+      });
     }
   }
 
@@ -100,13 +130,8 @@ export async function loadExistingForDedup(
 ): Promise<DedupIndex> {
   const { data, error } = await supabase.from("opportunities").select("slug,name,url,status");
   if (error) throw new Error(error.message);
-  const index: DedupIndex = {
-    slugs: new Set<string>(),
-    names: new Set<string>(),
-    urls: new Set<string>(),
-    nameToSlug: new Map<string, string>(),
-    domainToSlug: new Map<string, string>(),
-  };
+
+  const index = createEmptyDedupIndex();
 
   for (const row of data ?? []) {
     const r = row as { slug?: string; name?: string; url?: string | null };
@@ -116,9 +141,38 @@ export async function loadExistingForDedup(
       name: r.name,
       url: r.url,
     });
+    index.catalogueSlugs.add(r.slug);
   }
+
+  const { data: pendingDrafts, error: pendingError } = await supabase
+    .from("opportunity_drafts")
+    .select("id,slug,name,payload")
+    .eq("status", "pending");
+  if (pendingError) throw new Error(pendingError.message);
+
+  for (const row of pendingDrafts ?? []) {
+    const r = row as {
+      id?: string;
+      slug?: string;
+      name?: string;
+      payload?: { url?: string | null };
+    };
+    if (!r.id || !r.slug || !r.name) continue;
+    registerOpportunityInDedupIndex(index, {
+      slug: r.slug,
+      name: r.name,
+      url: r.payload?.url ?? null,
+    });
+    index.pendingDraftSlugs.add(r.slug);
+    index.slugToDraftId.set(r.slug, r.id);
+  }
+
   return index;
 }
 
-export { registerOpportunityInDedupIndex, isBlockedByDedupIndex } from "@/lib/admin/sourcing-dedup.shared";
-export { normalizeUrlKey, rootDomainFromUrl } from "@/lib/admin/sourcing-dedup.shared";
+export {
+  registerOpportunityInDedupIndex,
+  isBlockedByDedupIndex,
+  createEmptyDedupIndex,
+} from "@/lib/admin/sourcing-dedup.shared";
+export { normalizeUrlKey, rootDomainFromUrl, DEDUP_TYPE_LABELS } from "@/lib/admin/sourcing-dedup.shared";

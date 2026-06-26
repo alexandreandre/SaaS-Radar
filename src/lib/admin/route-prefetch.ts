@@ -8,6 +8,7 @@ export const ADMIN_ROUTE_APIS: Record<string, string[]> = {
     "/api/admin/sourcing/policy",
     "/api/admin/markets",
     "/api/admin/sourcing/summary",
+    "/api/admin/drafts?status=pending&limit=50&sort=created_at&sortDir=desc",
   ],
   "/admin/opportunities": [
     "/api/admin/opportunities/stats",

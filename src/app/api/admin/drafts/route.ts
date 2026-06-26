@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireAdminApi, withAdminAudit } from "@/lib/admin/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { publishDraft, rejectDraft, DedupConflictError } from "@/lib/admin/publish-draft";
+import { findDedupMatches, loadExistingForDedup } from "@/lib/admin/sourcing-dedup";
+import type { Opportunity } from "@/types/opportunity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,8 +63,20 @@ export async function GET(request: Request) {
   const { data, error, count } = await query;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const dedupIndex = await loadExistingForDedup(admin);
+  const drafts = (data ?? []).map((row) => {
+    const record = row as Record<string, unknown>;
+    const payload = record.payload as Opportunity;
+    const live_dedup_matches = findDedupMatches(payload, dedupIndex, {
+      excludeDraftId: String(record.id),
+      excludeSlug: String(record.slug ?? payload.slug ?? ""),
+    });
+    return { ...record, live_dedup_matches };
+  });
+
   return NextResponse.json({
-    drafts: data ?? [],
+    drafts,
     total: count ?? 0,
     limit,
     offset,

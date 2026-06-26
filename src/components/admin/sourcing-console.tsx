@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, ExternalLink, Loader2, Octagon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -14,7 +15,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SECTORS } from "@/lib/sourcing/constants";
-import { AdminPageHeader, AdminTable, KpiCard } from "@/components/admin/admin-ui";
+import { AdminPageHeader, AdminTable, KpiCard, KpiCardLink } from "@/components/admin/admin-ui";
+import { DraftsQueueClient } from "@/components/admin/drafts-queue-client";
 import { sectorLabels } from "@/data/opportunities";
 import {
   RULE_PRESETS,
@@ -234,6 +236,28 @@ export function SourcingConsole({
   initialData?: AdminSourcingConsoleData | null;
   initialError?: string | null;
 } = {}) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get("tab") === "drafts" ? "drafts" : "pipeline";
+  const initialDraftId = searchParams.get("draftId");
+
+  const setActiveTab = useCallback(
+    (tab: "pipeline" | "drafts", opts?: { draftId?: string | null }) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (tab === "drafts") {
+        params.set("tab", "drafts");
+        if (opts?.draftId) params.set("draftId", opts.draftId);
+        else params.delete("draftId");
+      } else {
+        params.delete("tab");
+        params.delete("draftId");
+      }
+      const qs = params.toString();
+      router.push(qs ? `/admin/sourcing?${qs}` : "/admin/sourcing", { scroll: false });
+    },
+    [router, searchParams]
+  );
+
   const skipInitialLoad = useRef(initialData != null || initialError != null);
   const role = useAdminRole();
   const canEdit = canEditAdmin(role);
@@ -295,6 +319,17 @@ export function SourcingConsole({
     null
   );
   const [policySaving, setPolicySaving] = useState(false);
+  const [livePendingDrafts, setLivePendingDrafts] = useState<number | null>(null);
+
+  const pendingDraftsCount = livePendingDrafts ?? summary?.pendingDrafts ?? 0;
+
+  const openRunFromDraft = useCallback(
+    (runId: string) => {
+      setSelectedRunId(runId);
+      setActiveTab("pipeline");
+    },
+    [setActiveTab]
+  );
 
   const loadActiveRuns = useCallback(async () => {
     try {
@@ -823,7 +858,14 @@ export function SourcingConsole({
       )}
 
       {/* KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <KpiCardLink
+          href="/admin/sourcing?tab=drafts"
+          label="Brouillons pending"
+          value={pendingDraftsCount}
+          hint="File de relecture"
+          alert={pendingDraftsCount > 0}
+        />
         <KpiCard
           label="Publiées ce mois"
           value={summary?.publishedThisMonth ?? "—"}
@@ -873,6 +915,42 @@ export function SourcingConsole({
         />
       </div>
 
+      <div className="flex gap-1 border-b border-border">
+        <button
+          type="button"
+          className={cn(
+            "border-b-2 px-4 py-2 text-sm font-medium transition-colors",
+            activeTab === "pipeline"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          )}
+          onClick={() => setActiveTab("pipeline")}
+        >
+          Pipeline
+        </button>
+        <button
+          type="button"
+          className={cn(
+            "border-b-2 px-4 py-2 text-sm font-medium transition-colors",
+            activeTab === "drafts"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          )}
+          onClick={() => setActiveTab("drafts")}
+        >
+          Brouillons
+          {pendingDraftsCount > 0 ? ` (${pendingDraftsCount})` : ""}
+        </button>
+      </div>
+
+      {activeTab === "drafts" ? (
+        <DraftsQueueClient
+          initialDraftId={initialDraftId}
+          onRunClick={openRunFromDraft}
+          onDraftCountChange={setLivePendingDrafts}
+        />
+      ) : (
+        <>
       {/* Lancement */}
       <section className="rounded-lg border border-border bg-card p-5">
         <h2 className="mb-4 text-lg font-medium">Lancer un sourcing</h2>
@@ -1362,8 +1440,10 @@ export function SourcingConsole({
           </div>
         )}
       </section>
+        </>
+      )}
 
-      {!canEdit && (
+      {!canEdit && activeTab === "pipeline" && (
         <p className="text-center text-xs text-muted-foreground">
           Mode lecture seule — actions de modification réservées aux éditeurs et propriétaires.
         </p>

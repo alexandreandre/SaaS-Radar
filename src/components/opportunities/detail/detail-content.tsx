@@ -56,14 +56,20 @@ function SectionSkeleton() {
 export function DetailContent({
   opportunity,
   variant = "page",
+  adminReviewDisclaimer = false,
 }: {
   opportunity: Opportunity;
   variant?: "page" | "embedded";
+  adminReviewDisclaimer?: boolean;
 }) {
   const sectionsFrom2 = (
     <>
       <ChiffresSection opportunity={opportunity} animationIndex={1} />
-      <FinancialSection opportunity={opportunity} animationIndex={2} />
+      <FinancialSection
+        opportunity={opportunity}
+        animationIndex={2}
+        adminReviewDisclaimer={adminReviewDisclaimer}
+      />
       <WhySection opportunity={opportunity} animationIndex={3} />
       <SaasOrigineSection opportunity={opportunity} animationIndex={4} />
       <BusinessPlanSection opportunity={opportunity} animationIndex={5} />
