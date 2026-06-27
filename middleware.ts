@@ -14,7 +14,8 @@ export const config = {
      * - api/revalidate & api/admin (proteges par secret, pas de session cookie)
      * - api/stripe (webhook/checkout/portal : Stripe n'envoie pas de cookie ;
      *   le webhook a besoin du body brut intact, pas de refresh de session)
+     * - api/newsletter (cron Vercel + unsubscribe : pas de session utilisateur)
      */
-    '/((?!_next/static|_next/image|favicon.ico|geo/|api/revalidate|api/admin|api/stripe|api/metrics/web-vitals|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|geo/|api/revalidate|api/admin|api/stripe|api/newsletter|api/metrics/web-vitals|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 }
