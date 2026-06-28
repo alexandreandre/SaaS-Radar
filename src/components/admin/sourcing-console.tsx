@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronDown, ExternalLink, Loader2, Octagon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -14,7 +15,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SECTORS } from "@/lib/sourcing/constants";
-import { AdminPageHeader, AdminTable, KpiCard } from "@/components/admin/admin-ui";
+import { AdminPageHeader, AdminTable, KpiCard, KpiCardLink } from "@/components/admin/admin-ui";
+import { DraftsQueueClient } from "@/components/admin/drafts-queue-client";
 import { sectorLabels } from "@/data/opportunities";
 import {
   RULE_PRESETS,
@@ -234,16 +236,41 @@ export function SourcingConsole({
   initialData?: AdminSourcingConsoleData | null;
   initialError?: string | null;
 } = {}) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const activeTab = searchParams.get("tab") === "drafts" ? "drafts" : "pipeline";
+  const initialDraftId = searchParams.get("draftId");
+
+  const setActiveTab = useCallback(
+    (tab: "pipeline" | "drafts", opts?: { draftId?: string | null }) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (tab === "drafts") {
+        params.set("tab", "drafts");
+        if (opts?.draftId) params.set("draftId", opts.draftId);
+        else params.delete("draftId");
+      } else {
+        params.delete("tab");
+        params.delete("draftId");
+      }
+      const qs = params.toString();
+      router.push(qs ? `/admin/sourcing?${qs}` : "/admin/sourcing", { scroll: false });
+    },
+    [router, searchParams]
+  );
+
   const skipInitialLoad = useRef(initialData != null || initialError != null);
   const role = useAdminRole();
   const canEdit = canEditAdmin(role);
   const defaultMinScore = process.env.NEXT_PUBLIC_SOURCING_MIN_SCORE ?? "65";
+  const defaultAutoPublishMinScore =
+    process.env.NEXT_PUBLIC_SOURCING_AUTO_PUBLISH_MIN_SCORE ?? "80";
 
   const [count, setCount] = useState(3);
   const [sector, setSector] = useState("");
-  const [mode, setMode] = useState<"draft" | "direct">("draft");
+  const [mode, setMode] = useState<"draft" | "direct" | "auto">("auto");
   const [premium, setPremium] = useState(false);
   const [minScore, setMinScore] = useState("");
+  const [autoPublishMinScore, setAutoPublishMinScore] = useState("");
   const [markets, setMarkets] = useState<MarketOption[]>(() =>
     ((initialData?.markets as MarketOption[] | undefined) ?? []).map((m) => ({
       code: m.code,
@@ -295,6 +322,17 @@ export function SourcingConsole({
     null
   );
   const [policySaving, setPolicySaving] = useState(false);
+  const [livePendingDrafts, setLivePendingDrafts] = useState<number | null>(null);
+
+  const pendingDraftsCount = livePendingDrafts ?? summary?.pendingDrafts ?? 0;
+
+  const openRunFromDraft = useCallback(
+    (runId: string) => {
+      setSelectedRunId(runId);
+      setActiveTab("pipeline");
+    },
+    [setActiveTab]
+  );
 
   const loadActiveRuns = useCallback(async () => {
     try {
@@ -510,11 +548,20 @@ export function SourcingConsole({
         mode,
         premium,
         minScore: minScore.trim() ? Number.parseInt(minScore, 10) : undefined,
+        autoPublishMinScore:
+          mode === "auto" && autoPublishMinScore.trim()
+            ? Number.parseInt(autoPublishMinScore, 10)
+            : undefined,
       });
       setActiveRunIds(runIds.filter(Boolean));
       activeRunIdsRef.current = runIds.filter(Boolean);
       setActiveRunsMap({});
-      const modeLabel = mode === "draft" ? "Brouillon" : "Publication directe";
+      const modeLabel =
+        mode === "draft"
+          ? "Brouillon"
+          : mode === "auto"
+            ? "Auto (score + garde-fous)"
+            : "Publication directe";
       setLaunchFeedback(
         `${modeLabel} lancé : ${selectedCountries.join(", ")} — jusqu'à ${selectedCountries.length * count} fiche(s)`
       );
@@ -709,7 +756,7 @@ export function SourcingConsole({
     <div className="w-full space-y-8">
       <AdminPageHeader
         title="Sourcing v2"
-        description="Pipeline IA — brouillon ou publication directe."
+        description="Pipeline IA — auto, brouillon ou publication directe."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Link
@@ -823,7 +870,14 @@ export function SourcingConsole({
       )}
 
       {/* KPIs */}
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <KpiCardLink
+          href="/admin/sourcing?tab=drafts"
+          label="Brouillons pending"
+          value={pendingDraftsCount}
+          hint="File de relecture"
+          alert={pendingDraftsCount > 0}
+        />
         <KpiCard
           label="Publiées ce mois"
           value={summary?.publishedThisMonth ?? "—"}
@@ -873,6 +927,42 @@ export function SourcingConsole({
         />
       </div>
 
+      <div className="flex gap-1 border-b border-border">
+        <button
+          type="button"
+          className={cn(
+            "border-b-2 px-4 py-2 text-sm font-medium transition-colors",
+            activeTab === "pipeline"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          )}
+          onClick={() => setActiveTab("pipeline")}
+        >
+          Pipeline
+        </button>
+        <button
+          type="button"
+          className={cn(
+            "border-b-2 px-4 py-2 text-sm font-medium transition-colors",
+            activeTab === "drafts"
+              ? "border-primary text-foreground"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          )}
+          onClick={() => setActiveTab("drafts")}
+        >
+          Brouillons
+          {pendingDraftsCount > 0 ? ` (${pendingDraftsCount})` : ""}
+        </button>
+      </div>
+
+      {activeTab === "drafts" ? (
+        <DraftsQueueClient
+          initialDraftId={initialDraftId}
+          onRunClick={openRunFromDraft}
+          onDraftCountChange={setLivePendingDrafts}
+        />
+      ) : (
+        <>
       {/* Lancement */}
       <section className="rounded-lg border border-border bg-card p-5">
         <h2 className="mb-4 text-lg font-medium">Lancer un sourcing</h2>
@@ -910,18 +1000,41 @@ export function SourcingConsole({
             <select
               value={mode}
               disabled={!canEdit}
-              onChange={(e) => setMode(e.target.value === "direct" ? "direct" : "draft")}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "draft" || v === "direct" || v === "auto") setMode(v);
+              }}
               className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
             >
+              <option value="auto">Auto (score + garde-fous)</option>
               <option value="draft">Brouillon (relecture)</option>
               <option value="direct">Publication directe</option>
             </select>
             <p className="mt-1 text-xs text-muted-foreground">
               {mode === "draft"
-                ? "Les fiches vont dans la file de brouillons pour validation."
-                : "Publication immédiate dans le catalogue — vérifiez le score min."}
+                ? "100 % des fiches vont en brouillon pending."
+                : mode === "auto"
+                  ? "Score ≥ seuil auto → catalogue ; sinon ou si doublon/URLs invalides → brouillon."
+                  : "100 % publiées directement dans le catalogue."}
             </p>
           </div>
+          {mode === "auto" ? (
+            <div>
+              <label className="text-xs uppercase text-muted-foreground">
+                Seuil auto-publication
+              </label>
+              <input
+                value={autoPublishMinScore}
+                disabled={!canEdit}
+                onChange={(e) => setAutoPublishMinScore(e.target.value)}
+                placeholder={`ex. ${defaultAutoPublishMinScore}`}
+                className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Vide = SOURCING_AUTO_PUBLISH_MIN_SCORE (défaut 80). Doit être ≥ score min pipeline.
+              </p>
+            </div>
+          ) : null}
           <div>
             <label className="text-xs uppercase text-muted-foreground">Score min (pipeline)</label>
             <input
@@ -1362,8 +1475,10 @@ export function SourcingConsole({
           </div>
         )}
       </section>
+        </>
+      )}
 
-      {!canEdit && (
+      {!canEdit && activeTab === "pipeline" && (
         <p className="text-center text-xs text-muted-foreground">
           Mode lecture seule — actions de modification réservées aux éditeurs et propriétaires.
         </p>

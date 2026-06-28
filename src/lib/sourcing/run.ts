@@ -13,6 +13,7 @@ import { structureLead } from "./structure";
 import {
   assembleOpportunity,
   checkMrrSanity,
+  getAutoPublishMinScore,
   getMinScore,
   meetsScoreGate,
   normalizeLead,
@@ -37,6 +38,10 @@ import {
 } from "./logger";
 import { findDedupMatches, loadExistingForDedup, registerOpportunityInDedupIndex, isBlockedByDedupIndex } from "@/lib/admin/sourcing-dedup";
 import { normalizeUrlKey, rootDomainFromUrl, type DedupIndex } from "@/lib/admin/sourcing-dedup.shared";
+import {
+  assertAutoPublishMinScoreValid,
+  decideLeadDestination,
+} from "./lead-routing";
 import { processDraftsAutoPublish } from "@/lib/admin/process-draft-auto-publish";
 import { loadPublishSettings } from "@/lib/admin/publish-policy";
 import {
@@ -97,8 +102,10 @@ export interface RunOptions {
   persistRun?: boolean;
   /** Promeut la meilleure fiche du batch en weekly_pick. Défaut : true. */
   manageWeeklyPick?: boolean;
-  /** direct = upsert opportunities ; draft = file d'approbation. Défaut : draft. */
-  mode?: "direct" | "draft";
+  /** direct = catalogue ; draft = 100 % pending ; auto = routage score + garde-fous. */
+  mode?: "direct" | "draft" | "auto";
+  /** Seuil routage direct en mode auto (défaut : SOURCING_AUTO_PUBLISH_MIN_SCORE / 80). */
+  autoPublishMinScore?: number;
   /** ID run existant (jobs async). */
   runId?: string | null;
   /** Utilisateur ayant déclenché le run. */
@@ -667,6 +674,13 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
   const minScore = catalogue ? 0 : (options.minScore ?? getMinScore());
   const settings = await loadPublishSettings();
   const mode = options.mode ?? settings.default_mode ?? "direct";
+  const isAutoMode = mode === "auto";
+  const autoPublishMinScore = isAutoMode
+    ? (options.autoPublishMinScore ?? getAutoPublishMinScore())
+    : getAutoPublishMinScore();
+  if (isAutoMode) {
+    assertAutoPublishMinScoreValid(minScore, autoPublishMinScore);
+  }
   const countryCode = normalizeCountryCode(
     options.originCountryCode ?? DEFAULT_SOURCING_COUNTRY
   );
@@ -740,10 +754,14 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
     }
   };
   const incrementalDirect = mode === "direct" && runId != null;
+  const incrementalAuto = isAutoMode && runId != null;
   const writeTarget = options.count;
   let writtenCount =
-    incrementalDirect && runId ? await getRunWrittenCount(supabase, runId) : 0;
+    (incrementalDirect || incrementalAuto) && runId
+      ? await getRunWrittenCount(supabase, runId)
+      : 0;
   let structuredCount = 0;
+  const directPublishedSlugs = new Set<string>();
   const processConcurrency = 1;
 
   const syncProgress = async (
@@ -807,7 +825,7 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
 
   const processed = await mapWithConcurrency(selected, processConcurrency, async (rawLead) => {
     await assertNotCancelled();
-    if (writtenCount >= writeTarget) {
+    if (isAutoMode ? structuredCount >= writeTarget : writtenCount >= writeTarget) {
       return null;
     }
     if (maxCostUsd != null && tracker.totalCostUsd() >= maxCostUsd) {
@@ -958,7 +976,46 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
       count_written: writtenCount,
     });
 
-    if (incrementalDirect) {
+    if (isAutoMode) {
+      const dedupMatches = findDedupMatches(opportunity, dedupIndex);
+      const invalidUrls = sourceCheck.invalidUrls ?? [];
+      const routing = decideLeadDestination({
+        score: opportunity.scores.opportunity,
+        autoPublishMinScore,
+        dedupMatches,
+        invalidUrls,
+      });
+      onLog({
+        type: "lead-routed",
+        name: opportunity.name,
+        slug: opportunity.slug,
+        score: opportunity.scores.opportunity,
+        destination: routing.destination,
+        reason: routing.reason,
+      });
+      if (routing.destination === "direct") {
+        const published = await persistDirectOpportunity(
+          supabase,
+          opportunity,
+          runId,
+          structuredCount,
+          undefined,
+          dedupIndex
+        );
+        if (published) {
+          directPublishedSlugs.add(opportunity.slug);
+          writtenCount = await getRunWrittenCount(supabase, runId!);
+          await syncProgress({
+            count_discovered: selected.length,
+            count_structured: structuredCount,
+            count_written: writtenCount,
+          });
+          if (options.revalidate !== false && writtenCount === 1) {
+            await triggerRevalidation();
+          }
+        }
+      }
+    } else if (incrementalDirect) {
       const published = await persistDirectOpportunity(
         supabase,
         opportunity,
@@ -980,7 +1037,7 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
       }
     }
 
-    if (writtenCount >= writeTarget) {
+    if (isAutoMode ? structuredCount >= writeTarget : writtenCount >= writeTarget) {
       return null;
     }
 
@@ -1116,6 +1173,57 @@ export async function runSourcing(options: RunOptions): Promise<RunReport> {
     const report: RunReport = {
       ...baseReport,
       written: draftRows.length,
+      status: opportunities.length < options.count ? "partial" : "ok",
+      finishedAt: new Date().toISOString(),
+    };
+    await finishRunRecord(supabase, runId, report, finishExtras);
+    await recordRunMetrics(report, { costUsd, verifiedDrafts: verifiedCount });
+    return report;
+  }
+
+  if (mode === "auto") {
+    const draftOpportunities = opportunities.filter((o) => !directPublishedSlugs.has(o.slug));
+    let verifiedCount = 0;
+    const draftRows = draftOpportunities.map((opp) => {
+      const meta = metaBySlug.get(opp.slug);
+      const sourceVerified = meta?.sourceCheck.verified === true;
+      if (sourceVerified) verifiedCount++;
+      return {
+        source_run_id: runId,
+        slug: opp.slug,
+        name: opp.name,
+        payload: { ...opp, sourceVerified },
+        score: opp.scores.opportunity,
+        status: "pending",
+        dedup_matches: findDedupMatches(opp, dedupIndex),
+        source_lead: leadBySlug.get(opp.slug) ?? null,
+        source_verified: sourceVerified,
+        invalid_urls: meta?.sourceCheck.invalidUrls ?? [],
+        verification_level: meta?.sourceCheck.verificationLevel ?? "none",
+        needs_review: meta?.needsReview === true,
+        fact_confidence: meta?.factVerification.confidence ?? null,
+        premium_verified: meta?.premiumVerified ?? null,
+      };
+    });
+
+    if (draftRows.length > 0) {
+      const { error } = await supabase.from("opportunity_drafts").insert(draftRows);
+      if (error) throw new Error(`Insert drafts : ${error.message}`);
+      await notifyPendingDraftsIfEnabled(runId);
+    }
+
+    const directCount = directPublishedSlugs.size;
+    if (draftRows.length > 0) {
+      onLog({
+        type: "warn",
+        message: `${directCount} fiche(s) publiée(s) en direct, ${draftRows.length} en brouillon.`,
+      });
+    }
+    onLog({ type: "upsert-ok", count: directCount + draftRows.length });
+    onLog({ type: "done", written: directCount, requested: options.count, costLine });
+    const report: RunReport = {
+      ...baseReport,
+      written: directCount,
       status: opportunities.length < options.count ? "partial" : "ok",
       finishedAt: new Date().toISOString(),
     };

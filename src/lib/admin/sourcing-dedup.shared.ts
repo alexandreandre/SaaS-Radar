@@ -3,10 +3,21 @@ export type DedupMatch = {
   value: string;
   existingSlug?: string;
   existingName?: string;
+  existingDraftId?: string;
+  /** catalogue = fiche publiée ; pending_draft = brouillon en attente */
+  source?: "catalogue" | "pending_draft";
   similarity?: number;
 };
 
 export const BLOCKING_DEDUP_TYPES: DedupMatch["type"][] = ["slug", "url", "domain"];
+
+export const DEDUP_TYPE_LABELS: Record<DedupMatch["type"], string> = {
+  slug: "Slug identique",
+  name: "Nom identique",
+  url: "URL identique",
+  domain: "Domaine identique",
+  name_fuzzy: "Nom similaire",
+};
 
 export function hasBlockingDedup(matches: DedupMatch[]): boolean {
   return matches.some((m) => BLOCKING_DEDUP_TYPES.includes(m.type));
@@ -41,7 +52,23 @@ export type DedupIndex = {
   urls: Set<string>;
   nameToSlug: Map<string, string>;
   domainToSlug: Map<string, string>;
+  catalogueSlugs: Set<string>;
+  pendingDraftSlugs: Set<string>;
+  slugToDraftId: Map<string, string>;
 };
+
+export function createEmptyDedupIndex(): DedupIndex {
+  return {
+    slugs: new Set(),
+    names: new Set(),
+    urls: new Set(),
+    nameToSlug: new Map(),
+    domainToSlug: new Map(),
+    catalogueSlugs: new Set(),
+    pendingDraftSlugs: new Set(),
+    slugToDraftId: new Map(),
+  };
+}
 
 export function registerOpportunityInDedupIndex(
   index: DedupIndex,

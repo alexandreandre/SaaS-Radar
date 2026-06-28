@@ -40,6 +40,7 @@ const VERIFICATION_LABELS: Record<string, string> = {
 export function DraftPreviewPanel({
   draft,
   onRunClick,
+  adminReviewDisclaimer = false,
 }: {
   draft: {
     payload: Opportunity;
@@ -50,8 +51,11 @@ export function DraftPreviewPanel({
     invalid_urls?: string[] | unknown;
     source_run_id?: string | null;
     dedup_matches?: unknown[];
+    needs_review?: boolean;
+    fact_confidence?: "low" | "medium" | "high" | null;
   };
   onRunClick?: (runId: string) => void;
+  adminReviewDisclaimer?: boolean;
 }) {
   const opp = draft.payload;
   const editorial = editorialFieldKeys(opp);
@@ -120,6 +124,21 @@ export function DraftPreviewPanel({
         {majorAdjustment && (
           <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-xs text-red-700">
             Correction cohérence &gt; 1.5 pt
+          </span>
+        )}
+        {draft.needs_review && (
+          <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-xs text-red-700">
+            Relecture requise
+          </span>
+        )}
+        {draft.fact_confidence === "low" && (
+          <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-xs text-red-700">
+            Confiance faits : faible
+          </span>
+        )}
+        {draft.fact_confidence === "medium" && (
+          <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs text-amber-800">
+            Confiance faits : moyenne
           </span>
         )}
       </div>
@@ -215,7 +234,11 @@ export function DraftPreviewPanel({
           meta={{ showOriginalLink: true, sourceVerified: !!draft.source_verified }}
         />
         <div className="px-4 pb-6">
-          <DetailContent opportunity={enrichOpportunity(opp)} variant="embedded" />
+          <DetailContent
+            opportunity={enrichOpportunity(opp)}
+            variant="embedded"
+            adminReviewDisclaimer={adminReviewDisclaimer}
+          />
         </div>
       </div>
     </div>

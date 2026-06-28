@@ -9,6 +9,8 @@ interface FinancialSectionProps {
   animationIndex: number;
   variant?: "detail" | "playbook";
   targetScenario?: TargetScenario;
+  /** Affiche un bandeau admin : projections Build Road, pas des revenus sourcés */
+  adminReviewDisclaimer?: boolean;
 }
 
 function scenarioAccent(name: string, isPlaybook: boolean) {
@@ -27,6 +29,7 @@ export function FinancialSection({
   animationIndex,
   variant = "detail",
   targetScenario,
+  adminReviewDisclaimer = false,
 }: FinancialSectionProps) {
   const isPlaybook = variant === "playbook";
   const realistic = opportunity.financialScenarios.find((s) => s.name === "Réaliste");
@@ -49,9 +52,17 @@ export function FinancialSection({
         variant={isPlaybook ? "playbook" : "detail"}
       />
       {!isPlaybook ? (
-        <p className="mb-6 text-sm text-muted-foreground">
-          Projection MRR réaliste — basée sur les données du marché US adapté à la France
-        </p>
+        <div className="mb-6 space-y-2">
+          <p className="text-sm text-muted-foreground">
+            Projection MRR réaliste — basée sur les données du marché US adapté à la France
+          </p>
+          {adminReviewDisclaimer ? (
+            <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-900">
+              Relecture admin : ces scénarios sont des projections Build Road pour un solo dev en
+              France (12–18 mois), pas les revenus réels du SaaS source.
+            </p>
+          ) : null}
+        </div>
       ) : null}
 
       <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">

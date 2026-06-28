@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdminApi, withAdminAudit } from "@/lib/admin/guard";
 import { SECTORS } from "@/lib/sourcing/constants";
-import { getMinScore } from "@/lib/sourcing/assemble";
+import { getAutoPublishMinScore, getMinScore } from "@/lib/sourcing/assemble";
+import { assertAutoPublishMinScoreValid } from "@/lib/sourcing/lead-routing";
 import {
   listSourcingRuns,
   listActiveSourcingRuns,
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
     premium?: unknown;
     minScore?: unknown;
     mode?: unknown;
+    autoPublishMinScore?: unknown;
     async?: unknown;
     maxCostUsd?: unknown;
     maxJobs?: unknown;
@@ -125,9 +127,17 @@ export async function POST(request: Request) {
   const isAsync = body.async !== false;
   const maxCostUsd =
     body.maxCostUsd != null ? Number.parseFloat(String(body.maxCostUsd)) : undefined;
-  const mode = body.mode === "draft" ? "draft" : "direct";
+  const mode: "draft" | "direct" | "auto" =
+    body.mode === "draft" ? "draft" : body.mode === "auto" ? "auto" : "direct";
   const catalogue = mode === "direct";
   const minScore = catalogue ? 0 : body.minScore != null ? Number.parseInt(String(body.minScore), 10) : getMinScore();
+  const autoPublishMinScore =
+    body.autoPublishMinScore != null
+      ? Number.parseInt(String(body.autoPublishMinScore), 10)
+      : getAutoPublishMinScore();
+  if (mode === "auto") {
+    assertAutoPublishMinScoreValid(minScore, autoPublishMinScore);
+  }
 
   const config = {
     count,
@@ -136,6 +146,7 @@ export async function POST(request: Request) {
     premium,
     minScore,
     mode,
+    ...(mode === "auto" ? { autoPublishMinScore } : {}),
     ...(catalogue ? { pipelineProfile: "catalogue" as const } : {}),
   };
 
@@ -148,10 +159,11 @@ export async function POST(request: Request) {
         premium,
         minScore,
         mode,
+        ...(mode === "auto" ? { autoPublishMinScore } : {}),
         maxCostUsd,
         triggeredBy: auth.ctx.userId === "machine" ? undefined : auth.ctx.userId,
         config,
-        revalidate: catalogue,
+        revalidate: catalogue || mode === "auto",
         manageWeeklyPick: false,
       });
 
@@ -184,6 +196,7 @@ export async function POST(request: Request) {
         premium,
         minScore,
         mode,
+        ...(mode === "auto" ? { autoPublishMinScore } : {}),
         originCountryCode: country.code,
         triggeredBy: auth.ctx.userId === "machine" ? undefined : auth.ctx.userId,
         config: { ...config, originCountryCode: country.code },
@@ -194,7 +207,7 @@ export async function POST(request: Request) {
     }
 
     const totalWritten = reports.reduce((sum, r) => sum + r.written, 0);
-    if (totalWritten > 0 && mode === "direct") {
+    if (totalWritten > 0 && (mode === "direct" || mode === "auto")) {
       revalidatePath("/");
       revalidateTag(OPPORTUNITIES_CACHE_TAG);
       revalidatePath("/opportunities", "page");
