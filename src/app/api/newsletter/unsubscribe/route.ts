@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
  *
  * Appelé quand un abonné clique sur le lien de désabonnement dans la newsletter.
  * Pour les campagnes Brevo, l'email est injecté via le merge tag {{ contact.EMAIL }}.
- * Met à jour la table newsletter_subscribers (status='inactive') et redirige
+ * Met à jour la table newsletter_subscribers (status='unsubscribed') et redirige
  * vers une page de confirmation.
  */
 export async function GET(request: Request) {
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   await admin
     .from("newsletter_subscribers")
     .update({
-      status: "inactive",
+      status: "unsubscribed",
       unsubscribed_at: new Date().toISOString(),
     })
     .eq("email", email);

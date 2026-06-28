@@ -71,7 +71,7 @@ function buildVars(
 
   const baseUrl = appUrl();
   // Pour les campagnes Brevo, {{ contact.EMAIL }} est un merge tag remplacé par Brevo
-  // per-recipient au moment de l'envoi. Notre endpoint met à jour Supabase + Brevo blacklist.
+  // per-recipient au moment de l'envoi. Notre endpoint met à jour Supabase.
   const unsubscribeUrl =
     mode === "campaign"
       ? `${baseUrl}/api/newsletter/unsubscribe?email={{ contact.EMAIL }}`
