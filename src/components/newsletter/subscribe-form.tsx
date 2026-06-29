@@ -55,7 +55,7 @@ export function SubscribeForm({
       >
         <Check className="h-5 w-5 shrink-0 text-primary" aria-hidden />
         <p className="text-sm font-medium">
-          C&apos;est noté — votre première édition arrive demain matin à 7h.
+          C&apos;est noté — la prochaine édition part lundi matin à 08:00 UTC.
         </p>
       </div>
     );
@@ -113,7 +113,7 @@ export function SubscribeForm({
           isDark ? "text-map-muted" : "text-muted-foreground"
         )}
       >
-        Gratuit · 1 email/jour · Désabonnement en 1 clic
+        Gratuit · 1 email/semaine · Désabonnement en 1 clic
       </p>
     </form>
   );
