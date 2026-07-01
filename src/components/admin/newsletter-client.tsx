@@ -1,8 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, Plus, RefreshCw, Search, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import {
   AdminPageHeader,
   AdminSection,
@@ -16,6 +26,7 @@ import type {
   NewsletterCadenceStatus,
   NewsletterCampaignStatus,
   NewsletterCampaignSummary,
+  NewsletterSubscriberStatus,
 } from "@/lib/admin/newsletter";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +47,13 @@ const CADENCE_LABELS: Record<NewsletterCadenceStatus, string> = {
   due_today: "Fenêtre du jour",
   late: "En retard",
   never_sent: "Jamais envoyée",
+};
+
+const SUBSCRIBER_STATUS_LABELS: Record<NewsletterSubscriberStatus, string> = {
+  pending: "En attente",
+  active: "Actif",
+  unsubscribed: "Désabonné",
+  bounced: "Bounce",
 };
 
 function formatNumber(value: number): string {
@@ -68,6 +86,13 @@ function campaignStatusClass(status: NewsletterCampaignStatus): string {
   if (status === "sent") return "bg-emerald-500/15 text-emerald-700";
   if (status === "scheduled") return "bg-blue-500/15 text-blue-700";
   if (status === "cancelled") return "bg-red-500/15 text-red-700";
+  return "bg-muted text-muted-foreground";
+}
+
+function subscriberStatusClass(status: NewsletterSubscriberStatus): string {
+  if (status === "active") return "bg-emerald-500/15 text-emerald-700";
+  if (status === "pending") return "bg-amber-500/15 text-amber-800";
+  if (status === "bounced") return "bg-red-500/15 text-red-700";
   return "bg-muted text-muted-foreground";
 }
 
@@ -133,6 +158,15 @@ export function AdminNewsletterClient({
   const [error, setError] = useState<string | null>(initialError);
   const [loading, setLoading] = useState(!initialData && !initialError);
   const [refreshing, setRefreshing] = useState(false);
+  const [subscriberEmail, setSubscriberEmail] = useState("");
+  const [subscriberError, setSubscriberError] = useState<string | null>(null);
+  const [subscriberSaving, setSubscriberSaving] = useState(false);
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  const [sendQuery, setSendQuery] = useState("");
+  const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const [sendSuccess, setSendSuccess] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
 
   const load = useCallback(async (skipCache = false) => {
     const { ok, data: json } = await adminFetchJson<AdminNewsletterData & { error?: string }>(
@@ -156,6 +190,129 @@ export function AdminNewsletterClient({
       setRefreshing(false);
     }
   }, [load]);
+
+  const activeSubscribers = useMemo(
+    () => data?.subscribers.filter((subscriber) => subscriber.status === "active") ?? [],
+    [data?.subscribers]
+  );
+
+  const filteredActiveSubscribers = useMemo(() => {
+    const query = sendQuery.trim().toLowerCase();
+    if (!query) return activeSubscribers;
+    return activeSubscribers.filter(
+      (subscriber) =>
+        subscriber.email.toLowerCase().includes(query) ||
+        (subscriber.source ?? "").toLowerCase().includes(query)
+    );
+  }, [activeSubscribers, sendQuery]);
+
+  const selectedEmailSet = useMemo(() => new Set(selectedEmails), [selectedEmails]);
+
+  const openManualSend = useCallback(() => {
+    setSelectedEmails(activeSubscribers.map((subscriber) => subscriber.email));
+    setSendQuery("");
+    setSendError(null);
+    setSendSuccess(null);
+    setSendDialogOpen(true);
+  }, [activeSubscribers]);
+
+  const toggleEmail = useCallback((email: string, checked: boolean) => {
+    setSelectedEmails((current) => {
+      const next = new Set(current);
+      if (checked) next.add(email);
+      else next.delete(email);
+      return Array.from(next);
+    });
+  }, []);
+
+  const setFilteredSelection = useCallback(
+    (checked: boolean) => {
+      const filteredEmails = filteredActiveSubscribers.map((subscriber) => subscriber.email);
+      setSelectedEmails((current) => {
+        const next = new Set(current);
+        for (const email of filteredEmails) {
+          if (checked) next.add(email);
+          else next.delete(email);
+        }
+        return Array.from(next);
+      });
+    },
+    [filteredActiveSubscribers]
+  );
+
+  const addSubscriber = useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const emails = Array.from(
+        new Set(
+          subscriberEmail
+            .toLowerCase()
+            .match(/[^\s,;<>"]+@[^\s,;<>"]+\.[^\s,;<>"]+/g) ?? []
+        )
+      );
+
+      if (emails.length === 0) {
+        setSubscriberError("Aucun email valide détecté.");
+        return;
+      }
+
+      setSubscriberSaving(true);
+      setSubscriberError(null);
+      try {
+        const { ok, data: json } = await adminFetchJson<{ error?: string }>(
+          "/api/admin/newsletter",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "subscriber", emails, source: "admin" }),
+          }
+        );
+
+        if (!ok) {
+          setSubscriberError(json.error ?? "Impossible d'ajouter cet abonné.");
+          return;
+        }
+
+        setSubscriberEmail("");
+        await load(true);
+      } finally {
+        setSubscriberSaving(false);
+      }
+    },
+    [load, subscriberEmail]
+  );
+
+  const sendManualNewsletter = useCallback(async () => {
+    if (selectedEmails.length === 0) {
+      setSendError("Sélectionne au moins un abonné actif.");
+      return;
+    }
+
+    setSending(true);
+    setSendError(null);
+    setSendSuccess(null);
+    try {
+      const { ok, data: json } = await adminFetchJson<{
+        error?: string;
+        result?: { recipientCount?: number };
+      }>("/api/admin/newsletter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "manual_send", emails: selectedEmails }),
+      });
+
+      if (!ok) {
+        setSendError(json.error ?? "Envoi manuel impossible.");
+        return;
+      }
+
+      const recipientCount = json.result?.recipientCount ?? selectedEmails.length;
+      setSendSuccess(`${formatNumber(recipientCount)} envoi(s) lancé(s).`);
+      await load(true);
+    } finally {
+      setSending(false);
+    }
+  }, [load, selectedEmails]);
 
   useEffect(() => {
     if (skipFetch.current) {
@@ -181,15 +338,26 @@ export function AdminNewsletterClient({
             : "Suivi hebdo des envois et abonnés."
         }
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void refresh()}
-            disabled={refreshing}
-          >
-            <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
-            Rafraîchir
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={openManualSend}
+              disabled={activeSubscribers.length === 0}
+            >
+              <Send className="h-4 w-4" />
+              Envoi manuel
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void refresh()}
+              disabled={refreshing}
+            >
+              <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
+              Rafraîchir
+            </Button>
+          </div>
         }
       />
 
@@ -212,7 +380,7 @@ export function AdminNewsletterClient({
             <KpiCard
               label="Abonnés actifs"
               value={formatNumber(data.stats.activeSubscribers)}
-              hint={`${formatNumber(data.stats.totalSubscribers)} inscrits au total`}
+              hint={`${formatNumber(data.stats.totalSubscribers)} inscrits · ${formatNumber(data.stats.pendingSubscribers)} en attente`}
             />
             <KpiCard
               label="Croissance 30j"
@@ -238,10 +406,70 @@ export function AdminNewsletterClient({
             <KpiCard
               label="Incidents"
               value={formatNumber(data.stats.deliveryIssues)}
-              hint={CADENCE_LABELS[data.stats.cadenceStatus]}
+              hint={`${CADENCE_LABELS[data.stats.cadenceStatus]} · ${formatNumber(data.stats.bouncedSubscribers)} bounce`}
               alert={data.stats.deliveryIssues > 0 || cadenceIsAlert(data.stats.cadenceStatus)}
             />
           </div>
+
+          <AdminSection
+            title="Abonnés newsletter"
+            description={`${formatNumber(data.stats.totalSubscribers)} inscrits au total · ${formatNumber(data.stats.activeSubscribers)} actifs · ${formatNumber(data.stats.unsubscribedSubscribers)} désabonnés`}
+            action={
+              <form onSubmit={addSubscriber} className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  type="text"
+                  value={subscriberEmail}
+                  onChange={(event) => setSubscriberEmail(event.target.value)}
+                  placeholder="email@domaine.com, autre@email.com"
+                  className="h-8 w-full sm:w-72"
+                  disabled={subscriberSaving}
+                />
+                <Button size="sm" type="submit" disabled={subscriberSaving}>
+                  <Plus className="h-4 w-4" />
+                  Ajouter
+                </Button>
+              </form>
+            }
+          >
+            {subscriberError && (
+              <p className="-mt-2 text-xs text-red-700">{subscriberError}</p>
+            )}
+            <AdminTable headers={["Email", "Statut", "Source", "Inscription", "Confirmation", "Désabonnement"]}>
+              {data.subscribers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-3 py-8 text-center text-sm text-muted-foreground">
+                    Aucun abonné newsletter enregistré.
+                  </td>
+                </tr>
+              ) : (
+                data.subscribers.map((subscriber) => (
+                  <tr key={subscriber.id} className="border-t border-border">
+                    <td className="max-w-[280px] px-3 py-2">
+                      <p className="truncate text-sm font-medium">{subscriber.email}</p>
+                    </td>
+                    <td className="px-3 py-2">
+                      <StatusBadge
+                        label={SUBSCRIBER_STATUS_LABELS[subscriber.status]}
+                        className={subscriberStatusClass(subscriber.status)}
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      {subscriber.source ?? "—"}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      {formatDateTime(subscriber.created_at)}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      {formatDateTime(subscriber.confirmed_at)}
+                    </td>
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
+                      {formatDateTime(subscriber.unsubscribed_at)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </AdminTable>
+          </AdminSection>
 
           <AdminSection title="Dernières campagnes" description="8 dernières entrées enregistrées">
             <AdminTable headers={["Campagne", "Statut", "Envoi", "Dest.", "Open", "Click", "Bounce"]}>
@@ -291,6 +519,112 @@ export function AdminNewsletterClient({
           </AdminSection>
         </div>
       )}
+
+      <Dialog open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-hidden">
+          <DialogHeader>
+            <DialogTitle>Envoi manuel newsletter</DialogTitle>
+            <DialogDescription>
+              Tous les abonnés actifs sont sélectionnés par défaut. L&apos;envoi manuel respecte exactement cette sélection.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 overflow-hidden">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={sendQuery}
+                  onChange={(event) => setSendQuery(event.target.value)}
+                  placeholder="Rechercher par email ou source"
+                  className="pl-8"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setFilteredSelection(true)}
+                  disabled={filteredActiveSubscribers.length === 0 || sending}
+                >
+                  Tout cocher
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setFilteredSelection(false)}
+                  disabled={filteredActiveSubscribers.length === 0 || sending}
+                >
+                  Retirer
+                </Button>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border">
+              <div className="flex items-center justify-between border-b border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                <span>
+                  {formatNumber(selectedEmails.length)} sélectionné(s) sur {formatNumber(activeSubscribers.length)} actif(s)
+                </span>
+                <span>{formatNumber(filteredActiveSubscribers.length)} affiché(s)</span>
+              </div>
+              <div className="max-h-[320px] overflow-y-auto">
+                {filteredActiveSubscribers.length === 0 ? (
+                  <p className="px-3 py-8 text-center text-sm text-muted-foreground">
+                    Aucun abonné actif ne correspond à la recherche.
+                  </p>
+                ) : (
+                  filteredActiveSubscribers.map((subscriber) => (
+                    <label
+                      key={subscriber.id}
+                      className="flex cursor-pointer items-center gap-3 border-b border-border px-3 py-2 last:border-b-0 hover:bg-muted/30"
+                    >
+                      <Checkbox
+                        checked={selectedEmailSet.has(subscriber.email)}
+                        onCheckedChange={(checked) =>
+                          toggleEmail(subscriber.email, checked === true)
+                        }
+                        disabled={sending}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium">
+                          {subscriber.email}
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {subscriber.source ?? "source inconnue"} · inscrit le {formatDate(subscriber.created_at)}
+                        </span>
+                      </span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {sendError && <p className="text-sm text-red-700">{sendError}</p>}
+            {sendSuccess && <p className="text-sm text-emerald-700">{sendSuccess}</p>}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSendDialogOpen(false)}
+              disabled={sending}
+            >
+              Fermer
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void sendManualNewsletter()}
+              disabled={sending || selectedEmails.length === 0}
+            >
+              <Send className="h-4 w-4" />
+              {sending ? "Envoi..." : `Envoyer à ${formatNumber(selectedEmails.length)}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

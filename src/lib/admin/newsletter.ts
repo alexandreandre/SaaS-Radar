@@ -43,11 +43,25 @@ export type NewsletterCampaignSummary = {
   bounceRate: number | null;
 };
 
+export type NewsletterSubscriberSummary = {
+  id: string;
+  email: string;
+  status: NewsletterSubscriberStatus;
+  source: string | null;
+  confirmed_at: string | null;
+  unsubscribed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type AdminNewsletterData = {
   loadedAt: string;
   stats: {
     activeSubscribers: number;
     totalSubscribers: number;
+    pendingSubscribers: number;
+    bouncedSubscribers: number;
+    unsubscribedSubscribers: number;
     netGrowth30d: number;
     newSubscribers30d: number;
     unsubscribed30d: number;
@@ -64,12 +78,18 @@ export type AdminNewsletterData = {
     scheduleLabel: string;
   };
   campaigns: NewsletterCampaignSummary[];
+  subscribers: NewsletterSubscriberSummary[];
 };
 
 type RawSubscriber = {
+  id: string;
+  email: string;
   status: string | null;
+  source: string | null;
+  confirmed_at: string | null;
   created_at: string;
   unsubscribed_at: string | null;
+  updated_at: string;
 };
 
 type RawCampaign = {
@@ -250,6 +270,19 @@ function campaignSummary(
   };
 }
 
+function subscriberSummary(subscriber: RawSubscriber): NewsletterSubscriberSummary {
+  return {
+    id: subscriber.id,
+    email: subscriber.email,
+    status: normalizeSubscriberStatus(subscriber.status),
+    source: subscriber.source,
+    confirmed_at: subscriber.confirmed_at,
+    unsubscribed_at: subscriber.unsubscribed_at,
+    created_at: subscriber.created_at,
+    updated_at: subscriber.updated_at,
+  };
+}
+
 export async function getAdminNewsletterData(): Promise<AdminNewsletterData> {
   const admin = createAdminClient();
   const now = new Date();
@@ -259,7 +292,7 @@ export async function getAdminNewsletterData(): Promise<AdminNewsletterData> {
     fetchAllRows<RawSubscriber>(() =>
       admin
         .from("newsletter_subscribers")
-        .select("status,created_at,unsubscribed_at")
+        .select("id,email,status,source,confirmed_at,created_at,unsubscribed_at,updated_at")
         .order("created_at", { ascending: false })
     ),
     fetchAllRows<RawCampaign>(() =>
@@ -278,8 +311,14 @@ export async function getAdminNewsletterData(): Promise<AdminNewsletterData> {
   const activeSubscribers = subscribers.filter(
     (subscriber) => normalizeSubscriberStatus(subscriber.status) === "active"
   ).length;
+  const pendingSubscribers = subscribers.filter(
+    (subscriber) => normalizeSubscriberStatus(subscriber.status) === "pending"
+  ).length;
   const bouncedSubscribers = subscribers.filter(
     (subscriber) => normalizeSubscriberStatus(subscriber.status) === "bounced"
+  ).length;
+  const unsubscribedSubscribers = subscribers.filter(
+    (subscriber) => normalizeSubscriberStatus(subscriber.status) === "unsubscribed"
   ).length;
   const newSubscribers30d = subscribers.filter(
     (subscriber) => subscriber.created_at >= since30d
@@ -312,6 +351,9 @@ export async function getAdminNewsletterData(): Promise<AdminNewsletterData> {
     stats: {
       activeSubscribers,
       totalSubscribers: subscribers.length,
+      pendingSubscribers,
+      bouncedSubscribers,
+      unsubscribedSubscribers,
       netGrowth30d: newSubscribers30d - unsubscribed30d,
       newSubscribers30d,
       unsubscribed30d,
@@ -329,5 +371,6 @@ export async function getAdminNewsletterData(): Promise<AdminNewsletterData> {
       scheduleLabel: "Lundi 08:00 UTC",
     },
     campaigns: recentCampaigns,
+    subscribers: subscribers.map(subscriberSummary),
   };
 }

@@ -56,7 +56,7 @@ function buildVars(
   nbScannes: number,
   nbPublished: number,
   nbPays: number,
-  mode: "campaign" | "test",
+  mode: "campaign" | "manual" | "test",
   aiCopy: { preheader: string; accrocheTitre: string; accrocheTexte: string }
 ): Record<string, string> {
   const now = new Date();
@@ -75,6 +75,8 @@ function buildVars(
   const unsubscribeUrl =
     mode === "campaign"
       ? `${baseUrl}/api/newsletter/unsubscribe?email={{ contact.EMAIL }}`
+      : mode === "manual"
+        ? `${baseUrl}/api/newsletter/unsubscribe?email={{ recipient.EMAIL }}`
       : "#";
 
   return {
@@ -131,7 +133,7 @@ function buildVars(
 
 export interface WeeklySendResult {
   ok: boolean;
-  mode: "campaign" | "test";
+  mode: "campaign" | "manual" | "test";
   editionNo?: number;
   campaignId?: number;
   recipientCount?: number;
@@ -139,9 +141,20 @@ export interface WeeklySendResult {
 }
 
 /** Envoi de la newsletter hebdomadaire. En mode test, envoie un transactionnel à testEmail. */
-export async function runWeeklySend(opts?: { testEmail?: string }): Promise<WeeklySendResult> {
+export async function runWeeklySend(opts?: {
+  testEmail?: string;
+  recipientEmails?: string[];
+}): Promise<WeeklySendResult> {
   const isTest = Boolean(opts?.testEmail);
-  const mode = isTest ? "test" : "campaign";
+  const manualEmails = Array.from(
+    new Set(
+      (opts?.recipientEmails ?? [])
+        .map((email) => email.trim().toLowerCase())
+        .filter(Boolean)
+    )
+  );
+  const isManual = !isTest && manualEmails.length > 0;
+  const mode = isTest ? "test" : isManual ? "manual" : "campaign";
   const admin = createAdminClient();
 
   // 1. Top 3 opportunités publiées par score
@@ -212,6 +225,44 @@ export async function runWeeklySend(opts?: { testEmail?: string }): Promise<Week
   if (isTest) {
     await sendTransactionalEmail({ to: opts!.testEmail!, subject, htmlContent: html });
     return { ok: true, mode, editionNo };
+  }
+
+  if (isManual) {
+    const { data: activeSubscribers, error: subscribersError } = await admin
+      .from("newsletter_subscribers")
+      .select("email")
+      .eq("status", "active")
+      .in("email", manualEmails);
+
+    if (subscribersError) return { ok: false, mode, error: subscribersError.message };
+
+    const emails = (activeSubscribers ?? []).map((subscriber) => subscriber.email);
+    if (!emails.length) return { ok: false, mode, error: "Aucun abonné actif sélectionné." };
+
+    await Promise.all(
+      emails.map((email) =>
+        sendTransactionalEmail({
+          to: email,
+          subject,
+          htmlContent: html.replace(
+            "{{ recipient.EMAIL }}",
+            encodeURIComponent(email)
+          ),
+        })
+      )
+    );
+
+    await admin.from("newsletter_campaigns").insert({
+      slug: `edition-${editionNo}-manual-${Date.now()}`,
+      title: `${campaignName} · manuel`,
+      subject,
+      body_html: html,
+      status: "sent",
+      sent_at: new Date().toISOString(),
+      recipient_count: emails.length,
+    });
+
+    return { ok: true, mode, editionNo, recipientCount: emails.length };
   }
 
   // 6b. Mode campagne : sync contacts + envoi Brevo
